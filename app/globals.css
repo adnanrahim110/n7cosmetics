@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: #fbf9f4;
+  --color-primary-100: #f4efdf;
+  --color-primary-200: #eadcb9;
+  --color-primary-300: #ddc28b;
+  --color-primary-400: #d1a35a;
+  --color-primary-500: #c98a39;
+  --color-primary-600: #bc7230;
+  --color-primary-700: #9d5629;
+  --color-primary-800: #814628;
+  --color-primary-900: #693a23;
+  --color-primary-950: #3c1e10;
+
+  --color-dark-50: #f6f6f6;
+  --color-dark-100: #e7e7e7;
+  --color-dark-200: #d1d1d1;
+  --color-dark-300: #b0b0b0;
+  --color-dark-400: #888888;
+  --color-dark-500: #6d6d6d;
+  --color-dark-600: #5d5d5d;
+  --color-dark-700: #4f4f4f;
+  --color-dark-800: #454545;
+  --color-dark-900: #3d3d3d;
+  --color-dark-950: #0a0a0a;
+
+  --font-heading: var(--font-playfair);
+  --font-body: var(--font-outfit);
+}
+
+@layer base {
+  body {
+    @apply bg-dark-950 text-dark-50 font-body antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading text-primary-300 tracking-wide;
+  }
+}
+
+@layer utilities {
+  .reviews-marquee .swiper-wrapper {
+    transition-timing-function: linear !important;
+  }
+}
