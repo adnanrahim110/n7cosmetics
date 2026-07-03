@@ -4,6 +4,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Menu, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { FaHeart, FaSearch, FaShoppingCart, FaUser } from "react-icons/fa";
@@ -41,7 +42,7 @@ export default function Header() {
             setIsMobileMenuOpen(false);
           } else if (self.direction === -1) {
             gsap.to(headerContainerRef.current, {
-              y: -40,
+              y: 0,
               duration: 0.4,
               ease: "power3.out",
               overwrite: true,
@@ -60,7 +61,7 @@ export default function Header() {
         className="fixed top-0 left-0 w-full z-50 flex flex-col will-change-transform"
         style={{ transform: "translateY(0)" }}
       >
-        <div className="h-10 bg-primary-950 flex items-center justify-center border-b border-primary-500/20 overflow-hidden relative">
+        <div className="h-10 bg-primary-950 flex items-center justify-center overflow-hidden relative">
           <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_3s_infinite]" />
           <span className="text-primary-200 text-[10px] md:text-xs tracking-[0.2em] uppercase font-light">
             {globalContent.header.topbarText}
@@ -73,9 +74,15 @@ export default function Header() {
               <div className="shrink-0 flex items-center">
                 <Link
                   href="/"
-                  className="font-heading text-2xl md:text-3xl tracking-[0.15em] text-primary-100 uppercase transition-colors duration-500 group-hover:text-primary-300"
+                  className="relative -top-5 font-heading text-2xl md:text-3xl tracking-[0.15em] text-primary-100 uppercase transition-colors duration-500 group-hover:text-primary-300"
                 >
-                  {globalContent.header.logo}
+                  <Image
+                    src={globalContent.header.logo}
+                    alt={globalContent.header.name}
+                    width={400}
+                    height={400}
+                    className="w-20 h-auto"
+                  />
                 </Link>
               </div>
 

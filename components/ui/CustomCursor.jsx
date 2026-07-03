@@ -69,13 +69,21 @@ export default function CustomCursor() {
       className="hidden md:block fixed top-0 left-0 pointer-events-none z-[9999] mix-blend-difference"
       style={{ willChange: "transform" }}
     >
+      {/* Outer Ring */}
       <div 
-        className={`w-8 h-8 rounded-full -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out ${
+        className={`absolute top-0 left-0 w-8 h-8 rounded-full -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out ${
           !isVisible 
             ? "opacity-0 scale-50" 
             : isHovering 
               ? "opacity-100 scale-[2.5] bg-white border-transparent" 
               : "opacity-60 scale-100 bg-transparent border border-white"
+        }`}
+      />
+      
+      {/* Center Dot */}
+      <div 
+        className={`absolute top-0 left-0 w-1.5 h-1.5 bg-white rounded-full -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out ${
+          !isVisible || isHovering ? "opacity-0 scale-50" : "opacity-100 scale-100"
         }`}
       />
     </div>

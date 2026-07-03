@@ -1,11 +1,12 @@
 export const globalContent = {
   header: {
-    logo: "N7 Cosmetics",
+    logo: "/imgs/logo-w.png",
+    name: "N7 Cosmetics",
     topbarText: "Free shipping on orders over £ 99",
     navigation: [
       { label: "Home", href: "/" },
-      { 
-        label: "Yusuf Bhai Originals", 
+      {
+        label: "Yusuf Bhai Originals",
         href: "/yusuf-bhai-originals",
         type: "mega",
         items: [
@@ -15,8 +16,8 @@ export const globalContent = {
           { name: "View All", href: "/yusuf-bhai-originals", image: null }
         ]
       },
-      { 
-        label: "Premium Collection", 
+      {
+        label: "Premium Collection",
         href: "/premium-collection",
         type: "mega",
         items: [
@@ -27,8 +28,8 @@ export const globalContent = {
         ]
       },
       { label: "Recreations", href: "/recreations" },
-      { 
-        label: "Sale", 
+      {
+        label: "Sale",
         href: "/sale",
         type: "dropdown",
         items: [

@@ -59,7 +59,7 @@ export default function ReviewsSection() {
               <div className="bg-dark-950 p-8 border border-white/10 flex flex-col h-full rounded-sm">
                 <FaQuoteLeft className="text-primary-500/50 text-2xl mb-6" />
                 <p className="text-dark-200 font-light leading-relaxed mb-8 flex-grow">
-                  "{review.text}"
+                  &quot;{review.text}&quot;
                 </p>
                 <div className="flex items-center">
                   <div className="w-10 h-10 rounded-full bg-primary-900 flex items-center justify-center text-primary-200 font-heading">
