@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 
-export default function SimpleDropdown({ item, isOpen, onMouseEnter, onMouseLeave }) {
+export default function SimpleDropdown({ item, isOpen, isScrolled, onMouseEnter, onMouseLeave }) {
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -26,13 +26,17 @@ export default function SimpleDropdown({ item, isOpen, onMouseEnter, onMouseLeav
     >
       <Link 
         href={item.href}
-        className="text-dark-100 group-hover/droplink:text-primary-300 transition-colors duration-300 text-[12px] tracking-[0.15em] uppercase font-medium h-full flex items-center"
+        className={`transition-colors duration-300 text-[12px] tracking-[0.15em] uppercase font-medium h-full flex items-center ${
+          isScrolled ? "text-[#1A1A1A] group-hover/droplink:text-[#967C55]" : "text-dark-100 group-hover/droplink:text-primary-300"
+        }`}
       >
         {item.label}
       </Link>
       
       {/* Animated Sweeping Underline */}
-      <span className={`absolute bottom-[28px] left-0 w-full h-[1px] bg-primary-400 origin-right group-hover/droplink:origin-left transition-transform duration-500 ease-out ${isOpen ? 'scale-x-100' : 'scale-x-0'}`} />
+      <span className={`absolute bottom-[28px] left-0 w-full h-[1px] origin-right group-hover/droplink:origin-left transition-transform duration-500 ease-out ${isOpen ? 'scale-x-100' : 'scale-x-0'} ${
+        isScrolled ? "bg-[#967C55]" : "bg-primary-400"
+      }`} />
 
       <AnimatePresence>
         {isOpen && (
@@ -41,7 +45,7 @@ export default function SimpleDropdown({ item, isOpen, onMouseEnter, onMouseLeav
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: 10, filter: "blur(2px)" }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="absolute top-[80px] left-1/2 -translate-x-1/2 mt-0 min-w-[240px] bg-dark-950/95 backdrop-blur-2xl border border-white/5 py-4 shadow-2xl cursor-default rounded-sm"
+            className="absolute top-[64px] left-1/2 -translate-x-1/2 mt-0 min-w-[240px] bg-[#FDFCF8] border border-[#1A1A1A]/5 py-4 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] cursor-default z-[100]"
           >
             <motion.div 
               variants={containerVariants}
@@ -54,7 +58,7 @@ export default function SimpleDropdown({ item, isOpen, onMouseEnter, onMouseLeav
                 <motion.div key={idx} variants={itemVariants}>
                   <Link 
                     href={subItem.href} 
-                    className="block px-8 py-3 text-[12px] text-dark-200 hover:text-primary-300 hover:bg-white/5 transition-colors uppercase tracking-[0.15em]"
+                    className="block px-8 py-3 text-[12px] text-[#5A5A5A] hover:text-[#1A1A1A] hover:bg-[#1A1A1A]/5 transition-colors uppercase tracking-[0.15em]"
                   >
                     {subItem.name}
                   </Link>

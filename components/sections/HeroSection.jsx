@@ -31,8 +31,8 @@ const products = [
   }
 ];
 
-// Snappier cinematic ease
-const customEase = [0.65, 0, 0.35, 1];
+// Ultra-smooth cinematic ease for massive elements
+const cinematicEase = [0.25, 1, 0.35, 1];
 
 const SplitText = ({ text, delayOffset = 0, className = "" }) => {
   return (
@@ -41,14 +41,15 @@ const SplitText = ({ text, delayOffset = 0, className = "" }) => {
         <motion.span
           key={index}
           className="inline-block"
-          initial={{ y: "100%", opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: "-100%", opacity: 0 }}
+          initial={{ y: "120%", opacity: 0, rotateX: -45 }}
+          animate={{ y: 0, opacity: 1, rotateX: 0 }}
+          exit={{ y: "-120%", opacity: 0, rotateX: 45 }}
           transition={{
-            duration: 0.6,
-            ease: customEase,
-            delay: delayOffset + index * 0.02
+            duration: 1.2,
+            ease: cinematicEase,
+            delay: delayOffset + index * 0.04
           }}
+          style={{ transformOrigin: "bottom center" }}
         >
           {char === ' ' ? '\u00A0' : char}
         </motion.span>
@@ -67,7 +68,7 @@ export default function HeroSection() {
     const timer = setInterval(() => {
       setDirection(1);
       setCurrentIndex((prev) => (prev + 1) % products.length);
-    }, 5000);
+    }, 6000); // Slower, more cinematic pacing
     return () => clearInterval(timer);
   }, [isPaused]);
 
@@ -84,191 +85,166 @@ export default function HeroSection() {
   const activeProduct = products[currentIndex];
 
   const bgVariants = {
-    initial: (dir) => ({
-      clipPath: dir > 0 ? "inset(0 0 0 100%)" : "inset(0 100% 0 0)",
-      scale: 1.05,
-      filter: "brightness(0.6) blur(5px)",
-      zIndex: 1,
-    }),
-    animate: {
-      clipPath: "inset(0 0 0 0)",
-      scale: 1,
-      filter: "brightness(0.8) blur(0px)",
-      zIndex: 2,
-      transition: { duration: 0.8, ease: customEase }
-    },
-    exit: (dir) => ({
-      clipPath: dir > 0 ? "inset(0 100% 0 0)" : "inset(0 0 0 100%)",
-      scale: 0.95,
-      filter: "brightness(0.4) blur(5px)",
-      zIndex: 0,
-      transition: { duration: 0.8, ease: customEase }
-    })
-  };
-
-  const imageVariants = {
-    initial: (dir) => ({
-      opacity: 0,
-      scale: 0.8,
-      x: dir > 0 ? "20%" : "-20%",
-      filter: "blur(10px)",
-    }),
+    initial: { opacity: 0, scale: 1.1, filter: "brightness(0.3) blur(10px)" },
     animate: {
       opacity: 1,
       scale: 1,
-      x: 0,
+      filter: "brightness(0.6) blur(0px)",
+      transition: { duration: 1.5, ease: "easeOut" }
+    },
+    exit: { 
+      opacity: 0, 
+      scale: 0.95, 
+      filter: "brightness(0.2) blur(10px)",
+      transition: { duration: 1.2, ease: "easeIn" }
+    }
+  };
+
+  const bottleVariants = {
+    initial: (dir) => ({
+      opacity: 0,
+      y: 300,
+      scale: 0.8,
+      rotate: dir > 0 ? 5 : -5,
+      filter: "blur(20px)"
+    }),
+    animate: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      rotate: 0,
       filter: "blur(0px)",
-      y: [0, -10, 0],
-      transition: {
-        opacity: { duration: 0.6 },
-        scale: { duration: 0.8, ease: customEase },
-        x: { duration: 0.8, ease: customEase },
-        filter: { duration: 0.6 },
-        y: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.8 }
-      }
+      transition: { duration: 1.4, ease: cinematicEase }
     },
     exit: (dir) => ({
       opacity: 0,
+      y: -200,
       scale: 1.1,
-      x: dir > 0 ? "-20%" : "20%",
-      filter: "blur(10px)",
-      transition: { duration: 0.6, ease: customEase }
+      rotate: dir > 0 ? -5 : 5,
+      filter: "blur(20px)",
+      transition: { duration: 1.2, ease: cinematicEase }
     })
   };
 
   const textVariants = {
-    initial: { opacity: 0, y: 20 },
+    initial: { opacity: 0, y: 40 },
     animate: (delay) => ({
       opacity: 1, 
       y: 0,
-      transition: { duration: 0.6, ease: customEase, delay }
+      transition: { duration: 1, ease: cinematicEase, delay }
     }),
-    exit: { opacity: 0, y: -20, transition: { duration: 0.4, ease: customEase } }
+    exit: { opacity: 0, y: -40, transition: { duration: 0.6, ease: cinematicEase } }
   };
 
   return (
     <section 
-      className="relative min-h-screen w-full overflow-hidden flex items-center justify-center pt-24 lg:pt-32 bg-dark-950"
+      className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center bg-black"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Background Images with Fast Wipe Reveal */}
-      <AnimatePresence custom={direction} mode="popLayout" initial={false}>
+      {/* 1. Immersive Atmospheric Background Layer */}
+      <AnimatePresence initial={false}>
         <motion.div
-          key={activeProduct.id + "-bgimg"}
-          custom={direction}
+          key={activeProduct.id + "-bg"}
           variants={bgVariants}
           initial="initial"
           animate="animate"
           exit="exit"
-          className="absolute inset-0 bg-cover bg-center"
+          className="absolute inset-0 z-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${activeProduct.bgImage})` }}
         >
-          {/* Overlay gradient to ensure text readability */}
-          <div className="absolute inset-0 bg-linear-to-r from-dark-950 via-dark-950/70 to-dark-950/20 mix-blend-multiply" />
+          {/* Peaceful Ambient Fluid Gradient Overlay */}
+          <motion.div 
+            className="absolute inset-0 mix-blend-overlay opacity-50 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.2)_0%,transparent_100%)]"
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.6, 0.3],
+            }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          />
+          {/* Cinematic Vignette */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.8)_100%)]" />
+          <div className="absolute inset-0 bg-black/40" />
         </motion.div>
       </AnimatePresence>
 
-      {/* Supporting Element: Floating Gold Particles globally */}
-      <motion.div 
-        className="absolute inset-0 z-10 opacity-30 mix-blend-screen pointer-events-none bg-cover bg-center"
-        style={{ backgroundImage: "url('/imgs/backgrounds/particles_gold.png')" }}
-        animate={{ 
-          backgroundPosition: ["0% 0%", "100% 100%"],
-        }}
-        transition={{ duration: 120, repeat: Infinity, repeatType: "reverse", ease: "linear" }}
-      />
-
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between h-full py-10">
-        
-        {/* Left Side: Content */}
-        <div className="w-full md:w-5/12 flex flex-col items-center text-center md:items-start md:text-left">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={activeProduct.id} className="w-full">
-              
-              <div className="mb-4 overflow-hidden">
-                <motion.span 
-                  variants={textVariants}
-                  custom={0.1}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="text-primary-400 font-medium tracking-[0.3em] text-xs md:text-sm uppercase block"
-                >
-                  {activeProduct.tagline}
-                </motion.span>
-              </div>
-              
-              <h2 className="font-heading text-6xl md:text-8xl text-white mb-6 tracking-tight drop-shadow-2xl leading-[0.9] -ml-1">
-                <SplitText text={activeProduct.name} delayOffset={0.2} />
-              </h2>
-              
-              <motion.p 
-                variants={textVariants}
-                custom={0.4}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="text-lg md:text-xl text-primary-100/80 mb-10 font-light leading-relaxed max-w-md mx-auto md:mx-0"
-              >
-                {activeProduct.description}
-              </motion.p>
-              
-              <motion.div
-                variants={textVariants}
-                custom={0.5}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-              >
-                <Button variant="primary" className="text-lg px-8 py-4 relative overflow-hidden group">
-                  <span className="relative z-10">Discover {activeProduct.name}</span>
-                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-                </Button>
-              </motion.div>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Right Side: Product Image Showcase */}
-        <div className="w-full md:w-7/12 h-[50vh] md:h-[70vh] flex items-center justify-center relative mt-10 md:mt-0">
-          <AnimatePresence custom={direction} mode="popLayout" initial={false}>
-            <motion.img
-              key={activeProduct.id}
-              src={activeProduct.image}
-              alt={activeProduct.name}
-              custom={direction}
-              variants={imageVariants}
+      {/* 2. Content Layer (Left Bottom) */}
+      <div className="absolute bottom-[15vh] left-[5%] lg:left-[10%] w-[90%] md:w-[50%] lg:w-[45%] flex flex-col items-start justify-end z-30 pointer-events-none">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div key={activeProduct.id + "-text"} className="flex flex-col items-start text-left w-full">
+            
+            <motion.span 
+              variants={textVariants}
+              custom={0.2}
               initial="initial"
               animate="animate"
               exit="exit"
-              className="absolute w-auto h-full max-h-[700px] object-contain drop-shadow-[0_30px_40px_rgba(0,0,0,0.5)] z-20"
-            />
-          </AnimatePresence>
-          
-          <AnimatePresence mode="wait" initial={false}>
+              className="text-primary-300 font-medium tracking-[0.4em] text-xs md:text-sm uppercase mb-4 drop-shadow-lg"
+            >
+              {activeProduct.tagline}
+            </motion.span>
+            
+            {/* Editorial Text - Left Aligned */}
+            <h2 className="font-heading text-6xl md:text-7xl lg:text-8xl xl:text-[8rem] text-white tracking-tighter drop-shadow-2xl leading-[0.9] uppercase opacity-95">
+              <SplitText text={activeProduct.name} delayOffset={0.3} className="text-left" />
+            </h2>
+            
+            <motion.p 
+              variants={textVariants}
+              custom={0.8}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="text-base md:text-lg text-white/80 mt-6 font-light leading-relaxed max-w-md drop-shadow-md"
+            >
+              {activeProduct.description}
+            </motion.p>
+            
+            {/* CTA Button (Interactive) */}
             <motion.div
-              key={activeProduct.id + "-orb"}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.2 }}
-              transition={{ duration: 0.8, ease: customEase }}
-              className="absolute w-[50%] h-[50%] rounded-full bg-white/10 blur-[80px] z-10"
-            />
-          </AnimatePresence>
-        </div>
-
+              variants={textVariants}
+              custom={1.2}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="mt-8 pointer-events-auto"
+            >
+              <Button variant="primary" className="text-sm md:text-base px-10 py-5 relative overflow-hidden group tracking-[0.2em] uppercase font-medium bg-white text-black hover:text-white border-none shadow-[0_0_40px_rgba(255,255,255,0.1)]">
+                <span className="relative z-10">Discover {activeProduct.name}</span>
+                <div className="absolute inset-0 bg-[#1A1A1A] translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out" />
+              </Button>
+            </motion.div>
+            
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      {/* Modern Navigation Controls */}
-      <div className="absolute bottom-0 left-0 w-full z-30 pb-8 bg-linear-to-t from-dark-950 to-transparent">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0">
+      {/* 3. Hero Bottle Layer (Right Center) */}
+      <div className="absolute right-[5%] lg:right-[10%] top-1/2 -translate-y-1/2 w-[80%] md:w-[45%] lg:w-[40%] h-[60vh] md:h-[75vh] flex justify-center items-center pointer-events-none z-20 mt-10 md:mt-0">
+        <AnimatePresence custom={direction} initial={false}>
+           <motion.img 
+             key={activeProduct.id + "-bottle"}
+             custom={direction}
+             variants={bottleVariants}
+             initial="initial"
+             animate="animate"
+             exit="exit"
+             src={activeProduct.image}
+             alt={activeProduct.name}
+             className="absolute h-full w-auto object-contain drop-shadow-[0_40px_80px_rgba(0,0,0,0.8)] will-change-transform"
+           />
+        </AnimatePresence>
+      </div>
+
+      {/* 4. Minimalist Navigation Controls */}
+      <div className="absolute bottom-8 left-0 w-full z-40">
+        <div className="max-w-7xl mx-auto px-8 flex items-center justify-between">
           
-          <div className="flex gap-6 items-center">
-            <span className="text-white font-heading text-xl w-8">
+          <div className="flex gap-8 items-center">
+            <span className="text-white/90 font-heading text-lg">
               {(currentIndex + 1).toString().padStart(2, '0')}
             </span>
-            <div className="flex gap-3">
+            <div className="flex gap-4">
               {products.map((_, idx) => (
                 <button
                   key={idx}
@@ -276,39 +252,36 @@ export default function HeroSection() {
                     setDirection(idx > currentIndex ? 1 : -1);
                     setCurrentIndex(idx);
                   }}
-                  className="relative h-1 transition-all duration-300 overflow-hidden"
-                  style={{ width: idx === currentIndex ? "48px" : "16px" }}
+                  className="relative h-[2px] transition-all duration-500 overflow-hidden group py-4"
+                  style={{ width: idx === currentIndex ? "64px" : "24px" }}
                   aria-label={`Go to slide ${idx + 1}`}
                 >
-                  <div className="absolute inset-0 bg-white/20" />
+                  <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-[2px] bg-white/20 group-hover:bg-white/40 transition-colors" />
                   <motion.div 
-                    className="absolute top-0 left-0 bottom-0 bg-white"
+                    className="absolute top-1/2 -translate-y-1/2 left-0 h-[2px] bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                     initial={false}
                     animate={{ width: idx === currentIndex ? "100%" : "0%" }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    transition={{ duration: 0.6, ease: cinematicEase }}
                   />
                 </button>
               ))}
             </div>
-            <span className="text-white/40 font-heading text-sm w-8">
-              {products.length.toString().padStart(2, '0')}
-            </span>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-6">
             <button 
               onClick={prevSlide}
-              className="group w-14 h-14 rounded-full border border-white/20 flex items-center justify-center text-white/70 hover:text-white transition-all backdrop-blur-md overflow-hidden relative"
+              className="group text-white/50 hover:text-white transition-colors uppercase tracking-[0.2em] text-[10px] font-medium flex items-center gap-2"
             >
-              <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-              <svg className="relative z-10 transition-transform group-hover:-translate-x-1" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              <span className="w-8 h-[1px] bg-white/50 group-hover:bg-white transition-colors" />
+              Prev
             </button>
             <button 
               onClick={nextSlide}
-              className="group w-14 h-14 rounded-full border border-white/20 flex items-center justify-center text-white/70 hover:text-white transition-all backdrop-blur-md overflow-hidden relative"
+              className="group text-white/50 hover:text-white transition-colors uppercase tracking-[0.2em] text-[10px] font-medium flex items-center gap-2"
             >
-              <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-              <svg className="relative z-10 transition-transform group-hover:translate-x-1" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              Next
+              <span className="w-8 h-[1px] bg-white/50 group-hover:bg-white transition-colors" />
             </button>
           </div>
 
@@ -318,4 +291,3 @@ export default function HeroSection() {
     </section>
   );
 }
-

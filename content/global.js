@@ -43,7 +43,7 @@ export const globalContent = {
     ],
   },
   footer: {
-    description: "Indulge in Luxury – Our Signature Fragrances",
+    description: "At N7 Cosmetics, we are proud to be the first company in the UK to officially introduce the exquisite fragrances of Yusuf Bhai from the UAE. Yusuf Bhai is renowned for crafting luxurious perfumes that capture the essence of sophistication and elegance.",
     quickLinks: [
       { label: "Shipping", href: "/shipping" },
       { label: "Customer Service", href: "/customer-service" },
