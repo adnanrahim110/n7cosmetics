@@ -4,7 +4,6 @@ export const globalContent = {
     name: "N7 Cosmetics",
     topbarText: "Free shipping on orders over £ 99",
     navigation: [
-      { label: "Home", href: "/" },
       {
         label: "Yusuf Bhai Originals",
         href: "/yusuf-bhai-originals",

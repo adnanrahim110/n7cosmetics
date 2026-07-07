@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 
-export default function SimpleDropdown({ item, isOpen, isScrolled, onMouseEnter, onMouseLeave }) {
+export default function SimpleDropdown({ item, isOpen, isScrolled, forceDarkText, onMouseEnter, onMouseLeave }) {
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -27,7 +27,7 @@ export default function SimpleDropdown({ item, isOpen, isScrolled, onMouseEnter,
       <Link 
         href={item.href}
         className={`transition-colors duration-300 text-[12px] tracking-[0.15em] uppercase font-medium h-full flex items-center ${
-          isScrolled ? "text-[#1A1A1A] group-hover/droplink:text-[#967C55]" : "text-dark-100 group-hover/droplink:text-primary-300"
+          forceDarkText || isScrolled ? "text-[#1A1A1A] group-hover/droplink:text-[#967C55]" : "text-dark-100 group-hover/droplink:text-primary-300"
         }`}
       >
         {item.label}
@@ -35,7 +35,7 @@ export default function SimpleDropdown({ item, isOpen, isScrolled, onMouseEnter,
       
       {/* Animated Sweeping Underline */}
       <span className={`absolute bottom-[28px] left-0 w-full h-[1px] origin-right group-hover/droplink:origin-left transition-transform duration-500 ease-out ${isOpen ? 'scale-x-100' : 'scale-x-0'} ${
-        isScrolled ? "bg-[#967C55]" : "bg-primary-400"
+        forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-400"
       }`} />
 
       <AnimatePresence>

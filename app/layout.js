@@ -1,7 +1,8 @@
-import { Playfair_Display, Outfit } from "next/font/google";
-import "./globals.css";
-import SmoothScroller from "../components/layout/SmoothScroller";
+import { Outfit, Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import AppShell from "../components/layout/AppShell";
+import SmoothScroller from "../components/layout/SmoothScroller";
+import "./globals.css";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -14,6 +15,22 @@ const outfit = Outfit({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"],
 });
+
+const kindred = localFont({
+  variable: "--font-kindred",
+  src: [
+    {
+      path: "../public/kindred-font/Kindred-WpRM4.ttf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../public/kindred-font/KindredItalic-e9L0g.ttf",
+      weight: "400",
+      style: "italic",
+    }
+  ]
+})
 
 export const metadata = {
   title: "N7 Cosmetics | Luxury Signature Fragrances",
@@ -33,7 +50,7 @@ export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${outfit.variable} h-full antialiased`}
+      className={`${playfair.variable} ${outfit.variable} ${kindred.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-dark-950 text-dark-50 font-body">
         <SmoothScroller>

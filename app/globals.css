@@ -27,13 +27,20 @@
 
   --font-heading: var(--font-playfair);
   --font-body: var(--font-outfit);
+  --font-kindred: var(--font-kindred);
 }
 
 @layer base {
   body {
     @apply bg-dark-950 text-dark-50 font-body antialiased;
   }
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-heading text-primary-300 tracking-wide;
   }
 }

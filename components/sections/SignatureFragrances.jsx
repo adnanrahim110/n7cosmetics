@@ -27,7 +27,7 @@ const NextLevelProductCard = ({ product }) => {
   }
 
   return (
-    <div className="group relative w-full cursor-pointer flex flex-col gap-2">
+    <div className="group relative w-full cursor-pointer flex flex-col">
       <motion.div
         style={{ perspective: 1200 }}
         onMouseMove={handleMouseMove}
@@ -44,21 +44,10 @@ const NextLevelProductCard = ({ product }) => {
           }}
           className="w-full h-full relative"
         >
-          <div className="absolute inset-0 border-[0.5px] border-[#1A1A1A]/5 group-hover:border-[#967C55]/30 transition-all duration-700 ease-out overflow-hidden bg-white/40 backdrop-blur-md">
-            <div className="absolute inset-[-10%] bg-linear-to-tr from-[#967C55]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-[0.65,0,0.35,1]" />
-            {/* Soft Ambient Aura */}
+          <div className="absolute inset-10 transition-all duration-700 ease-out bg-white/40 blur-2xl rounded-full">
+            <div className="absolute inset-[-10%] bg-linear-to-tr from-[#967C55]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-[0.65,0,0.35,1]" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] aspect-square bg-[radial-gradient(circle,rgba(150,124,85,0.08)_0%,transparent_60%)] rounded-full scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-1000 ease-[0.65,0,0.35,1]" />
-            {/* Core Spotlight Glow */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] aspect-square bg-[radial-gradient(circle,rgba(150,124,85,0.15)_0%,transparent_70%)] rounded-full scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-700 ease-[0.65,0,0.35,1] delay-75" />
-          </div>
-
-          <div
-            className="absolute top-1 left-3 z-30"
-            style={{ transform: "translateZ(30px)" }}
-          >
-            <span className="text-[10px] tracking-[0.3em] text-[#967C55] uppercase font-bold drop-shadow-sm">
-              {product.type}
-            </span>
           </div>
 
           <div
@@ -128,7 +117,7 @@ const NextLevelProductCard = ({ product }) => {
         </motion.div>
       </motion.div>
 
-      <div className="flex flex-col items-center text-center px-2 z-10 relative">
+      <div className="flex flex-col items-center text-center px-2 z-10 relative -mt-3">
         <h3 className="font-heading text-xl md:text-xl text-[#1A1A1A] tracking-wide mb-1 group-hover:text-[#967C55] transition-colors duration-300 line-clamp-1">
           {product.name}
         </h3>
@@ -136,7 +125,7 @@ const NextLevelProductCard = ({ product }) => {
           {product.price}
         </span>
 
-        <button className="relative overflow-hidden w-full max-w-55 bg-[#967C55] text-white group/btn px-6 py-3 text-xs uppercase tracking-widest transition-colors">
+        <button className="relative overflow-hidden bg-[#967C55] text-white group/btn px-6 py-3 text-xs uppercase tracking-widest transition-colors">
           <span className="relative z-10 flex items-center justify-center gap-2">
             <svg
               width="14"
@@ -227,7 +216,7 @@ export default function SignatureFragrances() {
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, margin: "-100px" }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-x-8 md:gap-y-14"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-x-0 md:gap-y-14"
         >
           {products.map((product) => (
             <motion.div key={product.id} variants={itemVariants}>

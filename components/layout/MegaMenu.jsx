@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
 
-export default function MegaMenu({ item, isOpen, isScrolled, onMouseEnter, onMouseLeave }) {
+export default function MegaMenu({ item, isOpen, isScrolled, forceDarkText, onMouseEnter, onMouseLeave }) {
   const linkRef = useRef(null);
   const [leftPx, setLeftPx] = useState(0);
 
@@ -51,14 +51,14 @@ export default function MegaMenu({ item, isOpen, isScrolled, onMouseEnter, onMou
       <Link 
         href={item.href}
         className={`transition-colors duration-300 text-[12px] tracking-[0.15em] uppercase font-medium h-full flex items-center ${
-          isScrolled ? "text-[#1A1A1A] group-hover/megalink:text-[#967C55]" : "text-dark-100 group-hover/megalink:text-primary-300"
+          forceDarkText || isScrolled ? "text-[#1A1A1A] group-hover/megalink:text-[#967C55]" : "text-dark-100 group-hover/megalink:text-primary-300"
         }`}
       >
         {item.label}
       </Link>
       {/* Animated Sweeping Underline */}
       <span className={`absolute bottom-[28px] left-0 w-full h-[1px] origin-right group-hover/megalink:origin-left transition-transform duration-500 ease-out ${isOpen ? 'scale-x-100' : 'scale-x-0'} ${
-        isScrolled ? "bg-[#967C55]" : "bg-primary-400"
+        forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-400"
       }`} />
       
       <AnimatePresence>
