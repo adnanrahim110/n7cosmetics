@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Mousewheel, Autoplay } from 'swiper/modules';
@@ -20,7 +20,15 @@ const customEase = [0.65, 0, 0.35, 1];
 
 export default function RecreationsSlider() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const swiperRef = useRef(null);
   const activeProduct = recreations[activeIndex];
+
+  const selectSlide = (index) => {
+    const swiper = swiperRef.current;
+
+    if (!swiper || swiper.realIndex === index) return;
+    swiper.slideToLoop(index, 800);
+  };
 
   return (
     <section className="relative py-24 lg:py-32 bg-[#Fdfbf7] overflow-hidden border-t border-black/5">
@@ -117,6 +125,11 @@ export default function RecreationsSlider() {
           >
             <Swiper
               modules={[Mousewheel, Autoplay]}
+              onSwiper={(swiper) => {
+                swiperRef.current = swiper;
+              }}
+              loop={true}
+              loopAdditionalSlides={recreations.length}
               spaceBetween={20} // Reduced gap for a tighter, premium feel
               slidesPerView={1.2}
               grabCursor={true}
@@ -132,7 +145,7 @@ export default function RecreationsSlider() {
                 1024: { slidesPerView: 2.2, spaceBetween: 24 },
                 1280: { slidesPerView: 2.5, spaceBetween: 30 },
               }}
-              onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
+              onSlideChange={(swiper) => setActiveIndex(swiper.realIndex)}
               className="!overflow-visible w-full py-12" // added vertical padding to prevent drop-shadow clipping
             >
               {recreations.map((product, index) => {
@@ -140,7 +153,18 @@ export default function RecreationsSlider() {
                 return (
                   <SwiperSlide key={product.id} className="pt-10 pb-16">
                     <motion.div 
-                      className="relative w-full aspect-[3/4.5] cursor-grab active:cursor-grabbing group"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={isActive ? `${product.name}, current slide` : `Show ${product.name}`}
+                      aria-current={isActive ? "true" : undefined}
+                      onClick={() => selectSlide(index)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          selectSlide(index);
+                        }
+                      }}
+                      className="relative w-full aspect-[3/4.5] cursor-pointer active:cursor-grabbing group focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#967C55]"
                       animate={{
                         scale: isActive ? 1 : 0.85,
                         opacity: isActive ? 1 : 0.4,
