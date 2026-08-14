@@ -5,7 +5,9 @@ import IconicDuo from "../components/sections/IconicDuo";
 import CategoryShowcase from "../components/sections/CategoryShowcase";
 import RecreationsSlider from "../components/sections/RecreationsSlider";
 import AudienceCollections from "../components/sections/AudienceCollections";
+import BrandFilmSection from "../components/sections/BrandFilmSection";
 import ReviewsSection from "../components/sections/ReviewsSection";
+import ScentStorySection from "../components/sections/ScentStorySection";
 import FeaturesStrip from "../components/sections/FeaturesStrip";
 
 export default function Home() {
@@ -13,9 +15,11 @@ export default function Home() {
     <>
       <HeroSection />
       <FragranceOfWeek />
+      <BrandFilmSection />
       <SignatureFragrances />
       <IconicDuo />
       <CategoryShowcase />
+      <ScentStorySection />
       <RecreationsSlider />
       <AudienceCollections />
       <ReviewsSection />

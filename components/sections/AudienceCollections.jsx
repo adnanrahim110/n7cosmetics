@@ -12,16 +12,19 @@ export default function AudienceCollections() {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <section className="overflow-hidden bg-[#f2ede4] py-24 text-[#191612] md:py-32">
+    <section className="relative isolate overflow-hidden bg-[#dfe1db] py-24 text-[#17201d] md:py-32">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_84%_10%,rgba(247,245,237,0.76),transparent_34%),linear-gradient(135deg,#e5e6e0_0%,#d4d8d1_100%)]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.14] [background-image:linear-gradient(rgba(35,52,46,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(35,52,46,0.09)_1px,transparent_1px)] [background-size:112px_112px]" />
+
       <div className="mx-auto max-w-360 px-4 sm:px-6 lg:px-8">
-        <div className="mb-14 flex flex-col justify-between gap-7 border-b border-black/15 pb-8 md:flex-row md:items-end">
+        <div className="mb-14 flex flex-col justify-between gap-7 border-b border-[#24332e]/16 pb-8 md:flex-row md:items-end">
           <div>
             <motion.span
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: shouldReduceMotion ? 0 : 0.75, ease }}
-              className="mb-4 block text-xs font-semibold uppercase tracking-[0.3em] text-[#9b7443]"
+              className="mb-4 block text-xs font-semibold uppercase tracking-[0.3em] text-[#756449]"
             >
               Find your expression
             </motion.span>
@@ -30,7 +33,7 @@ export default function AudienceCollections() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: shouldReduceMotion ? 0 : 0.9, delay: shouldReduceMotion ? 0 : 0.08, ease }}
-              className="font-heading text-4xl uppercase tracking-[0.08em] text-[#191612] md:text-6xl"
+              className="font-heading text-4xl uppercase tracking-[0.08em] text-[#17201d] md:text-6xl"
             >
               Curated for you
             </motion.h2>
@@ -40,7 +43,7 @@ export default function AudienceCollections() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.8, delay: shouldReduceMotion ? 0 : 0.14, ease }}
-            className="max-w-md font-light leading-7 text-black/55 md:text-right"
+            className="max-w-md font-light leading-7 text-[#263630]/58 md:text-right"
           >
             Distinctive compositions shaped around presence, personality and the art of leaving an impression.
           </motion.p>
@@ -54,7 +57,7 @@ export default function AudienceCollections() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
               transition={{ duration: shouldReduceMotion ? 0 : 1, delay: shouldReduceMotion ? 0 : index * 0.12, ease }}
-              className="group relative isolate min-h-165 overflow-hidden bg-[#100d0b] sm:min-h-187.5"
+              className="group relative isolate min-h-165 overflow-hidden border border-[#22312c]/12 bg-[#100d0b] shadow-[0_24px_60px_rgba(40,55,49,0.12)] sm:min-h-187.5"
             >
               <Image
                 src={collection.background}

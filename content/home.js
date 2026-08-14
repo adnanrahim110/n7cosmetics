@@ -76,6 +76,29 @@ export const homeContent = {
       cta: "Explore for her"
     }
   ],
+  brandFilm: {
+    eyebrow: "N7 in motion",
+    title: { lead: "Scent, set", accent: "in motion" },
+    description: "A cinematic glimpse into the confidence, character and atmosphere that shape the house of N7.",
+    video: "/videos/v2.mp4",
+    location: "Dubai / Golden hour",
+    duration: "11 second study"
+  },
+  scentStory: {
+    eyebrow: "Beyond the bottle",
+    title: { lead: "A life", accent: "in scent" },
+    description: "Fragrance begins long before the first spray. It lives in places, encounters and memories gathered along the way — then returns as something deeply personal.",
+    quote: "Every journey leaves a trace. Ours becomes fragrance.",
+    mainVideo: "/videos/v3.mp4",
+    detailVideo: "/videos/v1.mp4",
+    filmLabel: "The founder's journal",
+    duration: "01:17"
+  },
+  reviewsSection: {
+    eyebrow: "The N7 experience",
+    title: { lead: "Client", accent: "diaries" },
+    description: "Personal notes from those who have made an N7 fragrance part of their own story. Distinct impressions, remembered long after the first encounter."
+  },
   features: [
     { title: "Exotic & timeless fragrances", description: "Discover scents that last." },
     { title: "Royal & elegant scents", description: "A touch of royalty." },
