@@ -2,17 +2,66 @@
 
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { Heart, Menu, Search, ShoppingCart, User, X } from "lucide-react";
+import {
+  BadgeCheck,
+  Heart,
+  Menu,
+  Search,
+  ShoppingCart,
+  Sparkles,
+  Truck,
+  User,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { FaHeart, FaSearch, FaShoppingCart, FaUser } from "react-icons/fa";
 import { globalContent } from "../../content/global";
 import MegaMenu from "./MegaMenu";
 import SimpleDropdown from "./SimpleDropdown";
 
 gsap.registerPlugin(ScrollTrigger);
+
+function AnnouncementMarquee({ text, Icon, reverse = false }) {
+  return (
+    <div
+      className="announcement-marquee h-full min-w-0"
+      role="note"
+      aria-label={text}
+    >
+      <div
+        className={`announcement-marquee-track h-full ${reverse ? "announcement-marquee-track-reverse" : ""}`}
+        aria-hidden="true"
+      >
+        {[0, 1].map((group) => (
+          <div key={group} className="announcement-marquee-group h-full">
+            {[0, 1, 2].map((item) => (
+              <span
+                key={item}
+                className="inline-flex shrink-0 items-center gap-2.5 px-5 text-[9px] font-semibold uppercase tracking-[0.19em] text-white sm:px-7 sm:text-[12px] lg:px-9"
+              >
+                <Icon
+                  aria-hidden="true"
+                  size={16}
+                  strokeWidth={1.7}
+                  className="shrink-0 text-white drop-shadow-[0_0_7px_rgba(216,170,97,0.7)]"
+                />
+                {text}
+                <Sparkles
+                  aria-hidden="true"
+                  size={16}
+                  strokeWidth={1.6}
+                  className="shrink-0 text-white"
+                />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Header() {
   const headerContainerRef = useRef(null);
@@ -36,14 +85,14 @@ export default function Header() {
         onUpdate: (self) => {
           if (window.scrollY <= 10) {
             gsap.to(headerContainerRef.current, {
-              y: 0,
+              yPercent: 0,
               duration: 0.4,
               ease: "power3.out",
               overwrite: true,
             });
           } else if (self.direction === 1) {
             gsap.to(headerContainerRef.current, {
-              y: -120,
+              yPercent: -100,
               duration: 0.4,
               ease: "power3.out",
               overwrite: true,
@@ -51,7 +100,7 @@ export default function Header() {
             setIsMobileMenuOpen(false);
           } else if (self.direction === -1) {
             gsap.to(headerContainerRef.current, {
-              y: 0,
+              yPercent: 0,
               duration: 0.4,
               ease: "power3.out",
               overwrite: true,
@@ -63,8 +112,8 @@ export default function Header() {
     return () => ctx.revert();
   }, []);
 
-  const leftLinks = globalContent.header.navigation.slice(0, 4);
-  const rightLinks = globalContent.header.navigation.slice(4);
+  const leftLinks = globalContent.header.navigation.slice(0, 3);
+  const rightLinks = globalContent.header.navigation.slice(3);
 
   const renderNavLinks = (links, startIndex, forceDarkText) => {
     return links.map((link, idx) => {
@@ -112,7 +161,7 @@ export default function Header() {
             {link.label}
           </Link>
           <span
-            className={`absolute bottom-7 left-0 w-full h-px origin-right group-hover/navlink:origin-left scale-x-0 group-hover/navlink:scale-x-100 transition-transform duration-500 ease-out ${
+            className={`absolute bottom-3 left-0 w-full h-0.5 origin-right group-hover/navlink:origin-left scale-x-0 group-hover/navlink:scale-x-100 transition-transform duration-500 ease-out ${
               forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-400"
             }`}
           />
@@ -132,81 +181,102 @@ export default function Header() {
         }`}
         style={{ transform: "translateY(0)" }}
       >
-        <div className="w-full flex items-stretch h-22">
-          <div className="flex-1 flex justify-end items-center transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
-            <nav className="hidden xl:flex space-x-5 h-full items-center px-12">
-              {renderNavLinks(leftLinks, 0, false)}
-            </nav>
+        <div className="relative">
+          <div className="relative overflow-hidden border-b border-primary-500 bg-primary-500 h-12">
+            <div className="relative grid h-full grid-cols-[minmax(0,1fr)_104px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_128px_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_176px_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_224px_minmax(0,1fr)]">
+              <AnnouncementMarquee
+                text={globalContent.header.topbarText}
+                Icon={Truck}
+              />
+
+              <div aria-hidden="true" />
+
+              <AnnouncementMarquee
+                text={globalContent.header.topbarRightText}
+                Icon={BadgeCheck}
+                reverse
+              />
+            </div>
           </div>
 
-          <div className="w-56 lg:w-64 shrink-0 flex items-center justify-center relative">
-            <Link
-              href="/"
-              className={`relative font-heading text-2xl md:text-3xl tracking-[0.15em] uppercase transition-transform hover:scale-105 duration-700 block -mt-2`}
-            >
-              <Image
-                src={isScrolled ? "/imgs/logo.png" : globalContent.header.logo}
-                alt={globalContent.header.name}
-                width={400}
-                height={400}
-                className="w-20 h-auto relative z-2 top-5 transition-opacity duration-500 drop-shadow-md"
-              />
+          <div className="flex w-full items-stretch h-12">
+            <div className="flex flex-1 items-center justify-end transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
+              <nav className="hidden h-full items-center gap-x-10 px-12 xl:flex">
+                {renderNavLinks(leftLinks, 0, false)}
+              </nav>
+            </div>
+
+            <div className="w-26 shrink-0 sm:w-32 lg:w-44 xl:w-56" />
+
+            <div className="flex flex-1 items-center justify-start transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
+              <nav className="hidden h-full items-center gap-x-10 pl-12 pr-8 xl:flex">
+                {renderNavLinks(rightLinks, 4, false)}
+              </nav>
+
               <div
-                className={`transition-all duration-500 ease-in-out ${isScrolled ? "bg-white absolute -inset-x-2 -bottom-4.5 h-8 rounded-b-lg" : "bg-transparent"}`}
-              />
-            </Link>
-          </div>
+                className={`hidden items-center space-x-3 pr-12 transition-colors duration-700 xl:flex ${isScrolled ? "text-[#1A1A1A]" : "text-dark-100"}`}
+              >
+                {[Search, User, Heart].map((Icon, i) => (
+                  <button
+                    key={i}
+                    className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled ? "hover:bg-[#F5F3ED]" : "hover:bg-white/10"}`}
+                  >
+                    <Icon
+                      size={20}
+                      strokeWidth={1.5}
+                      className={`relative z-10 transition-all duration-500 ease-out group-hover/icon:scale-110 ${isScrolled ? "group-hover/icon:text-[#967C55]" : "group-hover/icon:text-primary-400"}`}
+                    />
+                  </button>
+                ))}
 
-          <div className="flex-1 flex justify-start items-center transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
-            <nav className="hidden xl:flex space-x-5 h-full items-center pl-12 pr-8">
-              {renderNavLinks(rightLinks, 4, false)}
-            </nav>
-
-            <div
-              className={`hidden xl:flex items-center space-x-3 pr-12 transition-colors duration-700 ${isScrolled ? "text-[#1A1A1A]" : "text-dark-100"}`}
-            >
-              {[Search, User, Heart].map((Icon, i) => (
                 <button
-                  key={i}
-                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled ? "hover:bg-[#F5F3ED]" : "hover:bg-white/10"}`}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/cart overflow-hidden transition-colors duration-500 ${isScrolled ? "hover:bg-[#F5F3ED]" : "hover:bg-white/10"}`}
                 >
-                  <Icon
+                  <ShoppingCart
                     size={20}
                     strokeWidth={1.5}
-                    className={`relative z-10 transition-all duration-500 ease-out group-hover/icon:scale-110 ${isScrolled ? "group-hover/icon:text-[#967C55]" : "group-hover/icon:text-primary-400"}`}
+                    className={`relative z-10 transition-all duration-500 ease-out group-hover/cart:scale-110 ${isScrolled ? "group-hover/cart:text-[#967C55]" : "group-hover/cart:text-primary-400"}`}
                   />
+                  <span className="absolute top-1 right-1 z-20 flex size-4 items-center justify-center rounded-full bg-primary-500 text-[9px] font-bold text-dark-950 transition-all duration-500 group-hover/cart:scale-110">
+                    0
+                  </span>
                 </button>
-              ))}
+              </div>
 
-              <button
-                className={`w-11 h-11 rounded-full flex items-center justify-center relative group/cart overflow-hidden transition-colors duration-500 ${isScrolled ? "hover:bg-[#F5F3ED]" : "hover:bg-white/10"}`}
-              >
-                <ShoppingCart
-                  size={20}
-                  strokeWidth={1.5}
-                  className={`relative z-10 transition-all duration-500 ease-out group-hover/cart:scale-110 ${isScrolled ? "group-hover/cart:text-[#967C55]" : "group-hover/cart:text-primary-400"}`}
-                />
-                <span
-                  className={`absolute top-1 right-1 text-[9px] font-bold size-4 rounded-full flex items-center justify-center transition-all duration-500 group-hover/cart:scale-110 z-20 bg-primary-500 text-dark-950`}
+              <div className="ml-auto flex items-center pr-4 xl:hidden sm:pr-6">
+                <button
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+                  aria-expanded={isMobileMenuOpen}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none ${
+                    isScrolled
+                      ? "text-[#1A1A1A] hover:bg-black/5"
+                      : "text-dark-100 hover:bg-primary-500/10"
+                  }`}
                 >
-                  0
-                </span>
-              </button>
-            </div>
-
-            <div className="flex xl:hidden ml-auto pr-6">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none ${
-                  isScrolled
-                    ? "text-[#1A1A1A] hover:bg-black/5"
-                    : "text-dark-100 hover:bg-primary-500/10"
-                }`}
-              >
-                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
+                  {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                </button>
+              </div>
             </div>
           </div>
+
+          <Link
+            href="/"
+            aria-label={`${globalContent.header.name} home`}
+            className="group absolute -inset-y-px left-1/2 z-30 w-26 -translate-x-1/2 overflow-hidden sm:w-20"
+          >
+            <span className="pointer-events-none absolute inset-0 bg-primary-500" />
+            <span className="absolute inset-1.5">
+              <Image
+                src={globalContent.header.logo}
+                alt={globalContent.header.name}
+                fill
+                priority
+                sizes="(min-width: 1280px) 224px, (min-width: 1024px) 176px, (min-width: 640px) 128px, 104px"
+                className="object-contain"
+              />
+            </span>
+          </Link>
         </div>
       </header>
 
@@ -218,7 +288,7 @@ export default function Header() {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -20, filter: "blur(10px)" }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className="xl:hidden fixed top-24 left-0 w-full h-[calc(100vh-96px)] overflow-y-auto bg-dark-950/95 backdrop-blur-3xl border-t border-white/5 z-40 pb-20"
+            className="fixed left-0 top-32 z-40 h-[calc(100vh-128px)] w-full overflow-y-auto border-t border-white/5 bg-dark-950/95 pb-20 backdrop-blur-3xl md:top-36 md:h-[calc(100vh-144px)] xl:hidden"
           >
             <div className="px-8 py-10 space-y-8">
               {globalContent.header.navigation.map((link, idx) => (
@@ -252,9 +322,44 @@ export default function Header() {
       </AnimatePresence>
 
       <style jsx global>{`
-        @keyframes shimmer {
-          100% {
-            transform: translateX(100%);
+        .announcement-marquee {
+          overflow: hidden;
+          mask-image: linear-gradient(
+            to right,
+            transparent,
+            black 12%,
+            black 88%,
+            transparent
+          );
+        }
+
+        .announcement-marquee-track {
+          display: flex;
+          width: max-content;
+          will-change: transform;
+          animation: announcement-scroll 24s linear infinite;
+        }
+
+        .announcement-marquee-track-reverse {
+          animation-direction: reverse;
+          animation-duration: 29s;
+        }
+
+        .announcement-marquee-group {
+          display: flex;
+          flex-shrink: 0;
+          align-items: center;
+        }
+
+        @keyframes announcement-scroll {
+          to {
+            transform: translate3d(-50%, 0, 0);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .announcement-marquee-track {
+            animation-play-state: paused;
           }
         }
       `}</style>

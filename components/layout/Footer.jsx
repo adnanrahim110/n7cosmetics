@@ -7,11 +7,8 @@ import { globalContent } from "../../content/global";
 
 export default function Footer() {
   return (
-    <footer
-      className="relative h-[85vh] min-h-160 bg-[#050505] overflow-hidden"
-      style={{ clipPath: "polygon(0% 0, 100% 0%, 100% 100%, 0 100%)" }}
-    >
-      <div className="fixed bottom-0 left-0 w-full h-[85vh] min-h-160 bg-[#050505] flex flex-col justify-between pt-24 z-0">
+    <footer className="relative min-h-160 overflow-hidden bg-[#050505]">
+      <div className="relative flex min-h-160 w-full flex-col justify-between bg-[#050505] pt-24">
         <div className="w-full max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-12 gap-16 lg:gap-8 grow">
           <div className="md:col-span-4 flex flex-col justify-start items-start">
             <Image

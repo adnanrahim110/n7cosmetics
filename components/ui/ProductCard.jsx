@@ -13,7 +13,7 @@ export default function ProductCard({ product }) {
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-dark-900 border border-white/5 group-hover:border-primary-500/30 transition-colors duration-500">
         <Image
-          src={product.image || "/placeholder.png"}
+          src={product.image || "/imgs/products/1.png"}
           alt={product.name}
           fill
           className="object-cover transition-transform duration-700 ease-out group-hover:scale-110 opacity-80 group-hover:opacity-100"

@@ -3,19 +3,13 @@ export const globalContent = {
     logo: "/imgs/logo-w.png",
     name: "N7 Cosmetics",
     topbarText: "Free shipping on orders over £ 99",
+    topbarRightText: "Authorised distributors of Yusuf Bhai perfumes in the UK",
     navigation: [
       {
         label: "Yusuf Bhai Originals",
         href: "/yusuf-bhai-originals",
-        type: "mega",
-        items: [
-          { name: "Oud Prestige", href: "/product/oud-prestige", image: "https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=600&auto=format&fit=crop" },
-          { name: "Royal Amber", href: "/product/royal-amber", image: "https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=600&auto=format&fit=crop" },
-          { name: "Majestic Rose", href: "/product/majestic-rose", image: "https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=600&auto=format&fit=crop" },
-          { name: "View All", href: "/yusuf-bhai-originals", image: null }
-        ]
       },
-      {
+      { 
         label: "Premium Collection",
         href: "/premium-collection",
         type: "mega",
@@ -36,7 +30,6 @@ export const globalContent = {
           { name: "Holiday Offers", href: "/sale/holiday" }
         ]
       },
-      { label: "Cosmetics", href: "/cosmetics" },
       { label: "Bundles", href: "/bundles" },
       { label: "About Us", href: "/about" },
     ],
