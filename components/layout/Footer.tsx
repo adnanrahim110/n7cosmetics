@@ -1,0 +1,148 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
+import { globalContent } from "../../content/global";
+import type { PublicSiteSettings } from "../../lib/commerce/settings";
+import type { FooterContent } from "@/lib/homepage/types";
+import type { NavigationItem } from "@/content/global";
+
+export default function Footer({ settings = {}, content, navigation }: { settings?: PublicSiteSettings; content: FooterContent; navigation: NavigationItem[] }) {
+  return (
+    <footer className="relative min-h-160 overflow-hidden bg-[#050505]">
+      <div className="relative flex min-h-160 w-full flex-col justify-between bg-[#050505] pt-24">
+        <div className="w-full max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-12 gap-16 lg:gap-8 grow">
+          <div className="md:col-span-4 flex flex-col justify-start items-start">
+            <Image
+              width={400}
+              height={600}
+              src={globalContent.header.logo}
+              alt={globalContent.header.name}
+              className="h-42 w-auto mb-6"
+            />
+            <p className="text-white/50 text-sm font-light mb-8 max-w-sm">
+              {content.description}
+            </p>
+            {settings.address ? <p className="max-w-sm whitespace-pre-line text-sm leading-6 text-white/45">{settings.address}</p> : null}
+            {settings.phone ? <a className="mt-3 text-sm text-[#967C55]" href={`tel:${settings.phone}`}>{settings.phone}</a> : null}
+            {settings.email ? <a className="mt-1 text-sm text-[#967C55]" href={`mailto:${settings.email}`}>{settings.email}</a> : null}
+          </div>
+
+          <div className="md:col-span-2 flex flex-col">
+            <h4 className="text-[#967C55] text-[10px] tracking-[0.3em] uppercase mb-6 font-medium">
+              Explore
+            </h4>
+            <ul className="space-y-5">
+              {navigation.slice(0, 4).map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="group relative inline-block text-white/60 hover:text-white text-[13px] tracking-widest uppercase transition-colors pb-1"
+                  >
+                    {link.label}
+                    <span className="absolute left-0 bottom-0 w-full h-px bg-[#967C55] scale-x-0 origin-right transition-transform duration-500 ease-[cubic-bezier(0.86,0,0.07,1)] group-hover:scale-x-100 group-hover:origin-left" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="md:col-span-2 flex flex-col">
+            <h4 className="text-[#967C55] text-[10px] tracking-[0.3em] uppercase mb-6 font-medium">
+              Discover
+            </h4>
+            <ul className="space-y-5">
+              {navigation.slice(4).map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="group relative inline-block text-white/60 hover:text-white text-[13px] tracking-widest uppercase transition-colors pb-1"
+                  >
+                    {link.label}
+                    <span className="absolute left-0 bottom-0 w-full h-px bg-[#967C55] scale-x-0 origin-right transition-transform duration-500 ease-[cubic-bezier(0.86,0,0.07,1)] group-hover:scale-x-100 group-hover:origin-left" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="md:col-span-4 flex flex-col justify-start">
+            <h3 className="font-heading text-3xl text-white tracking-wider uppercase mb-2">
+              {content.newsletterTitle}
+            </h3>
+            <p className="text-white/50 text-sm font-light mb-8 max-w-lg">
+              {content.newsletterDescription}
+            </p>
+            <form
+              className="flex w-full max-w-md border-b border-white/20 pb-3 relative group"
+              onSubmit={(e) => e.preventDefault()}
+            >
+              <input
+                type="email"
+                placeholder={content.newsletterPlaceholder}
+                className="bg-transparent w-full text-white placeholder-white/30 text-xs tracking-[0.2em] uppercase focus:outline-none"
+                required
+              />
+              <button
+                type="submit"
+                className="text-[#967C55] text-xs font-medium tracking-widest uppercase hover:text-white transition-colors absolute right-0 bottom-3"
+              >
+                {content.newsletterButtonLabel}
+              </button>
+              <div className="absolute -bottom-px left-0 w-0 h-px bg-[#967C55] transition-all duration-500 group-focus-within:w-full" />
+            </form>
+          </div>
+        </div>
+
+        <div className="w-full px-4 sm:px-6 lg:px-8 mt-auto flex flex-col items-center">
+          <div className="w-full flex flex-col md:flex-row justify-between items-center md:items-end border-b border-white/10 pb-4 mb-2 gap-6 md:gap-0">
+            <div className="flex space-x-8">
+              <a
+                href={settings.instagramUrl || "#"}
+                className="text-white/40 hover:text-[#967C55] transition-colors"
+              >
+                <FaInstagram size={18} />
+              </a>
+              <a
+                href={settings.facebookUrl || "#"}
+                className="text-white/40 hover:text-[#967C55] transition-colors"
+              >
+                <FaFacebook size={18} />
+              </a>
+              <a
+                href={content.twitterUrl}
+                className="text-white/40 hover:text-[#967C55] transition-colors"
+              >
+                <FaTwitter size={18} />
+              </a>
+            </div>
+
+            <p className="text-white/30 text-[10px] uppercase tracking-widest text-center md:text-left">
+              {content.copyright}
+            </p>
+
+            <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-2 text-center md:text-right">{content.legalLinks.map((item) => <Link href={item.href} className="group relative inline-block text-white/30 hover:text-white text-[10px] uppercase tracking-widest transition-colors pb-1" key={`${item.label}-${item.href}`}>{item.label}<span className="absolute left-0 bottom-0 w-full h-px bg-[#967C55] scale-x-0 origin-right transition-transform duration-500 ease-[cubic-bezier(0.86,0,0.07,1)] group-hover:scale-x-100 group-hover:origin-left" /></Link>)}</div>
+          </div>
+
+          <svg
+            className="w-full h-auto opacity-[0.05] pointer-events-none select-none"
+            viewBox="0 0 1000 130"
+          >
+            <text
+              x="0"
+              y="120"
+              fill="white"
+              className="font-body"
+              style={{ fontSize: "136px", fontWeight: "900" }}
+              textLength="1000"
+              lengthAdjust="spacing"
+            >
+              N7 COSMETICS
+            </text>
+          </svg>
+        </div>
+      </div>
+    </footer>
+  );
+}

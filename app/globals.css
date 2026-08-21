@@ -49,4 +49,45 @@
   .reviews-marquee .swiper-wrapper {
     transition-timing-function: linear !important;
   }
+
+  .announcement-marquee {
+    overflow: hidden;
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 12%,
+      black 88%,
+      transparent
+    );
+  }
+
+  .announcement-marquee-track {
+    display: flex;
+    width: max-content;
+    will-change: transform;
+    animation: announcement-scroll 24s linear infinite;
+  }
+
+  .announcement-marquee-track-reverse {
+    animation-direction: reverse;
+    animation-duration: 29s;
+  }
+
+  .announcement-marquee-group {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
+  @keyframes announcement-scroll {
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .announcement-marquee-track {
+      animation-play-state: paused;
+    }
+  }
 }

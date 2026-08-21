@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "incremental": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": ".tests-dist",
+    "rootDir": ".",
+    "isolatedModules": false
+  },
+  "include": ["tests/**/*.ts", "lib/admin/destination.ts", "lib/admin/form.ts", "lib/auth/password.ts", "lib/commerce/validation.ts"]
+}

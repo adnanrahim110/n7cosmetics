@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "incremental": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": ".scripts-dist",
+    "rootDir": "."
+  },
+  "include": ["scripts/**/*.ts", "lib/db/**/*.ts", "lib/admin/form.ts", "lib/env.ts", "content/**/*.ts"]
+}
