@@ -4,6 +4,7 @@ import { homeContent } from "@/content/home";
 import { hasDatabaseConfig } from "@/lib/env";
 import { selectRows } from "@/lib/db/query";
 import { defaultFooterContent, defaultHeaderContent, defaultHomepageConfiguration } from "@/lib/homepage/defaults";
+import { applyHeroProductPresentations, normalizeHeroProductPresentations } from "@/lib/homepage/hero";
 import type { FooterContent, HeaderContent, HomepageConfiguration, HomepageProduct, HomepageStorefrontContent } from "@/lib/homepage/types";
 
 interface SectionRow extends RowDataPacket { page_key: string; section_key: string; content_json: unknown }
@@ -45,6 +46,11 @@ export async function getHomepageConfiguration(): Promise<HomepageConfiguration>
     audience: merge(defaultHomepageConfiguration.audience, rows.get("audience-collections")),
     reviews: merge(defaultHomepageConfiguration.reviews, rows.get("reviews")),
   };
+  config.hero.productIds = Array.isArray(config.hero.productIds)
+    ? [...new Set(config.hero.productIds.filter((id): id is string => typeof id === "string" && /^[1-9]\d*$/.test(id)))]
+    : [];
+  const selectedHeroIds = new Set(config.hero.productIds);
+  config.hero.products = normalizeHeroProductPresentations(config.hero.products).filter((item) => selectedHeroIds.has(item.productId));
   config.audience.cards = Array.isArray(config.audience.cards) ? config.audience.cards : defaultHomepageConfiguration.audience.cards;
   config.reviews.reviews = Array.isArray(config.reviews.reviews) ? config.reviews.reviews : defaultHomepageConfiguration.reviews.reviews;
   if (hasDatabaseConfig() && (!config.hero.productIds.length || !config.signature.productIds.length || !config.recreations.productIds.length || !config.weekly.productId)) {
@@ -78,7 +84,7 @@ export async function getHomepageStorefrontContent(): Promise<HomepageStorefront
   const [heroProducts, signatureProducts, recreationProducts, weeklyProducts] = await Promise.all([productsByIds(configuration.hero.productIds), productsByIds(configuration.signature.productIds), productsByIds(configuration.recreations.productIds), productsByIds(configuration.weekly.productId ? [configuration.weekly.productId] : [])]);
   return {
     configuration,
-    heroProducts: heroProducts.length ? heroProducts : homeContent.hero.products.map((product, index) => ({ id: `hero-${index}`, slug: product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), name: product.name, type: "Perfume", price: "£0", pricePence: 0, image: product.image, description: product.description, tagline: product.tagline, notes: [], size: "100 ml" })),
+    heroProducts: heroProducts.length ? applyHeroProductPresentations(heroProducts, configuration.hero.products) : homeContent.hero.products.map((product, index) => ({ id: `hero-${index}`, slug: product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), name: product.name, type: "Perfume", price: "£0", pricePence: 0, image: product.image, description: product.description, tagline: product.tagline, notes: [], size: "100 ml" })),
     signatureProducts: signatureProducts.length ? signatureProducts : fallbackProducts(productsContent.signature),
     recreationProducts: recreationProducts.length ? recreationProducts : fallbackProducts(productsContent.recreations),
     weeklyProduct: weeklyProducts[0] ?? null,

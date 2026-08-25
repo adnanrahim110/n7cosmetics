@@ -14,7 +14,6 @@ export const defaultFooterContent: FooterContent = {
   newsletterDescription: "Subscribe to receive exclusive access to new releases, private events, and masterclasses.",
   newsletterPlaceholder: "EMAIL ADDRESS",
   newsletterButtonLabel: "Submit",
-  twitterUrl: "#",
   copyright: globalContent.footer.copyright,
   legalLinks: [
     { label: "Contact Us", href: "/contact" },
@@ -24,7 +23,7 @@ export const defaultFooterContent: FooterContent = {
 };
 
 export const defaultHomepageConfiguration: HomepageConfiguration = {
-  hero: { productIds: [] },
+  hero: { productIds: [], products: [] },
   signature: {
     eyebrow: "The Masterpiece Collection",
     titleLead: "Signature",

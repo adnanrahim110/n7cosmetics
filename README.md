@@ -4,7 +4,7 @@ One Next.js/TypeScript application provides the storefront, secure admin panel, 
 
 ## Requirements
 
-- Node.js 20.9 or newer
+- Node.js 20.12 or newer
 - MySQL 8 recommended (MySQL 5.7.8+ supports the required JSON columns)
 - A MySQL database and dedicated database user
 - HTTPS in production
@@ -12,7 +12,7 @@ One Next.js/TypeScript application provides the storefront, secure admin panel, 
 ## First-time setup
 
 1. In phpMyAdmin, create an empty database with `utf8mb4` encoding and a dedicated user with privileges only for that database. Do not use the MySQL root account in the app.
-2. Copy `.env.example` to `.env` and replace every placeholder. Generate `APP_ENCRYPTION_KEY` as 32 random bytes encoded with Base64 and keep it stable: SMTP passwords encrypted with one key cannot be recovered with a different key. In production, set `APP_URL` to the HTTPS site URL, `NODE_ENV=production`, and `ADMIN_COOKIE_SECURE=true`.
+2. Copy `.env.example` to `.env` and replace every placeholder. Generate `APP_ENCRYPTION_KEY` as 32 random bytes encoded with Base64 and keep it stable: SMTP passwords encrypted with one key cannot be recovered with a different key. In production, set `APP_URL` to the HTTPS site URL, `NODE_ENV=production`, `ADMIN_COOKIE_SECURE=true`, and `MEDIA_STORAGE_DIR=../media` (or another private writable location outside the application root).
 3. Install, migrate, seed the existing storefront catalog, and create the first owner:
 
 ```bash
@@ -43,19 +43,37 @@ pnpm build
 
 The development server uses `http://localhost:3003`.
 
-## Shared-hosting deployment
+## Namecheap shared-hosting deployment
 
-Upload the project, configure the values from `.env.example` in the host's Node environment (or place a protected `.env` in the application root), and run the first-time database commands above from the terminal. Use these application settings:
+1. Update the real `.env` with the HTTPS deployment URL plus the MySQL database name, dedicated database user, and password created in Namecheap cPanel. Keep `NODE_ENV=production`, `ADMIN_COOKIE_SECURE=true`, and `MEDIA_STORAGE_DIR=../media`. Keep the existing `APP_ENCRYPTION_KEY` stable.
+2. On the local Windows machine, create the optimized build and deployment archive:
 
-- Application root: the project directory
-- Build command: `pnpm build`
-- Start command: `pnpm start`
-- Node environment: `production`
-- Application URL: the HTTPS URL configured in `APP_URL`
-- Writable upload directory: `UPLOAD_DIR` (defaults to `public/uploads`)
-- Public upload URL prefix: `UPLOAD_PUBLIC_PATH` (defaults to `/uploads`)
+```bash
+npm run deploy:package
+```
 
-Keep the Node process behind the hosting provider's HTTPS reverse proxy. Ensure the Node application user can create folders and files inside `UPLOAD_DIR`; uploaded filenames are random and file signatures are checked server-side. Back up both MySQL and the upload directory, keep `.env` outside public web access, and never commit it.
+This creates `n7cosmetics-namecheap.zip`. The archive includes `.env`, `.next`, `server.js`, the public assets, and the precompiled database utilities. It deliberately excludes `node_modules`, `.git`, `.next/cache`, and `.next/dev`; dependencies must be installed on the Linux host.
+
+3. Upload and extract the ZIP into a private application folder outside `public_html`. The files must be directly inside the configured application root, not inside an extra nested folder.
+4. In **cPanel → Setup Node.js App**, use:
+
+   - Node.js version: `24.x`
+   - Application mode: `Production`
+   - Application root: the folder containing `server.js`
+   - Application URL: the same HTTPS URL configured as `APP_URL`
+   - Application startup file: `server.js`
+
+5. Stop the app, choose **Run NPM Install**, and then enter the application's virtual environment from cPanel Terminal. Initialize the database once:
+
+```bash
+npm run db:migrate:deploy
+npm run db:seed:deploy
+npm run db:create-admin:deploy
+```
+
+Remove `ADMIN_PASSWORD` from `.env` after the owner account is created. Finally, start or restart the Node.js app.
+
+The hosting account must allow the Node process to create and write to the `media` directory one level above the application root. That directory must remain private; the application serves files through signed `/media/{token}` routes. Back up both MySQL and the private media directory, protect `.env`, and never commit it.
 
 ## Checkout status
 

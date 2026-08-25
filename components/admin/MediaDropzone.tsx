@@ -1,14 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState } from "react";
-import { FileVideo2, LoaderCircle, UploadCloud, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, FileVideo2, ImagePlus, UploadCloud, X } from "lucide-react";
+import { showAdminToast } from "@/components/admin/AdminToastProvider";
 
 export interface MediaAssetValue {
   url: string;
   name?: string;
   mimeType?: string;
   type: "image" | "video";
+  pending?: boolean;
 }
 
 interface MediaDropzoneProps {
@@ -16,83 +18,206 @@ interface MediaDropzoneProps {
   label: string;
   accept?: "image" | "video" | "both";
   multiple?: boolean;
+  maxFiles?: number;
   defaultAssets?: MediaAssetValue[];
   hint?: string;
   className?: string;
   onChange?: (assets: MediaAssetValue[]) => void;
 }
 
-const acceptMap = { image: "image/*", video: "video/*", both: "image/*,video/*" } as const;
+interface ExistingAsset extends MediaAssetValue {
+  key: string;
+  kind: "existing";
+}
 
-export default function MediaDropzone({ name, label, accept = "both", multiple = false, defaultAssets = [], hint, className = "", onChange }: MediaDropzoneProps) {
-  const [assets, setAssets] = useState<MediaAssetValue[]>(defaultAssets);
+interface PendingAsset extends MediaAssetValue {
+  key: string;
+  kind: "pending";
+  file: File;
+  previewUrl: string;
+  pending: true;
+}
+
+type DropzoneAsset = ExistingAsset | PendingAsset;
+
+const acceptMap = { image: "image/jpeg,image/png,image/gif,image/webp,image/avif", video: "video/mp4,video/quicktime,video/webm", both: "image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/quicktime,video/webm" } as const;
+
+function publicAssets(assets: DropzoneAsset[]): MediaAssetValue[] {
+  return assets.map((asset) => ({
+    url: asset.kind === "existing" ? asset.url : "",
+    name: asset.name,
+    mimeType: asset.mimeType,
+    type: asset.type,
+    pending: asset.kind === "pending",
+  }));
+}
+
+function initialAssets(defaultAssets: MediaAssetValue[]): ExistingAsset[] {
+  return defaultAssets.map((asset, index) => ({ ...asset, key: `existing-${index}-${asset.url}`, kind: "existing", pending: false }));
+}
+
+export default function MediaDropzone({
+  name,
+  label,
+  accept = "both",
+  multiple = false,
+  maxFiles = multiple ? 12 : 1,
+  defaultAssets = [],
+  hint,
+  className = "",
+  onChange,
+}: MediaDropzoneProps) {
+  const [assets, setAssets] = useState<DropzoneAsset[]>(() => initialAssets(defaultAssets));
   const [dragging, setDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const assetsRef = useRef(assets);
 
-  async function upload(files: FileList | File[]) {
-    const selectedFiles = Array.from(files);
-    if (!selectedFiles.length) return;
-    setUploading(true);
+  useEffect(() => { assetsRef.current = assets; }, [assets]);
+
+  useEffect(() => () => {
+    for (const asset of assetsRef.current) if (asset.kind === "pending") URL.revokeObjectURL(asset.previewUrl);
+  }, []);
+
+  useEffect(() => {
+    if (!inputRef.current || typeof DataTransfer === "undefined") return;
+    const transfer = new DataTransfer();
+    for (const asset of assets) if (asset.kind === "pending") transfer.items.add(asset.file);
+    inputRef.current.files = transfer.files;
+  }, [assets]);
+
+  function commit(next: DropzoneAsset[]) {
+    setAssets(next);
+    onChange?.(publicAssets(next));
+  }
+
+  function reportError(message: string) {
+    setError(message);
+    showAdminToast({ id: `media:${name}:${message}`, type: "warning", title: "File not added", description: message });
+  }
+
+  function addFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList);
+    if (!files.length) return;
     setError("");
-    try {
-      const uploaded: MediaAssetValue[] = [];
-      for (const file of selectedFiles) {
-        const body = new FormData();
-        body.set("file", file);
-        const response = await fetch("/api/admin/media", { method: "POST", body });
-        const result = await response.json() as { url?: string; name?: string; mimeType?: string; type?: "image" | "video"; error?: string };
-        if (!response.ok || !result.url || !result.type) throw new Error(result.error ?? "The upload failed.");
-        uploaded.push({ url: result.url, name: result.name, mimeType: result.mimeType, type: result.type });
+
+    const validFiles: File[] = [];
+    for (const file of files) {
+      const type = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : null;
+      if (!type || (accept !== "both" && accept !== type)) {
+        reportError(accept === "image" ? "Choose an image file." : accept === "video" ? "Choose an MP4, MOV, or WebM video." : "Choose a supported image or video.");
+        continue;
       }
-      const next = multiple ? [...assets, ...uploaded] : uploaded.slice(-1);
-      setAssets(next);
-      onChange?.(next);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "The upload failed.");
-    } finally {
-      setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
+      const limit = type === "image" ? 10 * 1024 * 1024 : 75 * 1024 * 1024;
+      if (file.size > limit) {
+        reportError(`${type === "image" ? "Images" : "Videos"} cannot exceed ${limit / 1024 / 1024} MB each.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+    if (!validFiles.length) return;
+
+    const available = multiple ? Math.max(0, maxFiles - assets.length) : 1;
+    if (!available) {
+      reportError(`This area accepts up to ${maxFiles} ${maxFiles === 1 ? "file" : "files"}.`);
+      return;
+    }
+    if (validFiles.length > available) reportError(`Only the first ${available} selected ${available === 1 ? "file was" : "files were"} added.`);
+    const pending: PendingAsset[] = validFiles.slice(0, available).map((file) => ({
+      key: `pending-${crypto.randomUUID()}`,
+      kind: "pending",
+      file,
+      previewUrl: URL.createObjectURL(file),
+      url: "",
+      name: file.name,
+      mimeType: file.type,
+      type: file.type.startsWith("video/") ? "video" : "image",
+      pending: true,
+    }));
+    if (multiple) commit([...assets, ...pending]);
+    else {
+      for (const asset of assets) if (asset.kind === "pending") URL.revokeObjectURL(asset.previewUrl);
+      commit(pending.slice(-1));
     }
   }
 
+  function remove(index: number) {
+    const removed = assets[index];
+    if (removed?.kind === "pending") URL.revokeObjectURL(removed.previewUrl);
+    commit(assets.filter((_, assetIndex) => assetIndex !== index));
+  }
+
+  function move(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= assets.length) return;
+    const next = [...assets];
+    [next[index], next[target]] = [next[target], next[index]];
+    commit(next);
+  }
+
+  const pendingAssets = assets.filter((asset): asset is PendingAsset => asset.kind === "pending");
+  const pendingIndexes = new Map(pendingAssets.map((asset, index) => [asset.key, index]));
+  const serializedOrder = assets.map((asset) => asset.kind === "existing"
+    ? { kind: "existing", url: asset.url }
+    : { kind: "new", index: pendingIndexes.get(asset.key) ?? 0 });
+
   return (
     <div className={className}>
-      <span className="mb-1 block text-[13px] font-medium leading-5 text-zinc-700">{label}</span>
-      {assets.map((asset) => <input key={asset.url} name={name} type="hidden" value={asset.url} />)}
-      <div className={`grid gap-2 ${assets.length ? "sm:grid-cols-2" : ""}`}>
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div>
+          <span className="block text-[13px] font-semibold leading-5 text-zinc-800">{label}</span>
+          {hint ? <p className="mt-0.5 text-xs leading-5 text-zinc-500">{hint}</p> : null}
+        </div>
+        {assets.length ? <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{assets.length}/{maxFiles}</span> : null}
+      </div>
+
+      {assets.filter((asset): asset is ExistingAsset => asset.kind === "existing").map((asset) => <input key={asset.key} name={name} type="hidden" value={asset.url} />)}
+      <input name={`${name}Order`} type="hidden" value={JSON.stringify(serializedOrder)} />
+
       <button
-        className={`flex min-h-20 w-full items-center justify-center gap-3 rounded-lg border border-dashed px-3 py-3 text-left transition ${dragging ? "border-amber-600 bg-amber-50" : "border-zinc-300 bg-zinc-50 hover:border-zinc-400 hover:bg-white"}`}
-        disabled={uploading}
+        className={`group flex min-h-28 w-full items-center justify-center gap-3 rounded-xl border border-dashed px-4 py-5 text-left transition ${dragging ? "border-amber-600 bg-amber-50 ring-2 ring-amber-100" : "border-zinc-300 bg-zinc-50 hover:border-amber-500 hover:bg-amber-50/40"}`}
         onClick={() => inputRef.current?.click()}
         onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
         onDragLeave={(event) => { event.preventDefault(); setDragging(false); }}
         onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => { event.preventDefault(); setDragging(false); void upload(event.dataTransfer.files); }}
+        onDrop={(event) => { event.preventDefault(); setDragging(false); addFiles(event.dataTransfer.files); }}
         type="button"
       >
-        <span className="grid size-9 shrink-0 place-items-center rounded-md bg-white text-zinc-400 shadow-sm ring-1 ring-zinc-200">
-          {uploading ? <LoaderCircle className="animate-spin text-amber-700" size={19} /> : <UploadCloud size={19} />}
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-zinc-500 shadow-sm ring-1 ring-zinc-200 transition group-hover:text-amber-700">
+          {accept === "image" ? <ImagePlus size={20} /> : <UploadCloud size={20} />}
         </span>
         <span className="min-w-0">
-          <span className="block text-[13px] font-medium text-zinc-700">{uploading ? "Uploading…" : "Drop or browse"}</span>
-          <span className="mt-0.5 block truncate text-[11px] text-zinc-400">{accept === "image" ? "Images up to 10 MB" : accept === "video" ? "MP4, MOV or WebM up to 75 MB" : "Images or videos"}</span>
+          <span className="block text-sm font-semibold text-zinc-800">Drop files here or browse</span>
+          <span className="mt-1 block text-xs text-zinc-500">{accept === "image" ? "JPG, PNG, GIF, WebP or AVIF · 10 MB max" : accept === "video" ? "MP4, MOV or WebM · 75 MB max each" : "Supported images and videos"}</span>
+          <span className="mt-1 block text-[11px] font-medium text-amber-700">Files are stored only when you save the form.</span>
         </span>
       </button>
-        {assets.map((asset, index) => (
-          <div className="group relative flex min-h-16 overflow-hidden rounded-lg border border-zinc-200 bg-white" key={`${asset.url}-${index}`}>
-            <div className="relative h-full min-h-16 w-24 shrink-0 bg-zinc-100">
-              {asset.type === "image" ? <Image alt={asset.name ?? "Uploaded image"} className="object-cover" fill sizes="96px" src={asset.url} unoptimized /> : <><video className="size-full object-cover" muted preload="metadata" src={asset.url} /><FileVideo2 className="absolute left-1.5 top-1.5 text-white drop-shadow" size={15} /></>}
-            </div>
-            <div className="min-w-0 self-center px-2.5 pr-9"><p className="truncate text-xs font-medium text-zinc-700">{asset.name ?? asset.url.split("/").at(-1)}</p><p className="mt-0.5 truncate text-[10px] uppercase tracking-wide text-zinc-400">{asset.type}</p></div>
-            <button aria-label={`Remove ${asset.name ?? "media"}`} className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm hover:text-red-600" onClick={() => { const next = assets.filter((_, assetIndex) => assetIndex !== index); setAssets(next); onChange?.(next); }} type="button"><X size={12} /></button>
-          </div>
-        ))}
-      </div>
-      <input className="sr-only" accept={acceptMap[accept]} multiple={multiple} onChange={(event) => { if (event.target.files) void upload(event.target.files); }} ref={inputRef} type="file" />
-      {hint ? <p className="mt-1.5 text-xs leading-5 text-zinc-500">{hint}</p> : null}
-      {error ? <p className="mt-1.5 text-xs text-red-600" role="alert">{error}</p> : null}
+
+      {assets.length ? (
+        <div className={`mt-3 grid gap-2 ${multiple ? "sm:grid-cols-2" : ""}`}>
+          {assets.map((asset, index) => {
+            const previewUrl = asset.kind === "pending" ? asset.previewUrl : asset.url;
+            return (
+              <div className="group relative flex min-h-20 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm" key={asset.key}>
+                <div className="relative min-h-20 w-24 shrink-0 bg-zinc-100">
+                  {asset.type === "image" ? <Image alt={asset.name ?? "Selected image"} className="object-cover" fill sizes="96px" src={previewUrl} unoptimized /> : <><video className="size-full object-cover" muted preload="metadata" src={previewUrl} /><FileVideo2 className="absolute left-2 top-2 text-white drop-shadow" size={16} /></>}
+                </div>
+                <div className="min-w-0 self-center px-3 pr-16">
+                  <p className="truncate text-xs font-semibold text-zinc-800">{asset.name ?? asset.url.split("/").at(-1)}</p>
+                  <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${asset.kind === "pending" ? "text-amber-700" : "text-emerald-700"}`}>{asset.kind === "pending" ? "Ready to save" : "Stored"}</p>
+                </div>
+                <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                  {multiple ? <><button aria-label="Move media up" className="grid size-6 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-950 disabled:opacity-30" disabled={index === 0} onClick={() => move(index, -1)} type="button"><ChevronUp size={12} /></button><button aria-label="Move media down" className="grid size-6 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-950 disabled:opacity-30" disabled={index === assets.length - 1} onClick={() => move(index, 1)} type="button"><ChevronDown size={12} /></button></> : null}
+                  <button aria-label={`Remove ${asset.name ?? "media"}`} className="grid size-6 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-500 hover:border-red-200 hover:text-red-600" onClick={() => remove(index)} type="button"><X size={12} /></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <input className="sr-only" accept={acceptMap[accept]} multiple={multiple} name={`${name}Files`} onChange={(event) => { if (event.target.files) addFiles(event.target.files); }} ref={inputRef} type="file" />
+      {error ? <p className="mt-2 text-xs font-medium text-red-600" role="alert">{error}</p> : null}
     </div>
   );
 }

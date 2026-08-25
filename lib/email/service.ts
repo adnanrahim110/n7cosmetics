@@ -17,6 +17,7 @@ export interface SmtpSettings {
 
 interface ProjectEmail {
   to: string;
+  replyTo?: string;
   subject: string;
   text: string;
   html?: string;
@@ -55,7 +56,7 @@ export async function sendProjectEmail(email: ProjectEmail): Promise<EmailSendRe
   if (!settings) { const result: EmailSendResult = { status: "SKIPPED", error: "SMTP is not configured." }; await logEmail(email, result); return result; }
   try {
     const transport = nodemailer.createTransport({ host: settings.host, port: settings.port, secure: settings.secure, auth: { user: settings.user, pass: settings.password }, connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 20_000 });
-    const sent = await transport.sendMail({ from: { name: settings.fromName, address: settings.fromEmail }, to: email.to, subject: email.subject, text: email.text, html: email.html });
+    const sent = await transport.sendMail({ from: { name: settings.fromName, address: settings.fromEmail }, to: email.to, replyTo: email.replyTo, subject: email.subject, text: email.text, html: email.html });
     const result: EmailSendResult = { status: "SENT", messageId: sent.messageId }; await logEmail(email, result); return result;
   } catch (error) {
     const result: EmailSendResult = { status: "FAILED", error: error instanceof Error ? error.message : "Unknown SMTP error." }; await logEmail(email, result); return result;

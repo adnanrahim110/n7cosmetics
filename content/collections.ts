@@ -1,9 +1,18 @@
-export type CollectionSlug = "yusuf-bhai-originals" | "recreations" | "bundles";
+export type CollectionSlug =
+  | "n7"
+  | "yusuf-bhai-originals"
+  | "premium-collection"
+  | "recreations"
+  | "sale"
+  | "bundles";
 
 export interface CollectionProduct {
+  id?: string;
+  slug?: string;
   name: string;
   category: string;
   price: number;
+  compareAtPrice?: number;
   rating?: number;
   image: string;
 }
@@ -14,6 +23,7 @@ export interface CollectionPageContent {
   title: { lead: string; accent: string };
   intro: string;
   statement: string;
+  credit?: string;
   highlights: string[];
   disclaimer?: string;
   products: CollectionProduct[];
@@ -39,9 +49,23 @@ const catalogImage = (file: string): string => {
 };
 
 export const collectionPages: Record<
-  "originals" | "recreations" | "bundles",
+  "n7" | "originals" | "premium" | "recreations" | "sale" | "bundles",
   CollectionPageContent
 > = {
+  n7: {
+    slug: "n7",
+    eyebrow: "The house collection / United Kingdom",
+    title: { lead: "The N7", accent: "Collection" },
+    intro: "A signature edit shaped by the N7 point of view: expressive fragrances chosen for presence, individuality and lasting character.",
+    statement: "Curated with intent. Worn as a signature.",
+    credit: "A house edit by N7 Cosmetics",
+    highlights: [
+      "N7 signature selection",
+      "Distinctive everyday compositions",
+      "Curated in the United Kingdom",
+    ],
+    products: [],
+  },
   originals: {
     slug: "yusuf-bhai-originals",
     eyebrow: "In-house blends / Dubai",
@@ -159,5 +183,46 @@ export const collectionPages: Record<
       { name: "Jadore, YSL Libre, French Oud", category: "Bundles", price: 85.99, image: catalogImage("2025-02-Group-105954.webp") },
       { name: "Noir Extreme, Forbidden Love, French Oud", category: "Bundles", price: 85.99, image: catalogImage("2025-02-Group-105949.webp") },
     ],
+  },
+  premium: {
+    slug: "premium-collection",
+    eyebrow: "Rare profiles / House selection",
+    title: { lead: "The Private", accent: "Collection" },
+    intro: "A considered edit of distinctive fragrances selected for depth, refinement and lasting presence. From polished woods to luminous signatures, every composition earns its place through character rather than convention.",
+    statement: "Selected with intention. Worn without compromise.",
+    credit: "A private edit by N7 Cosmetics",
+    highlights: [
+      "Twelve elevated compositions",
+      "Distinctive profiles and signatures",
+      "Curated by the N7 atelier",
+    ],
+    products: [
+      { name: "Anemoia", category: "Deja Vu", price: 45, rating: 4.57, image: catalogImage("2025-02-Deja-Vu.png") },
+      { name: "Ardor", category: "Noble", price: 40, rating: 4.55, image: catalogImage("2025-02-Noble-1.png") },
+      { name: "Arousal", category: "Deja Vu", price: 45, image: catalogImage("2025-03-Frame-28.webp") },
+      { name: "Memoir", category: "Deja Vu", price: 45, rating: 5, image: catalogImage("2025-03-Frame-31.webp") },
+      { name: "Tar", category: "Male", price: 44, rating: 5, image: catalogImage("2026-06-01.webp") },
+      { name: "1872 Vetiver", category: "Clive Christian", price: 45, rating: 5, image: catalogImage("2026-06-Group-106170.webp") },
+      { name: "Absolu Aventus", category: "Creed", price: 40, rating: 5, image: catalogImage("2025-02-Group-105876-4.png") },
+      { name: "Angels’ Share", category: "Kilian", price: 40, image: catalogImage("2026-08-Group-106175.png") },
+      { name: "Oud Stallion", category: "Male", price: 45, rating: 4.94, image: catalogImage("2025-02-Group-106083.webp") },
+      { name: "Royal Oud", category: "Male", price: 42, rating: 5, image: catalogImage("2025-05-Group-105887.webp") },
+      { name: "X Masculine", category: "Recreations", price: 45, rating: 5, image: catalogImage("2025-02-Group-105996.webp") },
+      { name: "L’immensite", category: "Louis Vuittion", price: 40, rating: 5, image: catalogImage("2025-02-Group-105879.webp") },
+    ],
+  },
+  sale: {
+    slug: "sale",
+    eyebrow: "Limited prices / While available",
+    title: { lead: "The Seasonal", accent: "Edit" },
+    intro: "A changing selection of fragrances and sets offered at a considered price for a limited time. Availability is intentionally finite, and the edit changes as pieces sell through.",
+    statement: "Exceptional fragrance. A rare opportunity.",
+    credit: "A limited edit by N7 Cosmetics",
+    highlights: [
+      "Limited-time pricing",
+      "While stocks last",
+      "Secure UK delivery",
+    ],
+    products: [],
   },
 };

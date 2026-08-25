@@ -1,15 +1,17 @@
 "use client";
 
 import { motion, useMotionValue, useTransform } from "motion/react";
+import { Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { HomepageProduct, SignatureContent } from "@/lib/homepage/types";
+import CartAction from "../commerce/CartAction";
 import { useCommerce } from "../commerce/CommerceProvider";
 
 const customEase = [0.65, 0, 0.35, 1] as const;
 
 const NextLevelProductCard = ({ product }: { product: HomepageProduct }) => {
-  const { addToCart, isWishlisted, toggleWishlist } = useCommerce();
+  const { isWishlisted, toggleWishlist } = useCommerce();
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 
@@ -38,12 +40,17 @@ const NextLevelProductCard = ({ product }: { product: HomepageProduct }) => {
   }
 
   return (
-    <div className="group relative w-full cursor-pointer flex flex-col">
+    <div className="group relative mx-auto flex w-full max-w-sm cursor-pointer flex-col sm:max-w-none">
+      <Link
+        aria-label={`View ${product.name}`}
+        className="absolute inset-0 z-20 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#967C55]"
+        href={`/products/${slug}`}
+      />
       <motion.div
         style={{ perspective: 1200 }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="relative w-full aspect-3/4"
+        className="pointer-events-none relative z-30 aspect-3/4 w-full"
       >
         <motion.div
           style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
@@ -85,7 +92,7 @@ const NextLevelProductCard = ({ product }: { product: HomepageProduct }) => {
                 type="button"
                 onClick={() => toggleWishlist(commerceProduct)}
                 aria-pressed={wishlisted}
-                className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm border border-black/5 flex items-center justify-center text-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white duration-300 shadow-lg translate-x-3.5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all"
+                className="signature-card-action flex h-10 w-10 translate-x-0 items-center justify-center rounded-full border border-black/5 bg-white/90 text-[#1A1A1A] opacity-100 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-[#1A1A1A] hover:text-white"
                 style={{
                   transitionDuration: "500ms",
                   transitionTimingFunction: "cubic-bezier(0.65, 0, 0.35, 1)",
@@ -107,7 +114,7 @@ const NextLevelProductCard = ({ product }: { product: HomepageProduct }) => {
 
               <Link
                 href={`/products/${slug}`}
-                className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm border border-black/5 flex items-center justify-center text-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white duration-300 shadow-lg translate-x-3.5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all"
+                className="signature-card-action flex h-10 w-10 translate-x-0 items-center justify-center rounded-full border border-black/5 bg-white/90 text-[#1A1A1A] opacity-100 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-[#1A1A1A] hover:text-white"
                 style={{
                   transitionDuration: "500ms",
                   transitionTimingFunction: "cubic-bezier(0.65, 0, 0.35, 1)",
@@ -132,7 +139,7 @@ const NextLevelProductCard = ({ product }: { product: HomepageProduct }) => {
         </motion.div>
       </motion.div>
 
-      <div className="flex flex-col items-center text-center px-2 z-10 relative -mt-3">
+      <div className="pointer-events-none relative z-30 -mt-3 flex flex-col items-center px-2 text-center">
         <h3 className="font-heading text-xl md:text-xl text-[#1A1A1A] tracking-wide mb-1 group-hover:text-[#967C55] transition-colors duration-300 line-clamp-1">
           {product.name}
         </h3>
@@ -140,28 +147,40 @@ const NextLevelProductCard = ({ product }: { product: HomepageProduct }) => {
           {product.price}
         </span>
 
-        <button onClick={() => addToCart(commerceProduct)} type="button" className="relative overflow-hidden bg-[#967C55] text-white group/btn px-6 py-3 text-xs uppercase tracking-widest transition-colors">
+        <CartAction
+          className="group/btn pointer-events-auto relative overflow-hidden bg-[#967C55] px-6 py-3 text-xs uppercase tracking-widest text-white transition-colors"
+          inCartClassName="group/btn pointer-events-auto relative overflow-hidden border border-[#967C55]/60 bg-[#f5efe5] px-6 py-3 text-xs uppercase tracking-widest text-[#6f5738] transition-colors hover:border-[#6f5738]"
+          product={commerceProduct}
+          inCartChildren={
+            <>
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <Check aria-hidden="true" size={14} strokeWidth={1.7} />
+                View in cart
+              </span>
+              <div className="absolute inset-0 bg-[#1A1A1A] translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-[0.65,0,0.35,1]" />
+            </>
+          }
+        >
           <span className="relative z-10 flex items-center justify-center gap-2">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-              <path d="M3 6h18" />
-              <path d="M16 10a4 4 0 0 1-8 0" />
-            </svg>
+            <ShoppingBagIcon />
             Add to Cart
           </span>
           <div className="absolute inset-0 bg-[#1A1A1A] translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-[0.65,0,0.35,1]" />
-        </button>
+        </CartAction>
       </div>
     </div>
   );
 };
+
+function ShoppingBagIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+      <path d="M3 6h18" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  );
+}
 
 export default function SignatureFragrances({ products, content }: { products: HomepageProduct[]; content: SignatureContent }) {
 
@@ -181,11 +200,11 @@ export default function SignatureFragrances({ products, content }: { products: H
   };
 
   return (
-    <section className="relative min-h-screen bg-[#FDFCF8] py-24 md:py-32 overflow-hidden">
+    <section className="relative min-h-screen overflow-hidden bg-[#FDFCF8] py-16 sm:py-24 md:py-32">
       <div className="absolute top-0 left-0 w-full h-125 bg-linear-to-b from-[#F2EFE8] to-transparent opacity-50 pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-16 md:mb-24 gap-8">
+        <div className="mb-14 flex flex-col items-start justify-between gap-7 md:mb-24 md:flex-row md:items-end md:gap-8">
           <div className="max-w-2xl">
             <motion.span
               initial={{ opacity: 0, y: 20 }}
@@ -201,7 +220,7 @@ export default function SignatureFragrances({ products, content }: { products: H
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: customEase, delay: 0.1 }}
-              className="font-heading text-4xl md:text-6xl text-[#1A1A1A] uppercase tracking-widest leading-[1.1]"
+              className="font-heading text-3xl uppercase leading-[1.1] tracking-widest text-[#1A1A1A] sm:text-4xl md:text-6xl"
             >
               {content.titleLead} <br />
               <span className="text-[#967C55] italic font-light lowercase">
@@ -226,7 +245,7 @@ export default function SignatureFragrances({ products, content }: { products: H
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, margin: "-100px" }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-x-0 md:gap-y-14"
+          className="grid grid-cols-1 gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-0"
         >
           {products.map((product) => (
             <motion.div key={product.id} variants={itemVariants}>

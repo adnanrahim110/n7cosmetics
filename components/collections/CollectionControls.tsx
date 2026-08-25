@@ -102,9 +102,9 @@ export default function CollectionControls({
   const canReset = activeFilterCount > 0 || hasCustomOrder;
 
   return (
-    <div className="relative z-40 mb-16 border-y border-[#80664d]/18 bg-[#d9cdbd]/32 p-1.5 shadow-[0_14px_38px_rgba(54,39,26,0.07)]">
-      <div className="grid gap-1 md:grid-cols-2 xl:grid-cols-[minmax(17rem,1.35fr)_minmax(12rem,1fr)_minmax(11rem,0.82fr)_minmax(12rem,0.95fr)_3.5rem]">
-        <div className="group/search relative flex min-h-14 min-w-0 items-center gap-2.5 overflow-hidden border border-[#8d755c]/18 bg-[#faf6ef]/88 px-3.5 py-2 transition-all duration-400 hover:border-[#9d7d5a]/48 hover:bg-[#fffaf4] focus-within:border-[#9d7d5a]/58 focus-within:bg-[#fffaf4] focus-within:shadow-[0_14px_34px_rgba(44,31,20,0.11)] md:col-span-2 xl:col-span-1">
+    <div className="relative z-40 mb-10 border-y border-[#80664d]/18 bg-[#d9cdbd]/32 p-1.5 shadow-[0_14px_38px_rgba(54,39,26,0.07)] sm:mb-12 lg:mb-16">
+      <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-[minmax(17rem,1.35fr)_minmax(12rem,1fr)_minmax(11rem,0.82fr)_minmax(12rem,0.95fr)_3.5rem]">
+        <div className="group/search relative flex min-h-14 min-w-0 items-center gap-2.5 overflow-hidden border border-[#8d755c]/18 bg-[#faf6ef]/88 px-3.5 py-2 transition-all duration-400 hover:border-[#9d7d5a]/48 hover:bg-[#fffaf4] focus-within:border-[#9d7d5a]/58 focus-within:bg-[#fffaf4] focus-within:shadow-[0_14px_34px_rgba(44,31,20,0.11)] sm:col-span-2 xl:col-span-1">
           <span
             className={`absolute inset-y-0 left-0 w-0.75 origin-bottom transition-transform duration-400 ${query ? "scale-y-100" : "scale-y-0 group-hover/search:scale-y-100 group-focus-within/search:scale-y-100"}`}
             style={{ backgroundColor: design.accent }}
@@ -124,7 +124,7 @@ export default function CollectionControls({
               aria-label="Search this collection"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Name, house or collection"
+              placeholder="Search..."
               className="w-full bg-transparent text-[10px] font-semibold uppercase tracking-[0.12em] text-[#211a15] outline-none placeholder:font-medium placeholder:text-[#3f3126]/76"
             />
           </span>
@@ -185,7 +185,7 @@ export default function CollectionControls({
           disabled={!canReset}
           onClick={onReset}
           aria-label="Clear all filters and sorting"
-          className="group/reset flex min-h-14 items-center justify-center border border-[#8d755c]/18 bg-[#f4ede3]/80 text-[#5f4b39]/64 transition-all duration-400 hover:border-[#9d7d5a]/48 hover:bg-[#ead8c2] hover:text-[#2c2118] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6e5237] disabled:cursor-not-allowed disabled:border-[#8d755c]/10 disabled:bg-[#f4ede3]/42 disabled:text-[#5f4b39]/22 disabled:hover:border-[#8d755c]/10 disabled:hover:bg-[#f4ede3]/42 disabled:hover:text-[#5f4b39]/22 md:col-span-2 xl:col-span-1"
+          className="group/reset flex min-h-14 items-center justify-center border border-[#8d755c]/18 bg-[#f4ede3]/80 text-[#5f4b39]/64 transition-all duration-400 hover:border-[#9d7d5a]/48 hover:bg-[#ead8c2] hover:text-[#2c2118] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6e5237] disabled:cursor-not-allowed disabled:border-[#8d755c]/10 disabled:bg-[#f4ede3]/42 disabled:text-[#5f4b39]/22 disabled:hover:border-[#8d755c]/10 disabled:hover:bg-[#f4ede3]/42 disabled:hover:text-[#5f4b39]/22 sm:col-span-2 xl:col-span-1"
         >
           <RotateCcw
             className="size-4 transition-transform duration-500 group-hover/reset:-rotate-90"

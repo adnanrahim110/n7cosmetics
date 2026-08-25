@@ -18,8 +18,7 @@ const sessionEnvironmentSchema = z.object({
 const applicationEnvironmentSchema = z.object({
   APP_URL: z.url().default("http://localhost:3003"),
   APP_ENCRYPTION_KEY: z.string().min(1),
-  UPLOAD_DIR: z.string().min(1).default("public/uploads"),
-  UPLOAD_PUBLIC_PATH: z.string().regex(/^\/[a-zA-Z0-9/_-]*$/).default("/uploads"),
+  MEDIA_STORAGE_DIR: z.string().trim().min(1).refine((value) => !value.includes("\0"), "Invalid media storage directory"),
 });
 
 export interface DatabaseConfig {
@@ -40,8 +39,7 @@ export interface SessionConfig {
 export interface ApplicationConfig {
   appUrl: string;
   encryptionKey: Buffer;
-  uploadDirectory: string;
-  uploadPublicPath: string;
+  mediaStorageDirectory: string;
 }
 
 let cachedDatabaseConfig: DatabaseConfig | undefined;
@@ -101,8 +99,7 @@ export function getApplicationConfig(): ApplicationConfig {
   cachedApplicationConfig = {
     appUrl: parsed.APP_URL.replace(/\/$/, ""),
     encryptionKey,
-    uploadDirectory: parsed.UPLOAD_DIR,
-    uploadPublicPath: parsed.UPLOAD_PUBLIC_PATH.replace(/\/$/, ""),
+    mediaStorageDirectory: parsed.MEDIA_STORAGE_DIR,
   };
   return cachedApplicationConfig;
 }

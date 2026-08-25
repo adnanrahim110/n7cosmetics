@@ -43,22 +43,14 @@ export const globalContent: GlobalContent = {
         href: "/premium-collection",
         type: "mega",
         items: [
-          { name: "Velvet Night", href: "/product/velvet-night", image: "https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=600&auto=format&fit=crop" },
-          { name: "Golden Aura", href: "/product/golden-aura", image: "https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=600&auto=format&fit=crop" },
-          { name: "Desert Breeze", href: "/product/desert-breeze", image: "https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=600&auto=format&fit=crop" },
+          { name: "Anemoia", href: "/products/anemoia", image: "/imgs/products/8.png" },
+          { name: "1872 Vetiver", href: "/products/1872-vetiver", image: "/imgs/products/11.png" },
+          { name: "Oud Stallion", href: "/products/oud-stallion", image: "/imgs/products/9.png" },
           { name: "View All", href: "/premium-collection", image: null }
         ]
       },
       { label: "Recreations", href: "/recreations" },
-      {
-        label: "Sale",
-        href: "/sale",
-        type: "dropdown",
-        items: [
-          { name: "Clearance", href: "/sale/clearance" },
-          { name: "Holiday Offers", href: "/sale/holiday" }
-        ]
-      },
+      { label: "Sale", href: "/sale" },
       { label: "Bundles", href: "/bundles" },
       { label: "About Us", href: "/about" },
     ],

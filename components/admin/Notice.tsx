@@ -1,4 +1,5 @@
-export default function Notice({ type = "error", children }: { type?: "error" | "success"; children: React.ReactNode }) {
-  const styles = type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700";
-  return <div role={type === "error" ? "alert" : "status"} className={`mt-5 rounded-lg border px-3 py-2 text-sm ${styles}`}>{children}</div>;
+// Older server pages still render this component, but their feedback is now
+// presented and announced by the centralized admin toast listener.
+export default function Notice(_: { type?: "error" | "success"; children: React.ReactNode }) {
+  return null;
 }

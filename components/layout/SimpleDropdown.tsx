@@ -8,6 +8,8 @@ import type { DropdownNavigationItem } from "../../content/global";
 
 interface SimpleDropdownProps {
   item: DropdownNavigationItem;
+  isActive: boolean;
+  activeSubHref?: string;
   isOpen: boolean;
   isScrolled: boolean;
   forceDarkText: boolean;
@@ -17,6 +19,8 @@ interface SimpleDropdownProps {
 
 export default function SimpleDropdown({
   item,
+  isActive,
+  activeSubHref,
   isOpen,
   isScrolled,
   forceDarkText,
@@ -39,25 +43,47 @@ export default function SimpleDropdown({
 
   return (
     <div
-      className="relative h-full flex items-center group/droplink cursor-pointer"
+      className="group/droplink relative isolate flex h-full cursor-pointer items-center"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
+      <span
+        aria-hidden="true"
+        className={`absolute -inset-x-3 top-1/2 -z-10 h-9 -translate-y-1/2 rounded-full border backdrop-blur-md transition-all duration-500 ${
+          isActive
+            ? forceDarkText || isScrolled
+              ? "scale-100 border-[#967C55]/25 bg-[#967C55]/9 opacity-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_8px_24px_rgba(112,80,40,0.09)]"
+              : "scale-100 border-primary-300/25 bg-black/14 opacity-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_24px_rgba(0,0,0,0.12)]"
+            : "scale-95 border-transparent bg-transparent opacity-0"
+        }`}
+      />
       <Link
         href={item.href}
-        className={`transition-colors duration-300 text-[12px] tracking-[0.15em] uppercase font-medium h-full flex items-center ${
-          forceDarkText || isScrolled
-            ? "text-[#1A1A1A] group-hover/droplink:text-[#967C55]"
-            : "text-dark-100 group-hover/droplink:text-primary-300"
+        aria-current={isActive ? "page" : undefined}
+        className={`relative z-10 flex h-full items-center text-[12px] font-medium uppercase tracking-[0.15em] transition-colors duration-300 ${
+          isActive
+            ? forceDarkText || isScrolled
+              ? "text-[#7a5825]"
+              : "text-primary-200"
+            : forceDarkText || isScrolled
+              ? "text-[#1A1A1A] group-hover/droplink:text-[#967C55]"
+              : "text-dark-100 group-hover/droplink:text-primary-300"
         }`}
       >
         {item.label}
       </Link>
 
       <span
-        className={`absolute bottom-3 left-0 w-full h-0.5 origin-right group-hover/droplink:origin-left transition-transform duration-500 ease-out ${isOpen ? "scale-x-100" : "scale-x-0"} ${
+        aria-hidden="true"
+        className={`absolute bottom-3 left-0 h-px w-full transition-transform duration-500 ease-out group-hover/droplink:origin-left ${isOpen || isActive ? "origin-left scale-x-100" : "origin-right scale-x-0"} ${
           forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-400"
         }`}
+      />
+      <span
+        aria-hidden="true"
+        className={`absolute bottom-2.5 left-1/2 size-1 -translate-x-1/2 rotate-45 transition-all duration-500 ${
+          isActive ? "scale-100 opacity-100" : "scale-0 opacity-0"
+        } ${forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-300"}`}
       />
 
       <AnimatePresence>
@@ -80,7 +106,12 @@ export default function SimpleDropdown({
                 <motion.div key={idx} variants={itemVariants}>
                   <Link
                     href={subItem.href}
-                    className="block px-8 py-3 text-[12px] text-[#5A5A5A] hover:text-[#1A1A1A] hover:bg-[#1A1A1A]/5 transition-colors uppercase tracking-[0.15em]"
+                    aria-current={activeSubHref === subItem.href ? "page" : undefined}
+                    className={`relative block border-l-2 px-8 py-3 text-[12px] uppercase tracking-[0.15em] transition-colors ${
+                      activeSubHref === subItem.href
+                        ? "border-[#967C55] bg-[#967C55]/8 text-[#7a5825]"
+                        : "border-transparent text-[#5A5A5A] hover:bg-[#1A1A1A]/5 hover:text-[#1A1A1A]"
+                    }`}
                   >
                     {subItem.name}
                   </Link>

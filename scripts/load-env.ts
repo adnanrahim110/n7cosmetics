@@ -1,3 +1,9 @@
-import { config } from "dotenv";
+import { loadEnvFile } from "node:process";
 
-config({ quiet: true });
+for (const environmentFile of [".env.local", ".env"]) {
+  try {
+    loadEnvFile(environmentFile);
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+  }
+}

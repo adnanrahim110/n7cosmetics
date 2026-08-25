@@ -9,16 +9,20 @@ import type { AudienceContent } from "@/lib/homepage/types";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-export default function AudienceCollections({ content }: { content: AudienceContent }) {
+export default function AudienceCollections({
+  content,
+}: {
+  content: AudienceContent;
+}) {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <section className="relative isolate overflow-hidden bg-[#dfe1db] py-24 text-[#17201d] md:py-32">
+    <section className="relative isolate overflow-hidden bg-[#dfe1db] py-16 text-[#17201d] sm:py-24 md:py-32">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_84%_10%,rgba(247,245,237,0.76),transparent_34%),linear-gradient(135deg,#e5e6e0_0%,#d4d8d1_100%)]" />
-      <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.14] [background-image:linear-gradient(rgba(35,52,46,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(35,52,46,0.09)_1px,transparent_1px)] [background-size:112px_112px]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.14] bg-[linear-gradient(rgba(35,52,46,0.09)_1px,transparent_1px),linear-gradient(90deg,rgba(35,52,46,0.09)_1px,transparent_1px)] bg-size-[112px_112px]" />
 
       <div className="mx-auto max-w-360 px-4 sm:px-6 lg:px-8">
-        <div className="mb-14 flex flex-col justify-between gap-7 border-b border-[#24332e]/16 pb-8 md:flex-row md:items-end">
+        <div className="mb-10 flex flex-col justify-between gap-7 border-b border-[#24332e]/16 pb-7 sm:mb-14 sm:pb-8 md:flex-row md:items-end">
           <div>
             <motion.span
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
@@ -33,8 +37,12 @@ export default function AudienceCollections({ content }: { content: AudienceCont
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.9, delay: shouldReduceMotion ? 0 : 0.08, ease }}
-              className="font-heading text-4xl uppercase tracking-[0.08em] text-[#17201d] md:text-6xl"
+              transition={{
+                duration: shouldReduceMotion ? 0 : 0.9,
+                delay: shouldReduceMotion ? 0 : 0.08,
+                ease,
+              }}
+              className="font-heading text-3xl uppercase tracking-[0.08em] text-[#17201d] sm:text-4xl md:text-6xl"
             >
               {content.title}
             </motion.h2>
@@ -43,22 +51,30 @@ export default function AudienceCollections({ content }: { content: AudienceCont
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.8, delay: shouldReduceMotion ? 0 : 0.14, ease }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.8,
+              delay: shouldReduceMotion ? 0 : 0.14,
+              ease,
+            }}
             className="max-w-md font-light leading-7 text-[#263630]/58 md:text-right"
           >
             {content.description}
           </motion.p>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {content.cards.map((collection, index) => (
             <motion.article
               key={collection.title}
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: shouldReduceMotion ? 0 : 1, delay: shouldReduceMotion ? 0 : index * 0.12, ease }}
-              className="group relative isolate min-h-165 overflow-hidden border border-[#22312c]/12 bg-[#100d0b] shadow-[0_24px_60px_rgba(40,55,49,0.12)] sm:min-h-187.5"
+              transition={{
+                duration: shouldReduceMotion ? 0 : 1,
+                delay: shouldReduceMotion ? 0 : index * 0.12,
+                ease,
+              }}
+              className="group relative isolate min-h-140 overflow-hidden border border-[#22312c]/12 bg-[#100d0b] shadow-[0_24px_60px_rgba(40,55,49,0.12)] sm:min-h-160 md:min-h-168 lg:min-h-187.5"
             >
               <Image
                 src={collection.background}
@@ -67,10 +83,12 @@ export default function AudienceCollections({ content }: { content: AudienceCont
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="-z-20 object-cover transition-transform duration-1200 ease-[0.22,1,0.36,1] group-hover:scale-105"
               />
-              <div className={`absolute inset-0 -z-10 ${index === 0 ? "bg-linear-to-t from-black via-black/45 to-black/10" : "bg-linear-to-t from-[#16080b] via-[#16080b]/45 to-transparent"}`} />
+              <div
+                className={`absolute inset-0 -z-10 ${index === 0 ? "bg-linear-to-t from-black via-black/45 to-black/10" : "bg-linear-to-t from-[#16080b] via-[#16080b]/45 to-transparent"}`}
+              />
               <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_70%_46%,rgba(209,162,100,0.16),transparent_38%)]" />
 
-              <div className="absolute right-[3%] top-[7%] h-[68%] w-[58%] transition-transform duration-1000 ease-[0.22,1,0.36,1] group-hover:-translate-y-3 group-hover:scale-[1.035] sm:right-[6%] sm:w-[52%]">
+              <div className="absolute right-[3%] top-[14%] h-[68%] w-[58%] transition-transform duration-1000 ease-[0.22,1,0.36,1] group-hover:-translate-y-3 group-hover:scale-[1.035] sm:right-0 sm:w-[52%]">
                 <Image
                   src={collection.image}
                   alt={`${collection.title} fragrance collection`}
@@ -80,15 +98,11 @@ export default function AudienceCollections({ content }: { content: AudienceCont
                 />
               </div>
 
-              <div className="absolute left-6 top-6 flex size-11 items-center justify-center rounded-full border border-white/25 text-[10px] tracking-[0.15em] text-white/65 sm:left-9 sm:top-9">
-                0{index + 1}
-              </div>
-
               <div className="absolute inset-x-0 bottom-0 z-10 p-7 sm:p-10 md:p-12">
                 <span className="mb-4 block text-[10px] font-semibold uppercase tracking-[0.3em] text-[#d8b27e]">
                   {collection.eyebrow}
                 </span>
-                <h3 className="font-heading text-5xl uppercase tracking-[0.08em] text-[#f5eee4] sm:text-7xl">
+                <h3 className="font-heading text-4xl uppercase text-[#f5eee4] sm:text-5xl lg:text-7xl">
                   {collection.title}
                 </h3>
                 <div className="mt-6 flex flex-col gap-6 border-t border-white/20 pt-6 sm:flex-row sm:items-end sm:justify-between">

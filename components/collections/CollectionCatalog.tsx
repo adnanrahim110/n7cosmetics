@@ -1,35 +1,38 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import type { StorefrontCollectionPageContent } from "@/lib/storefront-pages/config";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CollectionPageContent } from "../../content/collections";
 import {
   collectionEase,
-  productMatchesPriceBand,
   productBatchSize,
+  productMatchesPriceBand,
   type CollectionDesign,
   type PriceBand,
   type SortOption,
 } from "./collection-config";
 import CollectionControls from "./CollectionControls";
 import CollectionLoadingControls from "./CollectionLoadingControls";
-import CollectionOutro from "./CollectionOutro";
 import {
+  CollectionComingSoonCard,
   CollectionFeaturedCard,
   CollectionProductCard,
 } from "./CollectionProductCards";
 
 interface CollectionCatalogProps {
-  collection: CollectionPageContent;
+  collection: StorefrontCollectionPageContent;
   design: CollectionDesign;
-  shouldReduceMotion: boolean | null;
+  shouldReduceMotion?: boolean | null;
 }
 
 export default function CollectionCatalog({
   collection,
   design,
-  shouldReduceMotion,
+  shouldReduceMotion: shouldReduceMotionOverride,
 }: CollectionCatalogProps) {
+  const prefersReducedMotion = useReducedMotion();
+  const shouldReduceMotion =
+    shouldReduceMotionOverride ?? prefersReducedMotion ?? false;
   const infiniteScrollTriggerRef = useRef<HTMLDivElement>(null);
   const [selectedCategories, setSelectedCategoriesState] = useState<string[]>(
     [],
@@ -41,7 +44,8 @@ export default function CollectionCatalog({
   const [sortBy, setSortByState] = useState<SortOption>("featured");
   const [visibleCount, setVisibleCount] = useState(productBatchSize);
   const isBundle = collection.slug === "bundles";
-  const usesInfiniteScroll = collection.slug === "recreations";
+  const usesInfiniteScroll = collection.products.length > productBatchSize;
+  const detail = collection.pageConfiguration.detail;
 
   const categories = useMemo(
     () => [...new Set(collection.products.map((product) => product.category))],
@@ -140,7 +144,7 @@ export default function CollectionCatalog({
   return (
     <section
       id="collection-index"
-      className="relative isolate scroll-mt-20 overflow-hidden bg-[#f3eee5] py-24 text-[#1c1814] md:py-32"
+      className="relative isolate scroll-mt-20 overflow-hidden bg-[#f3eee5] py-16 text-[#1c1814] sm:py-24 lg:py-32"
     >
       <div className="pointer-events-none absolute inset-y-0 left-[12%] -z-10 w-px bg-black/[0.035]" />
       <div className="pointer-events-none absolute inset-y-0 right-[12%] -z-10 w-px bg-black/[0.035]" />
@@ -148,8 +152,8 @@ export default function CollectionCatalog({
         INDEX
       </span>
 
-      <div className="mx-auto max-w-360 px-4 sm:px-8 lg:px-12">
-        <div className="mb-14 grid gap-8 lg:grid-cols-[1fr_0.72fr] lg:items-end">
+      <div className="mx-auto max-w-360 px-5 sm:px-8 lg:px-12">
+        <div className="mb-10 grid gap-7 sm:mb-14 sm:gap-8 lg:grid-cols-[1fr_0.72fr] lg:items-end">
           <motion.div
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -164,10 +168,10 @@ export default function CollectionCatalog({
                 className="h-px w-10"
                 style={{ backgroundColor: design.accent }}
               />
-              Complete collection / {design.code}
+              {detail.eyebrow}
             </span>
-            <h2 className="font-heading text-5xl uppercase leading-[0.88] tracking-wider text-[#1d1814] sm:text-6xl lg:text-7xl">
-              {design.indexTitle}
+            <h2 className="font-heading text-4xl uppercase leading-[0.88] tracking-wider text-[#1d1814] sm:text-5xl md:text-6xl lg:text-7xl">
+              {detail.title}
             </h2>
           </motion.div>
           <motion.div
@@ -182,83 +186,101 @@ export default function CollectionCatalog({
             className="lg:justify-self-end lg:text-right"
           >
             <p className="max-w-xl font-heading text-xl italic text-[#3b2e24]/66 sm:text-2xl">
-              &ldquo;{collection.statement}&rdquo;
+              &ldquo;{detail.description}&rdquo;
             </p>
             <p className="mt-4 text-[8px] font-semibold uppercase tracking-[0.26em] text-black/32">
-              A collection composed by Yusuf Bhai
+              {detail.credit}
             </p>
           </motion.div>
         </div>
 
-        <CollectionControls
-          collection={collection}
-          design={design}
-          categories={categories}
-          selectedCategories={selectedCategories}
-          setSelectedCategories={setSelectedCategories}
-          selectedPriceBands={selectedPriceBands}
-          setSelectedPriceBands={setSelectedPriceBands}
-          query={query}
-          setQuery={setQuery}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          onReset={resetControls}
-        />
+        {collection.products.length ? (
+          <CollectionControls
+            collection={collection}
+            design={design}
+            categories={categories}
+            selectedCategories={selectedCategories}
+            setSelectedCategories={setSelectedCategories}
+            selectedPriceBands={selectedPriceBands}
+            setSelectedPriceBands={setSelectedPriceBands}
+            query={query}
+            setQuery={setQuery}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            onReset={resetControls}
+          />
+        ) : null}
 
         <AnimatePresence mode="popLayout">
-          {visibleProducts.length ? (
-            <motion.div
-              key={`${selectedCategories.join(".")}-${selectedPriceBands.join(".")}-${query}-${sortBy}`}
-              layout
-              className={`grid grid-cols-1 gap-x-10 gap-y-22 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${isBundle ? "xl:grid-cols-3" : ""}`}
-            >
-              {visibleProducts.map((product, index) => {
-                const isFeatured =
-                  isCuratedView &&
-                  (index === 0 || (!isBundle && index === 9));
+          <motion.div
+            key={`${selectedCategories.join(".")}-${selectedPriceBands.join(".")}-${query}-${sortBy}`}
+            layout
+            className={`grid grid-cols-1 gap-x-5 gap-y-16 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-18 md:gap-x-8 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-22 xl:grid-cols-4 ${isBundle ? "xl:grid-cols-3" : ""}`}
+          >
+            {detail.comingSoon.enabled ? (
+              <CollectionComingSoonCard
+                content={detail.comingSoon}
+                design={design}
+                shouldReduceMotion={shouldReduceMotion}
+              />
+            ) : null}
 
-                return isFeatured ? (
-                  <CollectionFeaturedCard
-                    key={`${product.name}-${product.category}`}
-                    product={product}
-                    index={index}
-                    design={design}
-                    shouldReduceMotion={shouldReduceMotion}
-                    isBundle={isBundle}
-                  />
-                ) : (
-                  <CollectionProductCard
-                    key={`${product.name}-${product.category}`}
-                    product={product}
-                    index={index}
-                    design={design}
-                    shouldReduceMotion={shouldReduceMotion}
-                    isBundle={isBundle}
-                  />
-                );
-              })}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex min-h-90 flex-col items-center justify-center border-y border-black/12 text-center"
-            >
-              <span className="font-kindred text-7xl text-black/5.5">00</span>
-              <span className="mt-4 text-[9px] font-semibold uppercase tracking-[0.3em] text-black/38">
-                No composition matches this edit
-              </span>
-              <button
-                type="button"
-                onClick={resetControls}
-                className="mt-6 border-b border-black/35 pb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-black"
+            {visibleProducts.map((product, index) => {
+              const isFeatured =
+                isCuratedView && (index === 0 || (!isBundle && index === 9));
+
+              return isFeatured ? (
+                <CollectionFeaturedCard
+                  key={`${product.name}-${product.category}`}
+                  product={product}
+                  index={index}
+                  design={design}
+                  shouldReduceMotion={shouldReduceMotion}
+                  isBundle={isBundle}
+                />
+              ) : (
+                <CollectionProductCard
+                  key={`${product.name}-${product.category}`}
+                  product={product}
+                  index={index}
+                  design={design}
+                  shouldReduceMotion={shouldReduceMotion}
+                  isBundle={isBundle}
+                />
+              );
+            })}
+
+            {!visibleProducts.length && !(detail.comingSoon.enabled && !collection.products.length) ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="col-span-full flex min-h-90 flex-col items-center justify-center border-y border-black/12 text-center"
               >
-                Return to the complete collection
-              </button>
-            </motion.div>
-          )}
+                <span className="font-kindred text-7xl text-black/5.5">00</span>
+                <span className="mt-4 text-[9px] font-semibold uppercase tracking-[0.3em] text-black/38">
+                  {collection.products.length
+                    ? "No composition matches this edit"
+                    : "This edit is being prepared"}
+                </span>
+                {collection.products.length ? (
+                  <button
+                    type="button"
+                    onClick={resetControls}
+                    className="mt-6 border-b border-black/35 pb-1 text-[9px] font-semibold uppercase tracking-[0.22em] text-black"
+                  >
+                    Return to the complete collection
+                  </button>
+                ) : (
+                  <p className="mt-5 max-w-md text-sm leading-7 text-black/48">
+                    New additions will appear here as soon as they become
+                    available.
+                  </p>
+                )}
+              </motion.div>
+            ) : null}
+          </motion.div>
         </AnimatePresence>
 
         <CollectionLoadingControls
@@ -273,7 +295,7 @@ export default function CollectionCatalog({
           }
         />
 
-        <CollectionOutro collection={collection} design={design} />
+        {/* <CollectionOutro collection={collection} design={design} /> */}
       </div>
     </section>
   );

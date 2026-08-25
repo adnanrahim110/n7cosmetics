@@ -16,11 +16,16 @@ interface CommerceContextValue {
   cart: CartItem[];
   wishlist: CommerceProduct[];
   cartCount: number;
+  cartSubtotalPence: number;
   wishlistCount: number;
+  isCartOpen: boolean;
   addToCart: (product: CommerceProduct, quantity?: number) => void;
   updateQuantity: (slug: string, quantity: number) => void;
   removeFromCart: (slug: string) => void;
   clearCart: () => void;
+  openCart: () => void;
+  closeCart: () => void;
+  isInCart: (slug: string) => boolean;
   toggleWishlist: (product: CommerceProduct) => void;
   isWishlisted: (slug: string) => boolean;
 }
@@ -52,6 +57,7 @@ function loadCart(): CartItem[] {
 export default function CommerceProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<CommerceProduct[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -65,17 +71,39 @@ export default function CommerceProvider({ children }: { children: ReactNode }) 
   useEffect(() => { if (hydrated) localStorage.setItem(CART_KEY, JSON.stringify(cart)); }, [cart, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist)); }, [wishlist, hydrated]);
 
-  const addToCart = useCallback((product: CommerceProduct, quantity = 1) => setCart((current) => {
-    const safeQuantity = Math.max(1, Math.min(99, Math.floor(quantity)));
-    const existing = current.find((item) => item.slug === product.slug);
-    return existing ? current.map((item) => item.slug === product.slug ? { ...item, quantity: Math.min(99, item.quantity + safeQuantity) } : item) : [...current, { ...product, quantity: safeQuantity }];
-  }), []);
+  const addToCart = useCallback((product: CommerceProduct, quantity = 1) => {
+    setCart((current) => {
+      const safeQuantity = Math.max(1, Math.min(99, Math.floor(quantity)));
+      const existing = current.find((item) => item.slug === product.slug);
+      return existing ? current.map((item) => item.slug === product.slug ? { ...item, quantity: Math.min(99, item.quantity + safeQuantity) } : item) : [...current, { ...product, quantity: safeQuantity }];
+    });
+    setIsCartOpen(true);
+  }, []);
   const updateQuantity = useCallback((slug: string, quantity: number) => setCart((current) => quantity <= 0 ? current.filter((item) => item.slug !== slug) : current.map((item) => item.slug === slug ? { ...item, quantity: Math.min(99, Math.floor(quantity)) } : item)), []);
   const removeFromCart = useCallback((slug: string) => setCart((current) => current.filter((item) => item.slug !== slug)), []);
   const clearCart = useCallback(() => setCart([]), []);
+  const openCart = useCallback(() => setIsCartOpen(true), []);
+  const closeCart = useCallback(() => setIsCartOpen(false), []);
+  const isInCart = useCallback((slug: string) => cart.some((item) => item.slug === slug), [cart]);
   const toggleWishlist = useCallback((product: CommerceProduct) => setWishlist((current) => current.some((item) => item.slug === product.slug) ? current.filter((item) => item.slug !== product.slug) : [...current, product]), []);
   const isWishlisted = useCallback((slug: string) => wishlist.some((item) => item.slug === slug), [wishlist]);
-  const value = useMemo(() => ({ cart, wishlist, cartCount: cart.reduce((sum, item) => sum + item.quantity, 0), wishlistCount: wishlist.length, addToCart, updateQuantity, removeFromCart, clearCart, toggleWishlist, isWishlisted }), [addToCart, cart, clearCart, isWishlisted, removeFromCart, toggleWishlist, updateQuantity, wishlist]);
+  const value = useMemo(() => ({
+    cart,
+    wishlist,
+    cartCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+    cartSubtotalPence: cart.reduce((sum, item) => sum + item.pricePence * item.quantity, 0),
+    wishlistCount: wishlist.length,
+    isCartOpen,
+    addToCart,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    openCart,
+    closeCart,
+    isInCart,
+    toggleWishlist,
+    isWishlisted,
+  }), [addToCart, cart, clearCart, closeCart, isCartOpen, isInCart, isWishlisted, openCart, removeFromCart, toggleWishlist, updateQuantity, wishlist]);
   return <CommerceContext.Provider value={value}>{children}</CommerceContext.Provider>;
 }
 

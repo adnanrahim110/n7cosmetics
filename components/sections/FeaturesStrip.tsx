@@ -46,15 +46,15 @@ const features = [
 
 export default function FeaturesStrip() {
   return (
-    <section className="py-24 bg-[#FDFCF8] border-t border-b border-[#1a1a1a]/10 overflow-hidden relative">
+    <section className="relative overflow-hidden border-y border-[#1a1a1a]/10 bg-[#FDFCF8] py-12 sm:py-16 md:py-24">
       <div className="w-full max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8">
         {/* The Grid with Ultra-Thin Separators */}
         <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#1a1a1a]/10">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <div key={index} className="flex flex-col items-center text-center py-16 md:py-8 px-6 group">
-                <div className="mb-10 relative">
+              <div key={index} className="group flex flex-col items-center px-6 py-10 text-center sm:py-12 md:py-8">
+                <div className="relative mb-6 sm:mb-8 md:mb-10">
                   {/* Subtle pulsing background for the icon area on hover */}
                   <div className="absolute inset-0 bg-[#967C55]/5 rounded-full scale-[2] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none" />
                   <Icon />

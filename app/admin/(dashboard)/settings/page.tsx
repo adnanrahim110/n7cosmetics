@@ -3,32 +3,129 @@ import CustomSelect from "@/components/admin/CustomSelect";
 import Notice from "@/components/admin/Notice";
 import PageHeader from "@/components/admin/PageHeader";
 import PasswordInput from "@/components/admin/PasswordInput";
+import SocialMediaLinksEditor from "@/components/admin/SocialMediaLinksEditor";
 import { requireAdministrator } from "@/lib/auth/session";
 import { selectRows } from "@/lib/db/query";
-import { saveSettingsAction, saveSmtpSettingsAction, sendTestEmailAction } from "./actions";
+import { normalizeSocialMediaLinks } from "@/lib/social-media";
+import {
+  saveSettingsAction,
+  saveSmtpSettingsAction,
+  saveSocialMediaSettingsAction,
+  sendTestEmailAction,
+} from "./actions";
 
-interface SettingRow extends RowDataPacket { setting_key: string; value_json: unknown }
-function settingValue(value: unknown): string { if (typeof value === "string") { try { const parsed: unknown = JSON.parse(value); return typeof parsed === "string" ? parsed : String(parsed ?? ""); } catch { return value; } } return String(value ?? ""); }
+interface SettingRow extends RowDataPacket {
+  setting_key: string;
+  value_json: unknown;
+}
+
+interface SettingsQuery {
+  error?: string;
+  saved?: string;
+  "social-error"?: string;
+  "social-saved"?: string;
+  "smtp-error"?: string;
+  "smtp-saved"?: string;
+  "smtp-test"?: string;
+}
+
+function settingValue(value: unknown): string {
+  if (typeof value === "string") {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      return typeof parsed === "string" ? parsed : String(parsed ?? "");
+    } catch {
+      return value;
+    }
+  }
+  return String(value ?? "");
+}
+
 const input = "mt-1.5 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-100";
+const card = "rounded-xl border border-zinc-200 bg-white p-5 shadow-sm";
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; "smtp-error"?: string; "smtp-saved"?: string; "smtp-test"?: string }> }) {
-  const [admin, rows, query] = await Promise.all([requireAdministrator(), selectRows<SettingRow>("SELECT setting_key, value_json FROM site_settings WHERE setting_key IN ('contact.phone','contact.email','contact.address','contact.whatsapp','social.instagram','social.facebook','store.currency','smtp.host','smtp.port','smtp.secure','smtp.user','smtp.password_encrypted','smtp.from_name','smtp.from_email')"), searchParams]);
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<SettingsQuery> }) {
+  const [admin, rows, query] = await Promise.all([
+    requireAdministrator(),
+    selectRows<SettingRow>("SELECT setting_key, value_json FROM site_settings WHERE setting_key IN ('contact.phone','contact.email','contact.address','contact.whatsapp','social.links','store.currency','inventory.low_stock_threshold','smtp.host','smtp.port','smtp.secure','smtp.user','smtp.password_encrypted','smtp.from_name','smtp.from_email')"),
+    searchParams,
+  ]);
   const settings = Object.fromEntries(rows.map((row) => [row.setting_key, settingValue(row.value_json)]));
+  const socialLinks = normalizeSocialMediaLinks(rows.find((row) => row.setting_key === "social.links")?.value_json);
   const smtpTest = query["smtp-test"];
-  return <div>
-    <PageHeader eyebrow="Configuration" title="Global settings" description="Contact details, storefront information, and project-wide email delivery." />
-    {query.saved ? <Notice type="success">Global settings saved.</Notice> : null}
-    {query.error ? <Notice>Check the email, web addresses, and field lengths.</Notice> : null}
-    {query["smtp-saved"] ? <Notice type="success">SMTP settings saved securely.</Notice> : null}
-    {query["smtp-error"] ? <Notice>Check every SMTP field and provide a valid sender email.</Notice> : null}
-    {smtpTest === "sent" ? <Notice type="success">Test email sent to {admin.email}.</Notice> : null}
-    {smtpTest === "failed" ? <Notice>The SMTP server rejected the test. Check the host, port, security mode, username, and password.</Notice> : null}
-    {smtpTest === "skipped" ? <Notice>SMTP is not fully configured yet.</Notice> : null}
-    <form action={saveSettingsAction} className="mt-7 space-y-6">
-      <section className="grid gap-5 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:grid-cols-2"><div className="sm:col-span-2"><h2 className="font-body text-base font-semibold text-zinc-950">Contact details</h2></div><label className="text-sm font-medium text-zinc-700">Phone<input className={input} defaultValue={settings["contact.phone"]} maxLength={50} name="phone" /></label><label className="text-sm font-medium text-zinc-700">Email<input className={input} defaultValue={settings["contact.email"]} maxLength={190} name="email" type="email" /></label><label className="text-sm font-medium text-zinc-700">WhatsApp<input className={input} defaultValue={settings["contact.whatsapp"]} maxLength={50} name="whatsapp" /></label><label className="text-sm font-medium text-zinc-700 sm:col-span-2">Address<textarea className={input} defaultValue={settings["contact.address"]} maxLength={1000} name="address" rows={3} /></label></section>
-      <section className="grid gap-5 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:grid-cols-2"><div className="sm:col-span-2"><h2 className="font-body text-base font-semibold text-zinc-950">Storefront</h2></div><label className="text-sm font-medium text-zinc-700">Instagram URL<input className={input} defaultValue={settings["social.instagram"]} maxLength={1000} name="instagramUrl" type="url" /></label><label className="text-sm font-medium text-zinc-700">Facebook URL<input className={input} defaultValue={settings["social.facebook"]} maxLength={1000} name="facebookUrl" type="url" /></label><CustomSelect defaultValue={settings["store.currency"] || "GBP"} label="Currency" name="currency" options={[{ value: "GBP", label: "GBP — British pound" }, { value: "PKR", label: "PKR — Pakistani rupee" }, { value: "USD", label: "USD — US dollar" }, { value: "EUR", label: "EUR — Euro" }]} required searchable={false} /></section>
-      <div className="flex justify-end"><button className="rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save settings</button></div>
-    </form>
-    {admin.role === "OWNER" ? <section className="mt-8 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Owner only</p><h2 className="mt-1 font-body text-base font-semibold text-zinc-950">SMTP email delivery</h2><p className="mt-1 text-sm text-zinc-500">Used by password recovery, order confirmations, and future project email. The password is encrypted before storage.</p></div><form action={saveSmtpSettingsAction} className="mt-5 grid gap-5 sm:grid-cols-2"><label className="text-sm font-medium text-zinc-700">SMTP host<input className={input} defaultValue={settings["smtp.host"]} maxLength={255} name="smtpHost" placeholder="smtp.example.com" required /></label><label className="text-sm font-medium text-zinc-700">Port<input className={input} defaultValue={settings["smtp.port"] || "587"} max={65535} min={1} name="smtpPort" required type="number" /></label><label className="text-sm font-medium text-zinc-700">Username<input autoComplete="username" className={input} defaultValue={settings["smtp.user"]} maxLength={255} name="smtpUser" required /></label><PasswordInput autoComplete="new-password" hint={settings["smtp.password_encrypted"] ? "A password is saved. Leave blank to keep it unchanged." : "Required the first time SMTP is configured."} label="SMTP password" maxLength={500} name="smtpPassword" required={!settings["smtp.password_encrypted"]} /><label className="text-sm font-medium text-zinc-700">Sender name<input className={input} defaultValue={settings["smtp.from_name"] || "N7 Cosmetics"} maxLength={120} name="smtpFromName" required /></label><label className="text-sm font-medium text-zinc-700">Sender email<input className={input} defaultValue={settings["smtp.from_email"]} maxLength={190} name="smtpFromEmail" required type="email" /></label><label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2"><input defaultChecked={settings["smtp.secure"] === "true"} name="smtpSecure" type="checkbox" />Use implicit TLS (normally port 465)</label><div className="flex justify-end sm:col-span-2"><button className="rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save SMTP</button></div></form>{settings["smtp.password_encrypted"] ? <form action={sendTestEmailAction} className="mt-3 flex justify-end"><button className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50" type="submit">Send test to {admin.email}</button></form> : null}</section> : null}
-  </div>;
+
+  return (
+    <div>
+      <PageHeader eyebrow="Configuration" title="Global settings" description="Contact details, storefront information, social profiles, inventory defaults, and project-wide email delivery." />
+      {query.saved ? <Notice type="success">Global settings saved.</Notice> : null}
+      {query.error ? <Notice>Check the email, field lengths, and inventory threshold.</Notice> : null}
+      {query["social-saved"] ? <Notice type="success">Social media profiles saved and published across the storefront.</Notice> : null}
+      {query["social-error"] ? <Notice>Check every social profile has a supported platform and a valid web address.</Notice> : null}
+      {query["smtp-saved"] ? <Notice type="success">SMTP settings saved securely.</Notice> : null}
+      {query["smtp-error"] ? <Notice>Check every SMTP field and provide a valid sender email.</Notice> : null}
+      {smtpTest === "sent" ? <Notice type="success">Test email sent to {admin.email}.</Notice> : null}
+      {smtpTest === "failed" ? <Notice>The SMTP server rejected the test. Check the host, port, security mode, username, and password.</Notice> : null}
+      {smtpTest === "skipped" ? <Notice>SMTP is not fully configured yet.</Notice> : null}
+
+      <form action={saveSettingsAction} className="mt-7 space-y-6">
+        <section className={`${card} grid gap-5 sm:grid-cols-2`}>
+          <div className="sm:col-span-2"><h2 className="font-body text-base font-semibold text-zinc-950">Contact details</h2></div>
+          <label className="text-sm font-medium text-zinc-700">Phone<input className={input} defaultValue={settings["contact.phone"]} maxLength={50} name="phone" /></label>
+          <label className="text-sm font-medium text-zinc-700">Email<input className={input} defaultValue={settings["contact.email"]} maxLength={190} name="email" type="email" /></label>
+          <label className="text-sm font-medium text-zinc-700">WhatsApp<input className={input} defaultValue={settings["contact.whatsapp"]} maxLength={50} name="whatsapp" /></label>
+          <label className="text-sm font-medium text-zinc-700 sm:col-span-2">Address<textarea className={input} defaultValue={settings["contact.address"]} maxLength={1000} name="address" rows={3} /></label>
+        </section>
+
+        <section className={`${card} grid gap-5 sm:grid-cols-2`}>
+          <div className="sm:col-span-2">
+            <h2 className="font-body text-base font-semibold text-zinc-950">Storefront</h2>
+            <p className="mt-1 text-sm leading-6 text-zinc-500">General display settings used throughout the customer-facing store.</p>
+          </div>
+          <CustomSelect defaultValue={settings["store.currency"] || "GBP"} label="Currency" name="currency" options={[{ value: "GBP", label: "GBP — British pound" }, { value: "PKR", label: "PKR — Pakistani rupee" }, { value: "USD", label: "USD — US dollar" }, { value: "EUR", label: "EUR — Euro" }]} required searchable={false} />
+        </section>
+
+        <section className={card}>
+          <div>
+            <h2 className="font-body text-base font-semibold text-zinc-950">Inventory defaults</h2>
+            <p className="mt-1 text-sm leading-6 text-zinc-500">This threshold applies globally to every product and is synchronised to all existing inventory records when saved.</p>
+          </div>
+          <label className="mt-5 block max-w-sm text-sm font-medium text-zinc-700">Global low-stock threshold<input className={input} defaultValue={settings["inventory.low_stock_threshold"] || "5"} max={1000000} min={0} name="lowStockThreshold" required type="number" /><span className="mt-1.5 block text-xs font-normal leading-5 text-zinc-500">Products at or below this quantity appear in the low-stock count.</span></label>
+        </section>
+        <div className="flex justify-end"><button className="rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save settings</button></div>
+      </form>
+
+      <section className={`${card} mt-8`} id="social-media">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Storefront profiles</p>
+          <h2 className="mt-1 font-body text-base font-semibold text-zinc-950">Social media</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-500">Add and order the profiles shown wherever social media appears on the storefront. Removing a profile here removes it everywhere.</p>
+        </div>
+        <form action={saveSocialMediaSettingsAction} className="mt-5">
+          <SocialMediaLinksEditor defaultLinks={socialLinks} />
+          <div className="mt-5 flex justify-end border-t border-zinc-100 pt-5"><button className="rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800" type="submit">Save social media</button></div>
+        </form>
+      </section>
+
+      {admin.role === "OWNER" ? (
+        <section className={`${card} mt-8`}>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Owner only</p>
+            <h2 className="mt-1 font-body text-base font-semibold text-zinc-950">SMTP email delivery</h2>
+            <p className="mt-1 text-sm text-zinc-500">Used by password recovery, order confirmations, and future project email. The password is encrypted before storage.</p>
+          </div>
+          <form action={saveSmtpSettingsAction} className="mt-5 grid gap-5 sm:grid-cols-2">
+            <label className="text-sm font-medium text-zinc-700">SMTP host<input className={input} defaultValue={settings["smtp.host"]} maxLength={255} name="smtpHost" placeholder="smtp.example.com" required /></label>
+            <label className="text-sm font-medium text-zinc-700">Port<input className={input} defaultValue={settings["smtp.port"] || "587"} max={65535} min={1} name="smtpPort" required type="number" /></label>
+            <label className="text-sm font-medium text-zinc-700">Username<input autoComplete="username" className={input} defaultValue={settings["smtp.user"]} maxLength={255} name="smtpUser" required /></label>
+            <PasswordInput autoComplete="new-password" hint={settings["smtp.password_encrypted"] ? "A password is saved. Leave blank to keep it unchanged." : "Required the first time SMTP is configured."} label="SMTP password" maxLength={500} name="smtpPassword" required={!settings["smtp.password_encrypted"]} />
+            <label className="text-sm font-medium text-zinc-700">Sender name<input className={input} defaultValue={settings["smtp.from_name"] || "N7 Cosmetics"} maxLength={120} name="smtpFromName" required /></label>
+            <label className="text-sm font-medium text-zinc-700">Sender email<input className={input} defaultValue={settings["smtp.from_email"]} maxLength={190} name="smtpFromEmail" required type="email" /></label>
+            <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2"><input defaultChecked={settings["smtp.secure"] === "true"} name="smtpSecure" type="checkbox" />Use implicit TLS (normally port 465)</label>
+            <div className="flex justify-end sm:col-span-2"><button className="rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save SMTP</button></div>
+          </form>
+          {settings["smtp.password_encrypted"] ? <form action={sendTestEmailAction} className="mt-3 flex justify-end"><button className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50" type="submit">Send test to {admin.email}</button></form> : null}
+        </section>
+      ) : null}
+    </div>
+  );
 }

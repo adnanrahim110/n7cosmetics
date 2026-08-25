@@ -1,4 +1,6 @@
-import CollectionPage from "@/components/collections/CollectionPage";
+import CollectionCatalog from "@/components/collections/CollectionCatalog";
+import ProductHero from "@/components/collections/CollectionHero";
+import { collectionDesigns } from "@/components/collections/collection-config";
 import { getCollectionPage } from "@/lib/commerce/collections";
 
 export const metadata = {
@@ -7,5 +9,13 @@ export const metadata = {
 };
 
 export default async function YusufBhaiOriginalsPage() {
-  return <CollectionPage collection={await getCollectionPage("originals")} />;
+  const collection = await getCollectionPage("originals");
+  const design = collectionDesigns[collection.slug];
+
+  return (
+    <>
+      <ProductHero content={collection} design={design} />
+      <CollectionCatalog collection={collection} design={design} />
+    </>
+  );
 }

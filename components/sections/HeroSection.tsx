@@ -3,6 +3,7 @@
 import { ArrowRight } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import type { HomepageProduct } from "@/lib/homepage/types";
@@ -17,7 +18,6 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
   const shouldReduceMotion = useReducedMotion();
   const pointerStartX = useRef<number | null>(null);
   const activeProduct = products[activeIndex];
-  const activeProductTitle = activeProduct.name.toUpperCase();
   const cta = "Shop Now";
   const entranceOffset = shouldReduceMotion ? 0 : 140;
   const sequence = {
@@ -96,12 +96,12 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
       <div className="absolute inset-0 bg-linear-to-b from-black/50 via-transparent to-transparent" />
       <div className="absolute inset-0 bg-linear-to-r from-black/20 via-transparent to-transparent" />
 
-      <div className="relative mx-auto w-full max-w-7xl px-4 pt-40 sm:px-6 lg:px-8">
+      <div className="relative mx-auto w-full max-w-7xl px-4 pt-48 sm:px-6 sm:pt-52 lg:px-8 lg:pt-56">
         <AnimatePresence initial mode="wait">
           <motion.div
             key={activeProduct.name}
             aria-live="polite"
-            className="text-left"
+            className="relative z-10 text-left xl:static xl:z-auto"
             exit={{ opacity: 0 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.4 }}
           >
@@ -162,18 +162,17 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
                     fontSize="260"
                     style={{
                       fontFamily: "var(--font-kindred)",
-                      fontWeight: 400,
                       letterSpacing: "0.01em",
                     }}
                   >
-                    {activeProductTitle}
+                    {activeProduct.name.toUpperCase()}
                   </text>
                 </svg>
               </motion.h1>
             </div>
 
             <motion.div
-              className="uppercase tracking-[0.2em] text-lg font-medium text-[#dabf9c]"
+              className="max-w-[78%] text-sm font-medium uppercase tracking-[0.18em] text-[#dabf9c] sm:max-w-sm sm:text-base md:text-lg md:tracking-[0.2em]"
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{
@@ -194,7 +193,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
             </motion.div>
 
             <motion.p
-              className="my-5 max-w-72 font-heading"
+              className="my-4 max-w-64 font-heading text-sm leading-6 sm:my-5 sm:max-w-72 sm:text-base sm:leading-normal"
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 26 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{
@@ -214,9 +213,9 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
               {activeProduct.description}
             </motion.p>
 
-            <motion.button
-              type="button"
-              className="group relative z-10 flex min-w-44 cursor-pointer items-center justify-center gap-3 overflow-hidden border border-[#f7e2bd] bg-linear-to-r from-[#c99a5b] via-[#f2d9ad] to-[#b98448] px-8 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-[#17120d] shadow-[0_10px_35px_rgba(89,55,21,0.35),0_0_0_1px_rgba(255,245,221,0.25)_inset] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f7e2bd]"
+            <motion.a
+              href={`/products/${activeProduct.slug}`}
+              className="group relative z-10 inline-flex w-fit min-w-40 cursor-pointer items-center justify-center gap-3 overflow-hidden border border-[#f7e2bd] bg-linear-to-r from-[#c99a5b] via-[#f2d9ad] to-[#b98448] px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#17120d] shadow-[0_10px_35px_rgba(89,55,21,0.35),0_0_0_1px_rgba(255,245,221,0.25)_inset] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f7e2bd] sm:min-w-44 sm:px-8 sm:py-4 sm:text-sm sm:tracking-[0.18em]"
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 26 }}
               animate={{ opacity: 1, y: 0 }}
               whileHover={
@@ -264,14 +263,14 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
                   }}
                 />
               )}
-            </motion.button>
+            </motion.a>
           </motion.div>
         </AnimatePresence>
       </div>
 
       <nav
         aria-label="Featured fragrance slides"
-        className="absolute inset-y-0 left-8 z-10 flex flex-col items-center justify-center gap-6"
+        className="absolute inset-y-0 left-4 z-10 flex flex-col items-center justify-center gap-6 sm:left-6 xl:left-8"
       >
         {products.map((product, index) => {
           const isActive = index === activeIndex;
@@ -317,7 +316,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
         })}
       </nav>
 
-      <div className="pointer-events-none absolute top-[52%] left-[57%] z-2 aspect-576/1023 w-88 -translate-1/2">
+      <div className="absolute left-[72%] top-[70%] z-2 aspect-576/1023 w-52 -translate-1/2 sm:left-[70%] sm:top-[67%] sm:w-64 md:top-[58%] md:w-72 lg:left-[64%] lg:w-80 xl:left-[57%] xl:top-[52%] xl:w-88">
         <AnimatePresence initial>
           <motion.div
             key={activeProduct.image}
@@ -339,15 +338,21 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
               opacity: { duration: shouldReduceMotion ? 0 : 1.1 },
             }}
           >
-            <Image
-              src={activeProduct.image}
-              alt={`${activeProduct.name} fragrance bottle`}
-              width={576}
-              height={1023}
-              priority={activeIndex === 0}
-              draggable={false}
-              className="h-full w-full object-contain"
-            />
+            <Link
+              aria-label={`View ${activeProduct.name}`}
+              className="block size-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f5e4cc]"
+              href={`/products/${activeProduct.slug}`}
+            >
+              <Image
+                src={activeProduct.image}
+                alt={`${activeProduct.name} fragrance bottle`}
+                width={576}
+                height={1023}
+                priority={activeIndex === 0}
+                draggable={false}
+                className="h-full w-full object-contain"
+              />
+            </Link>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -359,7 +364,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
         width={1672}
         height={941}
         draggable={false}
-        className="pointer-events-none absolute -right-32 -bottom-26 z-3 h-auto w-[90vw] brightness-95"
+        className="pointer-events-none absolute -bottom-10 -right-20 z-3 h-auto w-[145vw] brightness-95 sm:-bottom-16 sm:-right-24 sm:w-[120vw] md:w-[105vw] lg:-bottom-26 lg:-right-32 lg:w-screen xl:w-[90vw]"
       />
     </section>
   );

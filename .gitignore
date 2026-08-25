@@ -21,6 +21,10 @@
 /build
 /.scripts-dist
 /.tests-dist
+/n7cosmetics-namecheap.zip
+
+# runtime media storage
+/media/
 
 # misc
 .DS_Store

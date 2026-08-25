@@ -3,6 +3,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import CustomSelect from "@/components/admin/CustomSelect";
 import DestinationSelect from "@/components/admin/DestinationSelect";
 import { FooterLinksEditor, ReviewsEditor } from "@/components/admin/ContentListEditor";
+import HeroProductsEditor from "@/components/admin/HeroProductsEditor";
 import MediaDropzone from "@/components/admin/MediaDropzone";
 import NavigationEditor from "@/components/admin/NavigationEditor";
 import Notice from "@/components/admin/Notice";
@@ -15,7 +16,7 @@ import {
   saveRecreationsAction, saveReviewsAction, saveScentStoryAction, saveSignatureAction, saveWeeklyAction,
 } from "./actions";
 
-interface ProductOption extends RowDataPacket { id: string; name: string; image_url: string | null; sku: string | null }
+interface ProductOption extends RowDataPacket { id: string; name: string; image_url: string | null; sku: string | null; short_description: string | null; description: string | null; brand: string | null; inspired_by: string | null }
 const input = "mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm leading-5 outline-none transition focus:border-amber-700 focus:ring-2 focus:ring-amber-100";
 const label = "block text-[13px] font-medium leading-5 text-zinc-700";
 const productOptions = (products: ProductOption[]) => products.map((product) => ({ value: product.id, label: product.name, description: product.sku ?? undefined, mediaUrl: product.image_url, mediaType: "image" as const }));
@@ -28,10 +29,18 @@ function Block({ id, title, description, action, children, defaultOpen = false }
 export default async function HomepagePage({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
   const [configuration, global, products, query] = await Promise.all([
     getHomepageConfiguration(), getGlobalStorefrontContent(),
-    selectRows<ProductOption>(`SELECT CAST(p.id AS CHAR) AS id, p.name, v.sku, (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) AS image_url FROM products p LEFT JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 WHERE p.status = 'ACTIVE' ORDER BY p.name`),
+    selectRows<ProductOption>(`SELECT CAST(p.id AS CHAR) AS id, p.name, p.short_description, p.description, p.brand, p.inspired_by, v.sku, (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) AS image_url FROM products p LEFT JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 WHERE p.status = 'ACTIVE' ORDER BY p.name`),
     searchParams,
   ]);
   const options = productOptions(products);
+  const heroEditorProducts = products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    sku: product.sku,
+    imageUrl: product.image_url ?? "",
+    description: product.description || product.short_description || `${product.name} fragrance from N7 Cosmetics.`,
+    tagline: product.inspired_by ? `Inspired by ${product.inspired_by}` : product.brand || "N7 Cosmetics",
+  }));
   const audienceCards = configuration.audience.cards.slice(0, 2);
   return <div className="max-w-6xl"><PageHeader eyebrow="Storefront" title="Home page content" description="Open a section to edit its content. Every section saves independently; storefront layouts and animations remain unchanged." />
     {query.saved ? <Notice type="success">{query.saved.replaceAll("-", " ")} saved.</Notice> : null}
@@ -43,8 +52,8 @@ export default async function HomepagePage({ searchParams }: { searchParams: Pro
         <div className="sm:col-span-2"><NavigationEditor defaultItems={global.header.navigation} /></div>
       </Block>
 
-      <Block action={saveHeroAction} description="Only the selected products and their order are dynamic. The complete Hero UI remains unchanged." id="hero" title="Hero products">
-        <CustomSelect className="sm:col-span-2" defaultValue={configuration.hero.productIds} label="Featured products" multiple name="productIds" options={options} placeholder="Select hero products" required />
+      <Block action={saveHeroAction} description="Select products and give each slide its own optional image and promotional copy. Blank fields fall back to the product catalog." id="hero" title="Hero products">
+        <HeroProductsEditor defaultPresentations={configuration.hero.products} defaultProductIds={configuration.hero.productIds} products={heroEditorProducts} />
       </Block>
 
       <Block action={saveSignatureAction} description="Section copy and products displayed in the existing Signature Fragrances grid." id="signature-fragrances" title="Signature Fragrances">
@@ -108,7 +117,6 @@ export default async function HomepagePage({ searchParams }: { searchParams: Pro
         <label className={label}>Newsletter input placeholder<input className={input} defaultValue={global.footer.newsletterPlaceholder} maxLength={120} name="newsletterPlaceholder" required /></label>
         <label className={`${label} sm:col-span-2`}>Newsletter description<textarea className={input} defaultValue={global.footer.newsletterDescription} maxLength={1000} name="newsletterDescription" required rows={2} /></label>
         <label className={label}>Newsletter button label<input className={input} defaultValue={global.footer.newsletterButtonLabel} maxLength={80} name="newsletterButtonLabel" required /></label>
-        <label className={label}>Twitter URL<input className={input} defaultValue={global.footer.twitterUrl} maxLength={1000} name="twitterUrl" /></label>
         <label className={`${label} sm:col-span-2`}>Copyright<input className={input} defaultValue={global.footer.copyright} maxLength={300} name="copyright" required /></label>
         <div className="sm:col-span-2"><p className="mb-2 text-sm font-medium text-zinc-700">Legal/footer pages</p><FooterLinksEditor defaultItems={global.footer.legalLinks} /></div>
       </Block>

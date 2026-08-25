@@ -8,18 +8,24 @@ import type { MegaNavigationItem } from "../../content/global";
 
 interface MegaMenuProps {
   item: MegaNavigationItem;
+  isActive: boolean;
+  activeSubHref?: string;
   isOpen: boolean;
   isScrolled: boolean;
   forceDarkText: boolean;
+  topOffset: number;
   onMouseEnter: MouseEventHandler<HTMLDivElement>;
   onMouseLeave: MouseEventHandler<HTMLDivElement>;
 }
 
 export default function MegaMenu({
   item,
+  isActive,
+  activeSubHref,
   isOpen,
   isScrolled,
   forceDarkText,
+  topOffset,
   onMouseEnter,
   onMouseLeave,
 }: MegaMenuProps) {
@@ -63,24 +69,46 @@ export default function MegaMenu({
   return (
     <div
       ref={linkRef}
-      className="relative h-full flex items-center group/megalink cursor-pointer"
+      className="group/megalink relative isolate flex h-full cursor-pointer items-center"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
+      <span
+        aria-hidden="true"
+        className={`absolute -inset-x-3 top-1/2 -z-10 h-9 -translate-y-1/2 rounded-full border backdrop-blur-md transition-all duration-500 ${
+          isActive
+            ? forceDarkText || isScrolled
+              ? "scale-100 border-[#967C55]/25 bg-[#967C55]/9 opacity-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_8px_24px_rgba(112,80,40,0.09)]"
+              : "scale-100 border-primary-300/25 bg-black/14 opacity-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_24px_rgba(0,0,0,0.12)]"
+            : "scale-95 border-transparent bg-transparent opacity-0"
+        }`}
+      />
       <Link
         href={item.href}
-        className={`transition-colors duration-300 text-[12px] tracking-[0.15em] uppercase font-medium h-full flex items-center ${
-          forceDarkText || isScrolled
-            ? "text-[#1A1A1A] group-hover/megalink:text-[#967C55]"
-            : "text-dark-100 group-hover/megalink:text-primary-300"
+        aria-current={isActive ? "page" : undefined}
+        className={`relative z-10 flex h-full items-center text-[12px] font-medium uppercase tracking-[0.15em] transition-colors duration-300 ${
+          isActive
+            ? forceDarkText || isScrolled
+              ? "text-[#7a5825]"
+              : "text-primary-200"
+            : forceDarkText || isScrolled
+              ? "text-[#1A1A1A] group-hover/megalink:text-[#967C55]"
+              : "text-dark-100 group-hover/megalink:text-primary-300"
         }`}
       >
         {item.label}
       </Link>
       <span
-        className={`absolute bottom-3 left-0 w-full h-0.5 origin-right group-hover/megalink:origin-left transition-transform duration-500 ease-out ${isOpen ? "scale-x-100" : "scale-x-0"} ${
+        aria-hidden="true"
+        className={`absolute bottom-3 left-0 h-px w-full transition-transform duration-500 ease-out group-hover/megalink:origin-left ${isOpen || isActive ? "origin-left scale-x-100" : "origin-right scale-x-0"} ${
           forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-400"
         }`}
+      />
+      <span
+        aria-hidden="true"
+        className={`absolute bottom-2.5 left-1/2 size-1 -translate-x-1/2 rotate-45 transition-all duration-500 ${
+          isActive ? "scale-100 opacity-100" : "scale-0 opacity-0"
+        } ${forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-300"}`}
       />
 
       <AnimatePresence>
@@ -90,8 +118,12 @@ export default function MegaMenu({
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: 10, filter: "blur(4px)" }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            style={{ left: leftPx || "50%", x: leftPx ? 0 : "-50%" }}
-            className="fixed top-36 w-full max-w-225 bg-[#FDFCF8] border border-[#1A1A1A]/5 shadow-[0_40px_80px_-15px_rgba(0,0,0,0.15)] cursor-default overflow-hidden z-100"
+            style={{
+              left: leftPx || "50%",
+              top: topOffset,
+              x: leftPx ? 0 : "-50%",
+            }}
+            className="fixed w-full max-w-225 bg-[#FDFCF8] border border-[#1A1A1A]/5 shadow-[0_40px_80px_-15px_rgba(0,0,0,0.15)] cursor-default overflow-hidden z-100"
           >
             <div className="flex w-full min-h-90">
               <div className="w-2/5 relative overflow-hidden group bg-[#F5F3ED]">
@@ -129,7 +161,12 @@ export default function MegaMenu({
                       {subItem.image ? (
                         <Link
                           href={subItem.href}
-                          className="flex items-center space-x-5 group p-4 rounded-xl hover:bg-black/3 hover:shadow-sm transition-all duration-500"
+                          aria-current={activeSubHref === subItem.href ? "page" : undefined}
+                          className={`group flex items-center space-x-5 rounded-xl border p-4 transition-all duration-500 hover:bg-black/3 hover:shadow-sm ${
+                            activeSubHref === subItem.href
+                              ? "border-[#967C55]/25 bg-[#967C55]/8 shadow-sm"
+                              : "border-transparent"
+                          }`}
                         >
                           <div className="relative w-20 h-24 shrink-0 overflow-hidden bg-[#F5F3ED] group-hover:bg-white group-hover:shadow-inner border border-transparent transition-colors duration-500">
                             <Image
@@ -164,7 +201,12 @@ export default function MegaMenu({
                       ) : (
                         <Link
                           href={subItem.href}
-                          className="flex items-center space-x-5 group p-4 rounded-xl hover:bg-black/3 hover:shadow-sm transition-all duration-500 h-full"
+                          aria-current={activeSubHref === subItem.href ? "page" : undefined}
+                          className={`group flex h-full items-center space-x-5 rounded-xl border p-4 transition-all duration-500 hover:bg-black/3 hover:shadow-sm ${
+                            activeSubHref === subItem.href
+                              ? "border-[#967C55]/25 bg-[#967C55]/8 shadow-sm"
+                              : "border-transparent"
+                          }`}
                         >
                           <div className="relative w-20 h-24 shrink-0 overflow-hidden bg-[#F5F3ED] group-hover:bg-white flex items-center justify-center border border-transparent transition-colors duration-500">
                             <span className="text-[#967C55] opacity-60 group-hover:opacity-100 transition-opacity">

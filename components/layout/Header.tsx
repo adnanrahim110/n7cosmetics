@@ -1,5 +1,6 @@
 "use client";
 
+import type { HeaderContent } from "@/lib/homepage/types";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { LucideIcon } from "lucide-react";
@@ -17,10 +18,10 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { NavigationItem } from "../../content/global";
 import { globalContent } from "../../content/global";
-import type { HeaderContent } from "@/lib/homepage/types";
 import { useCommerce } from "../commerce/CommerceProvider";
 import MegaMenu from "./MegaMenu";
 import SimpleDropdown from "./SimpleDropdown";
@@ -28,32 +29,51 @@ import SimpleDropdown from "./SimpleDropdown";
 gsap.registerPlugin(ScrollTrigger);
 
 interface AnnouncementMarqueeProps {
-  text: string;
-  Icon: LucideIcon;
-  reverse?: boolean;
+  items: Array<{
+    text: string;
+    Icon: LucideIcon;
+  }>;
 }
 
-function AnnouncementMarquee({
-  text,
-  Icon,
-  reverse = false,
-}: AnnouncementMarqueeProps) {
+function pathnameMatchesHref(pathname: string, href: string): boolean {
+  if (!href.startsWith("/")) return false;
+
+  const normalizedHref = href.split(/[?#]/, 1)[0].replace(/\/+$/, "") || "/";
+  if (normalizedHref === "/") return pathname === "/";
+
+  return (
+    pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`)
+  );
+}
+
+function activeNavigationState(item: NavigationItem, pathname: string) {
+  const activeSubHref = item.items?.find((subItem) =>
+    pathnameMatchesHref(pathname, subItem.href),
+  )?.href;
+
+  return {
+    activeSubHref,
+    isActive:
+      pathnameMatchesHref(pathname, item.href) || Boolean(activeSubHref),
+  };
+}
+
+function AnnouncementMarquee({ items }: AnnouncementMarqueeProps) {
+  const announcements = Array.from({ length: 3 }, () => items).flat();
+
   return (
     <div
-      className="announcement-marquee h-full min-w-0"
+      className="announcement-marquee min-w-0"
       role="note"
-      aria-label={text}
+      aria-label={items.map((item) => item.text).join(". ")}
     >
-      <div
-        className={`announcement-marquee-track h-full ${reverse ? "announcement-marquee-track-reverse" : ""}`}
-        aria-hidden="true"
-      >
+      <div className="announcement-marquee-track" aria-hidden="true">
         {[0, 1].map((group) => (
-          <div key={group} className="announcement-marquee-group h-full">
-            {[0, 1, 2].map((item) => (
+          <div key={group} className="announcement-marquee-group">
+            {announcements.map(({ text, Icon }, item) => (
               <span
                 key={item}
-                className="inline-flex shrink-0 items-center gap-2.5 px-5 text-[9px] font-semibold uppercase tracking-[0.19em] text-white sm:px-7 sm:text-[12px] lg:px-9"
+                className="inline-flex shrink-0 items-center gap-2.5 px-5 py-3 text-[9px] font-semibold uppercase tracking-[0.19em] text-white sm:px-7 sm:text-[12px] lg:px-9"
               >
                 <Icon
                   aria-hidden="true"
@@ -77,23 +97,37 @@ function AnnouncementMarquee({
   );
 }
 
-export default function Header({
-  content,
-}: {
-  content: HeaderContent;
-}) {
-  const { cartCount, wishlistCount } = useCommerce();
+export default function Header({ content }: { content: HeaderContent }) {
+  const { cartCount, isCartOpen, openCart, wishlistCount } = useCommerce();
+  const pathname = usePathname();
+  const forceDarkText = pathname.startsWith("/products/");
   const headerContainerRef = useRef<HTMLElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hoveredNav, setHoveredNav] = useState<number | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 0);
     };
+    handleScroll();
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const header = headerContainerRef.current;
+    if (!header) return;
+
+    const updateHeaderHeight = () => {
+      setHeaderHeight(header.getBoundingClientRect().height);
+    };
+    updateHeaderHeight();
+
+    const observer = new ResizeObserver(updateHeaderHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -141,14 +175,21 @@ export default function Header({
   ) => {
     return links.map((link, idx) => {
       const globalIdx = startIndex + idx;
+      const { activeSubHref, isActive } = activeNavigationState(
+        link,
+        pathname,
+      );
       if (link.type === "mega") {
         return (
           <MegaMenu
             key={globalIdx}
             item={link}
+            isActive={isActive}
+            activeSubHref={activeSubHref}
             isOpen={hoveredNav === globalIdx}
             isScrolled={isScrolled}
             forceDarkText={forceDarkText}
+            topOffset={headerHeight}
             onMouseEnter={() => setHoveredNav(globalIdx)}
             onMouseLeave={() => setHoveredNav(null)}
           />
@@ -159,6 +200,8 @@ export default function Header({
           <SimpleDropdown
             key={globalIdx}
             item={link}
+            isActive={isActive}
+            activeSubHref={activeSubHref}
             isOpen={hoveredNav === globalIdx}
             isScrolled={isScrolled}
             forceDarkText={forceDarkText}
@@ -170,23 +213,47 @@ export default function Header({
       return (
         <div
           key={globalIdx}
-          className="h-full flex items-center relative group/navlink cursor-pointer"
+          className="group/navlink relative isolate flex h-full cursor-pointer items-center"
           onMouseEnter={() => setHoveredNav(null)}
         >
+          <span
+            aria-hidden="true"
+            className={`absolute -inset-x-3 top-1/2 -z-10 h-9 -translate-y-1/2 rounded-full border backdrop-blur-md transition-all duration-500 ${
+              isActive
+                ? forceDarkText || isScrolled
+                  ? "scale-100 border-[#967C55]/25 bg-[#967C55]/9 opacity-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_8px_24px_rgba(112,80,40,0.09)]"
+                  : "scale-100 border-primary-300/25 bg-black/14 opacity-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_24px_rgba(0,0,0,0.12)]"
+                : "scale-95 border-transparent bg-transparent opacity-0"
+            }`}
+          />
           <Link
             href={link.href}
-            className={`transition-colors duration-300 text-[12px] tracking-[0.15em] uppercase font-medium ${
-              forceDarkText || isScrolled
-                ? "text-[#1A1A1A] group-hover/navlink:text-[#7a5825]"
-                : "text-dark-100 group-hover/navlink:text-primary-300"
+            aria-current={isActive ? "page" : undefined}
+            className={`relative z-10 text-[12px] font-medium uppercase tracking-[0.15em] transition-colors duration-300 ${
+              isActive
+                ? forceDarkText || isScrolled
+                  ? "text-[#7a5825]"
+                  : "text-primary-200"
+                : forceDarkText || isScrolled
+                  ? "text-[#1A1A1A] group-hover/navlink:text-[#7a5825]"
+                  : "text-dark-100 group-hover/navlink:text-primary-300"
             }`}
           >
             {link.label}
           </Link>
           <span
-            className={`absolute bottom-3 left-0 w-full h-0.5 origin-right group-hover/navlink:origin-left scale-x-0 group-hover/navlink:scale-x-100 transition-transform duration-500 ease-out ${
+            aria-hidden="true"
+            className={`absolute left-0 top-1/2 h-px w-full translate-y-4 transition-transform duration-500 ease-out group-hover/navlink:origin-left group-hover/navlink:scale-x-100 ${
+              isActive ? "origin-left scale-x-100" : "origin-right scale-x-0"
+            } ${
               forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-400"
             }`}
+          />
+          <span
+            aria-hidden="true"
+            className={`absolute left-1/2 top-1/2 size-1 -translate-x-1/2 translate-y-[15px] rotate-45 transition-all duration-500 ${
+              isActive ? "scale-100 opacity-100" : "scale-0 opacity-0"
+            } ${forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-300"}`}
           />
         </div>
       );
@@ -197,79 +264,90 @@ export default function Header({
     <>
       <header
         ref={headerContainerRef}
-        className={`fixed top-0 left-0 w-full z-50 will-change-transform transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          isScrolled
-            ? "bg-white backdrop-blur-2xl shadow-sm border-b border-[#1A1A1A]/5"
-            : "bg-transparent border-b border-transparent"
-        }`}
+        className="fixed left-0 top-0 z-50 w-full will-change-transform"
         style={{ transform: "translateY(0)" }}
       >
         <div className="relative">
-          <div className="relative overflow-hidden border-b border-primary-500 bg-primary-500 h-12">
-            <div className="relative grid h-full grid-cols-[minmax(0,1fr)_104px_minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_128px_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_176px_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_224px_minmax(0,1fr)]">
-              <AnnouncementMarquee
-                text={content.topbarText}
-                Icon={Truck}
-              />
-
-              <div aria-hidden="true" />
-
-              <AnnouncementMarquee
-                text={content.topbarRightText}
-                Icon={BadgeCheck}
-                reverse
-              />
+          <div
+            className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isScrolled
+                ? "grid-rows-[0fr] opacity-0"
+                : "grid-rows-[1fr] opacity-100"
+            }`}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="relative overflow-hidden border-b border-primary-500 bg-primary-500">
+                <AnnouncementMarquee
+                  items={[
+                    { text: content.topbarText, Icon: Truck },
+                    { text: content.topbarRightText, Icon: BadgeCheck },
+                  ]}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="flex w-full items-stretch h-12">
-            <div className="flex flex-1 items-center justify-end transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
-              <nav className="hidden h-full items-center gap-x-10 px-12 xl:flex">
-                {renderNavLinks(leftLinks, 0, false)}
+          <div
+            className={`grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch px-4 py-2 transition-[background-color,border-color,box-shadow] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] sm:px-6 sm:py-3 lg:px-8 ${
+              isScrolled
+                ? "border-b border-[#1A1A1A]/5 bg-white/95 shadow-sm backdrop-blur-2xl"
+                : forceDarkText
+                  ? "border-b border-[#1A1A1A]/6 bg-[#f3eee5]/95 shadow-sm backdrop-blur-2xl"
+                  : "border-b border-transparent bg-transparent"
+            }`}
+          >
+            <div className="flex min-w-0 items-stretch justify-end">
+              <nav className="hidden self-stretch items-center gap-x-6 pr-6 2xl:gap-x-10 2xl:pr-10 xl:flex">
+                {renderNavLinks(leftLinks, 0, forceDarkText)}
               </nav>
             </div>
 
-            <div className="w-26 shrink-0 sm:w-32 lg:w-44 xl:w-56" />
+            <Link
+              href="/"
+              aria-label={`${globalContent.header.name} home`}
+              className="relative z-30 mx-3 block w-20 shrink-0 self-center sm:mx-5 lg:mx-7"
+            >
+              <Image
+                src={globalContent.header.logo}
+                alt={globalContent.header.name}
+                width={291}
+                height={373}
+                priority
+                sizes="80px"
+                className={`h-auto w-20 object-contain transition-[filter] duration-500 ${
+                  isScrolled || forceDarkText ? "invert-100" : ""
+                }`}
+              />
+            </Link>
 
-            <div className="flex flex-1 items-center justify-start transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
-              <nav className="hidden h-full items-center gap-x-10 pl-12 pr-8 xl:flex">
-                {renderNavLinks(rightLinks, 3, false)}
+            <div className="flex min-w-0 items-stretch justify-start">
+              <nav className="hidden self-stretch items-center gap-x-6 pl-6 pr-3 2xl:gap-x-10 2xl:pl-10 2xl:pr-6 xl:flex">
+                {renderNavLinks(rightLinks, 3, forceDarkText)}
               </nav>
 
               <div
-                className={`hidden items-center space-x-3 pr-12 transition-colors duration-700 xl:flex ${isScrolled ? "text-[#1A1A1A]" : "text-dark-100"}`}
+                className={`hidden items-center gap-1 transition-colors duration-500 2xl:gap-2 xl:flex ${isScrolled || forceDarkText ? "text-[#1A1A1A]" : "text-dark-100"}`}
               >
                 <button
                   aria-label="Search"
-                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled ? "hover:bg-[#F5F3ED]" : "hover:bg-white/10"}`}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled || forceDarkText ? "hover:bg-black/5" : "hover:bg-white/10"}`}
                   type="button"
                 >
                   <Search
                     size={20}
                     strokeWidth={1.5}
-                    className={`relative z-10 transition-all duration-500 ease-out group-hover/icon:scale-110 ${isScrolled ? "group-hover/icon:text-[#967C55]" : "group-hover/icon:text-primary-400"}`}
+                    className={`relative z-10 transition-all duration-500 ease-out group-hover/icon:scale-110 ${isScrolled || forceDarkText ? "group-hover/icon:text-[#967C55]" : "group-hover/icon:text-primary-400"}`}
                   />
                 </button>
                 <Link
-                  aria-label="Admin sign in"
-                  href="/admin"
-                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled ? "hover:bg-[#F5F3ED]" : "hover:bg-white/10"}`}
-                >
-                  <User
-                    size={20}
-                    strokeWidth={1.5}
-                    className={`relative z-10 transition-all duration-500 ease-out group-hover/icon:scale-110 ${isScrolled ? "group-hover/icon:text-[#967C55]" : "group-hover/icon:text-primary-400"}`}
-                  />
-                </Link>
-                <Link
                   aria-label={`Wishlist with ${wishlistCount} items`}
                   href="/wishlist"
-                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled ? "hover:bg-[#F5F3ED]" : "hover:bg-white/10"}`}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled || forceDarkText ? "hover:bg-black/5" : "hover:bg-white/10"}`}
                 >
                   <Heart
                     size={20}
                     strokeWidth={1.5}
-                    className={`relative z-10 transition-all duration-500 ease-out group-hover/icon:scale-110 ${isScrolled ? "group-hover/icon:text-[#967C55]" : "group-hover/icon:text-primary-400"}`}
+                    className={`relative z-10 transition-all duration-500 ease-out group-hover/icon:scale-110 ${isScrolled || forceDarkText ? "group-hover/icon:text-[#967C55]" : "group-hover/icon:text-primary-400"}`}
                   />
                   {wishlistCount ? (
                     <span className="absolute top-1 right-1 z-20 flex size-4 items-center justify-center rounded-full bg-primary-500 text-[9px] font-bold text-dark-950">
@@ -278,29 +356,54 @@ export default function Header({
                   ) : null}
                 </Link>
 
-                <Link
+                <button
                   aria-label={`Cart with ${cartCount} items`}
-                  href="/cart"
-                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/cart overflow-hidden transition-colors duration-500 ${isScrolled ? "hover:bg-[#F5F3ED]" : "hover:bg-white/10"}`}
+                  aria-controls="cart-sidebar"
+                  aria-expanded={isCartOpen}
+                  onClick={openCart}
+                  type="button"
+                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/cart overflow-hidden transition-colors duration-500 ${isScrolled || forceDarkText ? "hover:bg-black/5" : "hover:bg-white/10"}`}
                 >
                   <ShoppingCart
                     size={20}
                     strokeWidth={1.5}
-                    className={`relative z-10 transition-all duration-500 ease-out group-hover/cart:scale-110 ${isScrolled ? "group-hover/cart:text-[#967C55]" : "group-hover/cart:text-primary-400"}`}
+                    className={`relative z-10 transition-all duration-500 ease-out group-hover/cart:scale-110 ${isScrolled || forceDarkText ? "group-hover/cart:text-[#967C55]" : "group-hover/cart:text-primary-400"}`}
                   />
                   <span className="absolute top-1 right-1 z-20 flex size-4 items-center justify-center rounded-full bg-primary-500 text-[9px] font-bold text-dark-950 transition-all duration-500 group-hover/cart:scale-110">
                     {cartCount > 99 ? "99+" : cartCount}
                   </span>
-                </Link>
+                </button>
               </div>
 
-              <div className="ml-auto flex items-center pr-4 xl:hidden sm:pr-6">
+              <div className="ml-auto flex items-center xl:hidden">
+                <button
+                  aria-label={`Cart with ${cartCount} items`}
+                  aria-controls="cart-sidebar"
+                  aria-expanded={isCartOpen}
+                  className={`relative grid size-11 place-items-center rounded-full transition-colors ${isScrolled || forceDarkText ? "text-[#1A1A1A] hover:bg-black/5" : "text-dark-100 hover:bg-white/10"}`}
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    openCart();
+                  }}
+                  type="button"
+                >
+                  <ShoppingCart
+                    aria-hidden="true"
+                    size={20}
+                    strokeWidth={1.5}
+                  />
+                  {cartCount ? (
+                    <span className="absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-primary-500 text-[9px] font-bold text-dark-950">
+                      {cartCount > 9 ? "9+" : cartCount}
+                    </span>
+                  ) : null}
+                </button>
                 <button
                   onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                   aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
                   aria-expanded={isMobileMenuOpen}
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none ${
-                    isScrolled
+                    isScrolled || forceDarkText
                       ? "text-[#1A1A1A] hover:bg-black/5"
                       : "text-dark-100 hover:bg-primary-500/10"
                   }`}
@@ -310,24 +413,6 @@ export default function Header({
               </div>
             </div>
           </div>
-
-          <Link
-            href="/"
-            aria-label={`${globalContent.header.name} home`}
-            className="group absolute -inset-y-px left-1/2 z-30 w-26 -translate-x-1/2 overflow-hidden sm:w-20"
-          >
-            <span className="pointer-events-none absolute inset-0 bg-white" />
-            <span className="absolute inset-1.5">
-              <Image
-                src={globalContent.header.logo}
-                alt={globalContent.header.name}
-                fill
-                priority
-                sizes="(min-width: 1280px) 224px, (min-width: 1024px) 176px, (min-width: 640px) 128px, 104px"
-                className="object-contain invert-100"
-              />
-            </span>
-          </Link>
         </div>
       </header>
 
@@ -339,39 +424,67 @@ export default function Header({
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -20, filter: "blur(10px)" }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className="fixed left-0 top-32 z-40 h-[calc(100vh-128px)] w-full overflow-y-auto border-t border-white/5 bg-dark-950/95 pb-20 backdrop-blur-3xl md:top-36 md:h-[calc(100vh-144px)] xl:hidden"
+            style={{
+              top: headerHeight,
+              height: `calc(100dvh - ${headerHeight}px)`,
+            }}
+            className="fixed inset-x-0 z-40 overflow-y-auto overscroll-contain border-t border-white/5 bg-dark-950/95 pb-20 backdrop-blur-3xl xl:hidden"
           >
-            <div className="px-8 py-10 space-y-8">
-              {content.navigation.map((link, idx) => (
-                <div key={idx} className="group/mobnav">
-                  <Link
-                    href={link.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center justify-between py-2 text-xl font-heading text-dark-50 group-hover/mobnav:text-primary-300 uppercase tracking-widest border-b border-white/5 transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                  {link.items && (
-                    <div className="pl-4 py-4 space-y-4">
-                      {link.items.map((sub, sIdx) => (
-                        <Link
-                          key={sIdx}
-                          href={sub.href}
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className="block text-[12px] text-dark-300 hover:text-primary-300 uppercase tracking-[0.15em] transition-colors"
-                        >
-                          {sub.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="space-y-6 px-5 py-7 sm:space-y-8 sm:px-8 sm:py-10">
+              {content.navigation.map((link, idx) => {
+                const { activeSubHref, isActive } = activeNavigationState(
+                  link,
+                  pathname,
+                );
+
+                return (
+                  <div key={idx} className="group/mobnav">
+                    <Link
+                      href={link.href}
+                      aria-current={isActive ? "page" : undefined}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`relative flex items-center justify-between overflow-hidden border px-4 py-3 font-heading text-lg uppercase tracking-widest transition-all duration-300 sm:text-xl ${
+                        isActive
+                          ? "border-primary-400/30 bg-[linear-gradient(90deg,rgba(184,123,56,0.2),rgba(184,123,56,0.04))] text-primary-200 shadow-[inset_3px_0_0_#b87b38]"
+                          : "border-x-transparent border-t-transparent border-b-white/5 text-dark-50 group-hover/mobnav:text-primary-300"
+                      }`}
+                    >
+                      {link.label}
+                      {isActive ? (
+                        <span className="flex items-center gap-2 font-body text-[8px] font-semibold tracking-[0.22em] text-primary-300/75">
+                          <span className="size-1 rotate-45 bg-primary-400" />
+                          Current
+                        </span>
+                      ) : null}
+                    </Link>
+                    {link.items && (
+                      <div className="space-y-3 py-3 pl-4 sm:space-y-4 sm:py-4">
+                        {link.items.map((sub, sIdx) => (
+                          <Link
+                            key={sIdx}
+                            href={sub.href}
+                            aria-current={
+                              activeSubHref === sub.href ? "page" : undefined
+                            }
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className={`block border-l py-1 pl-4 text-[12px] uppercase tracking-[0.15em] transition-all ${
+                              activeSubHref === sub.href
+                                ? "border-primary-400 text-primary-200"
+                                : "border-white/10 text-dark-300 hover:border-primary-400/45 hover:text-primary-300"
+                            }`}
+                          >
+                            {sub.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
     </>
   );
 }

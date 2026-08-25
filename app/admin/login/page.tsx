@@ -7,19 +7,8 @@ import { loginAction } from "./actions";
 
 export const metadata: Metadata = { title: "Admin sign in | N7 Cosmetics" };
 
-interface LoginPageProps {
-  searchParams: Promise<{ error?: string; reset?: string; "password-changed"?: string }>;
-}
-
-const errorMessages: Record<string, string> = {
-  invalid: "The email or password is incorrect.",
-  "rate-limited": "Too many failed attempts. Try again in 15 minutes.",
-};
-
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default async function LoginPage() {
   if (await getCurrentAdministrator()) redirect("/admin");
-  const query = await searchParams;
-  const { error } = query;
 
   return (
     <main className="grid min-h-screen place-items-center bg-[#f6f5f2] px-5 text-zinc-950">
@@ -27,13 +16,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">N7 Cosmetics</p>
         <h1 className="mt-3 font-body text-2xl font-semibold tracking-tight text-zinc-950">Admin sign in</h1>
         <p className="mt-2 text-sm leading-6 text-zinc-500">Use your administrator account to manage the store.</p>
-
-        {error && errorMessages[error] ? (
-          <div role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {errorMessages[error]}
-          </div>
-        ) : null}
-        {query.reset || query["password-changed"] ? <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Your password has been updated. Sign in with the new password.</div> : null}
 
         <form action={loginAction} className="mt-6 space-y-4">
           <label className="block text-sm font-medium text-zinc-700">

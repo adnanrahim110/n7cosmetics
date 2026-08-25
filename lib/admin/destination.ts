@@ -10,9 +10,13 @@ export interface DestinationValue {
 
 export const storefrontDestinations: DestinationValue[] = [
   { label: "Home", href: "/", kind: "page", description: "Storefront home page" },
+  { label: "N7 Collection", href: "/n7", kind: "page", description: "Collection page" },
   { label: "Yusuf Bhai Originals", href: "/yusuf-bhai-originals", kind: "page", description: "Collection page" },
   { label: "Recreations", href: "/recreations", kind: "page", description: "Collection page" },
   { label: "Bundles", href: "/bundles", kind: "page", description: "Collection page" },
+  { label: "Contact Us", href: "/contact", kind: "page", description: "Customer contact page" },
+  { label: "Shipping & Returns", href: "/shipping-returns", kind: "page", description: "Delivery and returns policy" },
+  { label: "Privacy Policy", href: "/privacy", kind: "page", description: "Privacy policy" },
   { label: "Cart", href: "/cart", kind: "page", description: "Shopping cart" },
   { label: "Wishlist", href: "/wishlist", kind: "page", description: "Customer wishlist" },
   { label: "Checkout", href: "/checkout", kind: "page", description: "Checkout page" },

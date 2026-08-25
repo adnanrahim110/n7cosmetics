@@ -1,8 +1,11 @@
 const statusStyles: Record<string, string> = {
   ACTIVE: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  PUBLISHED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   PAID: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   DELIVERED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   DRAFT: "bg-zinc-100 text-zinc-600 ring-zinc-200",
+  PENDING: "bg-amber-50 text-amber-700 ring-amber-200",
+  REJECTED: "bg-red-50 text-red-700 ring-red-200",
   ARCHIVED: "bg-zinc-100 text-zinc-500 ring-zinc-200",
   HIDDEN: "bg-zinc-100 text-zinc-500 ring-zinc-200",
   NEW: "bg-blue-50 text-blue-700 ring-blue-200",

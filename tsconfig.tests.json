@@ -9,5 +9,5 @@
     "rootDir": ".",
     "isolatedModules": false
   },
-  "include": ["tests/**/*.ts", "lib/admin/destination.ts", "lib/admin/form.ts", "lib/auth/password.ts", "lib/commerce/validation.ts"]
+  "include": ["tests/**/*.ts", "lib/admin/destination.ts", "lib/admin/form.ts", "lib/admin/product-identifiers.ts", "lib/admin/toast-feedback.ts", "lib/auth/password.ts", "lib/commerce/validation.ts", "lib/commerce/reviews-validation.ts", "lib/contact/email.ts", "lib/homepage/hero.ts", "lib/homepage/types.ts", "lib/social-media.ts", "lib/storefront-pages/config.ts", "content/collections.ts", "content/global.ts"]
 }

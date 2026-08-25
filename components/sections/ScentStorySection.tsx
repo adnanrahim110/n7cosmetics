@@ -2,18 +2,67 @@
 
 import { Pause, Play } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ScentStoryContent } from "@/lib/homepage/types";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-export default function ScentStorySection({ story }: { story: ScentStoryContent }) {
+export default function ScentStorySection({
+  story,
+}: {
+  story: ScentStoryContent;
+}) {
+  const sectionRef = useRef<HTMLElement>(null);
   const mainVideoRef = useRef<HTMLVideoElement>(null);
   const detailVideoRef = useRef<HTMLVideoElement>(null);
   const shouldReduceMotion = useReducedMotion();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPreviewReady, setIsPreviewReady] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+
+  const playMainFilm = useCallback(async () => {
+    const video = mainVideoRef.current;
+    if (!video) return;
+
+    video.muted = false;
+    video.volume = 1;
+
+    try {
+      await video.play();
+      setAutoplayBlocked(false);
+    } catch {
+      setIsPlaying(false);
+      setAutoplayBlocked(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    const video = mainVideoRef.current;
+    if (!section || !video) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const isInView =
+          entry.isIntersecting && entry.intersectionRatio >= 0.25;
+
+        if (isInView && !shouldReduceMotion) {
+          void playMainFilm();
+          return;
+        }
+
+        video.pause();
+      },
+      { threshold: [0, 0.25] },
+    );
+
+    observer.observe(section);
+    return () => {
+      observer.disconnect();
+      video.pause();
+    };
+  }, [playMainFilm, shouldReduceMotion, story.mainVideo]);
 
   useEffect(() => {
     const detailVideo = detailVideoRef.current;
@@ -32,13 +81,15 @@ export default function ScentStorySection({ story }: { story: ScentStoryContent 
     if (!video) return;
 
     if (video.paused) {
-      video.play().catch(() => setIsPlaying(false));
+      void playMainFilm();
     } else {
       video.pause();
     }
   };
 
-  const prepareMainPreview = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+  const prepareMainPreview = (
+    event: React.SyntheticEvent<HTMLVideoElement>,
+  ) => {
     const video = event.currentTarget;
     const previewTime = Math.min(1.25, Math.max(0, video.duration - 0.1));
 
@@ -48,11 +99,14 @@ export default function ScentStorySection({ story }: { story: ScentStoryContent 
   };
 
   return (
-    <section className="relative isolate overflow-hidden bg-[#120d0a] py-24 text-[#f1e8dc] md:py-32">
+    <section
+      ref={sectionRef}
+      className="relative isolate overflow-hidden bg-[#120d0a] py-16 text-[#f1e8dc] sm:py-24 md:py-32"
+    >
       <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_78%_24%,rgba(180,124,67,0.18),transparent_35%),radial-gradient(circle_at_8%_90%,rgba(120,67,38,0.12),transparent_31%),linear-gradient(135deg,#17100c_0%,#0b0807_100%)]" />
-      <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:100%_72px]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px)] bg-size-[100%_72px]" />
 
-      <div className="mx-auto grid max-w-360 items-center gap-16 px-4 sm:px-8 lg:grid-cols-[0.76fr_1.24fr] lg:gap-12 lg:px-12 xl:gap-20">
+      <div className="mx-auto grid max-w-360 items-center gap-12 px-5 sm:gap-16 sm:px-8 lg:grid-cols-[0.76fr_1.24fr] lg:gap-12 lg:px-12 xl:gap-20">
         <div className="relative z-10 lg:pr-6">
           <motion.span
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
@@ -66,21 +120,34 @@ export default function ScentStorySection({ story }: { story: ScentStoryContent 
           </motion.span>
 
           <motion.h2
-            initial={{ clipPath: shouldReduceMotion ? "inset(0)" : "inset(100% 0 0 0)", y: shouldReduceMotion ? 0 : 28 }}
+            initial={{
+              clipPath: shouldReduceMotion ? "inset(0)" : "inset(100% 0 0 0)",
+              y: shouldReduceMotion ? 0 : 28,
+            }}
             whileInView={{ clipPath: "inset(0% 0 0 0)", y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 1.05, delay: shouldReduceMotion ? 0 : 0.06, ease }}
-            className="font-heading text-5xl uppercase leading-[0.9] tracking-[0.055em] text-[#f1e8dc] sm:text-6xl xl:text-8xl"
+            transition={{
+              duration: shouldReduceMotion ? 0 : 1.05,
+              delay: shouldReduceMotion ? 0 : 0.06,
+              ease,
+            }}
+            className="font-heading text-4xl uppercase leading-[1.2] tracking-[0.055em] text-[#f1e8dc] sm:text-6xl xl:text-7xl"
           >
             {story.titleLead}
-            <span className="block font-light italic lowercase tracking-normal text-[#c99b69]">{story.titleAccent}</span>
+            <span className="block font-light italic lowercase tracking-normal text-[#c99b69]">
+              {story.titleAccent}
+            </span>
           </motion.h2>
 
           <motion.p
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 22 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.85, delay: shouldReduceMotion ? 0 : 0.16, ease }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.85,
+              delay: shouldReduceMotion ? 0 : 0.16,
+              ease,
+            }}
             className="mt-8 max-w-lg font-light leading-7 text-white/55"
           >
             {story.description}
@@ -90,8 +157,12 @@ export default function ScentStorySection({ story }: { story: ScentStoryContent 
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 22 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.85, delay: shouldReduceMotion ? 0 : 0.24, ease }}
-            className="mt-10 border-y border-white/12 py-7 font-heading text-2xl italic leading-snug text-[#d9c1a6] sm:text-3xl"
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.85,
+              delay: shouldReduceMotion ? 0 : 0.24,
+              ease,
+            }}
+            className="mt-9 border-y border-white/12 py-6 font-heading text-xl italic leading-snug text-[#d9c1a6] sm:mt-10 sm:py-7 sm:text-3xl"
           >
             &ldquo;{story.quote}&rdquo;
           </motion.blockquote>
@@ -100,11 +171,13 @@ export default function ScentStorySection({ story }: { story: ScentStoryContent 
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.8, delay: shouldReduceMotion ? 0 : 0.32 }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.8,
+              delay: shouldReduceMotion ? 0 : 0.32,
+            }}
             className="mt-7 flex items-center justify-between gap-5 text-[9px] font-semibold uppercase tracking-[0.28em] text-white/35"
           >
             <span>{story.filmLabel}</span>
-            <span>{story.duration}</span>
           </motion.div>
         </div>
 
@@ -112,20 +185,29 @@ export default function ScentStorySection({ story }: { story: ScentStoryContent 
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 45 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: shouldReduceMotion ? 0 : 1.1, delay: shouldReduceMotion ? 0 : 0.1, ease }}
-          className="relative h-150 sm:h-190 lg:h-205"
+          transition={{
+            duration: shouldReduceMotion ? 0 : 1.1,
+            delay: shouldReduceMotion ? 0 : 0.1,
+            ease,
+          }}
+          className="relative h-128 sm:h-190 lg:h-205"
         >
-          <div className="absolute right-0 top-0 h-full w-[76%] overflow-hidden border border-white/10 bg-[#080605] shadow-[0_40px_90px_rgba(0,0,0,0.56)] sm:w-[70%]">
+          <div className="absolute right-0 top-0 h-full w-[82%] overflow-hidden border border-white/10 bg-[#080605] shadow-[0_40px_90px_rgba(0,0,0,0.56)] sm:w-[70%]">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(198,145,91,0.26),transparent_38%),linear-gradient(145deg,#21150f_0%,#090605_100%)]">
               <div className="absolute inset-6 border border-white/8 sm:inset-8" />
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="font-kindred text-6xl uppercase tracking-[0.08em] text-[#d8b17f]/24 sm:text-8xl">N7</span>
-                <span className="mt-5 text-[8px] font-semibold uppercase tracking-[0.35em] text-white/28">Founder journal</span>
+                <span className="font-kindred text-6xl uppercase tracking-[0.08em] text-[#d8b17f]/24 sm:text-8xl">
+                  N7
+                </span>
+                <span className="mt-5 text-[8px] font-semibold uppercase tracking-[0.35em] text-white/28">
+                  Founder journal
+                </span>
               </div>
             </div>
             <video
               ref={mainVideoRef}
               src={story.mainVideo}
+              muted={false}
               playsInline
               preload="metadata"
               controls={isPlaying}
@@ -138,17 +220,24 @@ export default function ScentStorySection({ story }: { story: ScentStoryContent 
               className={`relative size-full object-cover transition-opacity duration-700 ${isPreviewReady ? "opacity-100" : "opacity-0"}`}
               aria-label="Play the N7 founder journey film"
             />
-            <div className={`pointer-events-none absolute inset-0 bg-linear-to-t from-black/48 via-transparent to-black/12 transition-opacity duration-500 ${isPlaying ? "opacity-0" : "opacity-100"}`} />
+            <div
+              className={`pointer-events-none absolute inset-0 bg-linear-to-t from-black/48 via-transparent to-black/12 transition-opacity duration-500 ${isPlaying ? "opacity-0" : "opacity-100"}`}
+            />
             {!isPlaying && (
               <button
                 type="button"
                 onClick={toggleMainFilm}
-                className="group absolute inset-0 flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-5px] focus-visible:outline-white"
-                aria-label="Play founder journey film"
+                className="group absolute inset-0 flex flex-col items-center justify-center gap-4 focus-visible:outline-2 focus-visible:outline-offset-[-5px] focus-visible:outline-white"
+                aria-label="Play founder journey film with sound"
               >
                 <span className="flex size-20 items-center justify-center rounded-full border border-white/55 bg-black/12 text-white backdrop-blur-md transition-all duration-500 group-hover:scale-105 group-hover:border-white group-hover:bg-black/35">
                   <Play className="ml-1 size-6" fill="currentColor" />
                 </span>
+                {autoplayBlocked ? (
+                  <span className="rounded-full border border-white/20 bg-black/35 px-4 py-2 text-[8px] font-semibold uppercase tracking-[0.22em] text-white/80 backdrop-blur-md">
+                    Play with sound
+                  </span>
+                ) : null}
               </button>
             )}
             {isPlaying && (
@@ -161,13 +250,15 @@ export default function ScentStorySection({ story }: { story: ScentStoryContent 
                 <Pause className="size-4" fill="currentColor" />
               </button>
             )}
-            <div className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-5 text-[9px] font-semibold uppercase tracking-[0.25em] text-white/75 transition-opacity duration-500 sm:p-7 ${isPlaying ? "opacity-0" : "opacity-100"}`}>
+            <div
+              className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-5 text-[9px] font-semibold uppercase tracking-[0.25em] text-white/75 transition-opacity duration-500 sm:p-7 ${isPlaying ? "opacity-0" : "opacity-100"}`}
+            >
               <span>Founder journal</span>
               <span>Dubai</span>
             </div>
           </div>
 
-          <div className="absolute bottom-[8%] left-0 z-20 h-[43%] w-[38%] overflow-hidden border-[6px] border-[#120d0a] bg-[#080605] shadow-[0_28px_65px_rgba(0,0,0,0.62)] sm:border-[10px]">
+          <div className="absolute bottom-[8%] left-0 z-20 h-[43%] w-[42%] overflow-hidden border-[6px] border-[#120d0a] bg-[#080605] shadow-[0_28px_65px_rgba(0,0,0,0.62)] sm:w-[38%] sm:border-10">
             <video
               ref={detailVideoRef}
               src={story.detailVideo}
@@ -183,10 +274,6 @@ export default function ScentStorySection({ story }: { story: ScentStoryContent 
             <span className="absolute bottom-4 left-4 text-[8px] font-semibold uppercase tracking-[0.24em] text-white/80 sm:bottom-5 sm:left-5">
               A detail in motion
             </span>
-          </div>
-
-          <div className="absolute left-[8%] top-[4%] hidden -rotate-90 text-[9px] font-semibold uppercase tracking-[0.3em] text-white/28 sm:block">
-            Portrait study / N7
           </div>
         </motion.div>
       </div>

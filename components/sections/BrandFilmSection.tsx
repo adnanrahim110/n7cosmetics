@@ -38,7 +38,7 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
   };
 
   return (
-    <section className="relative isolate min-h-[70svh] overflow-hidden bg-[#080a0b] text-[#f5eee5] md:min-h-[78svh]">
+    <section className="relative isolate min-h-168 overflow-hidden bg-[#080a0b] text-[#f5eee5] sm:min-h-[70svh] md:min-h-[78svh]">
       <video
         ref={videoRef}
         src={film.video}
@@ -55,19 +55,8 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
       <div className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(5,7,8,0.55)_0%,rgba(5,7,8,0.08)_38%,rgba(5,7,8,0.78)_100%)]" />
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,7,8,0.42),transparent_42%,rgba(5,7,8,0.18))]" />
 
-      <div className="mx-auto flex min-h-[70svh] max-w-360 flex-col justify-between px-4 py-7 sm:px-8 md:min-h-[78svh] md:py-10 lg:px-12">
-        <div className="flex items-start justify-between gap-6 border-t border-white/28 pt-5">
-          <motion.div
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.8, ease }}
-            className="flex items-center gap-3 text-[9px] font-semibold uppercase tracking-[0.3em] text-white/72 sm:text-[10px]"
-          >
-            <span className="size-1.5 rounded-full bg-[#d6ad7c] shadow-[0_0_14px_rgba(214,173,124,0.8)]" />
-            {film.eyebrow}
-          </motion.div>
-
+      <div className="mx-auto flex min-h-168 max-w-360 flex-col justify-between px-5 py-7 sm:min-h-[70svh] sm:px-8 md:min-h-[78svh] md:py-10 lg:px-12">
+        <div className="flex items-start justify-end gap-6 border-t border-white/28 pt-5">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -106,7 +95,7 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
             viewport={{ once: true }}
             transition={{ duration: shouldReduceMotion ? 0 : 1.15, ease }}
           >
-            <h2 className="max-w-7xl font-heading text-[clamp(3.25rem,5.2vw,5rem)]! uppercase leading-[1.1] tracking-tight text-[#f4eadf]">
+            <h2 className="max-w-7xl font-heading text-[clamp(2.5rem,11vw,4rem)]! uppercase leading-[1.1] tracking-tight text-[#f4eadf] md:text-[clamp(3.25rem,5.2vw,5rem)]!">
               {film.titleLead}{" "}
               <span className="inline font-light tracking-normal text-[#d6ad7c]">
                 {film.titleAccent}
@@ -128,10 +117,6 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
             <p className="max-w-sm text-sm font-light leading-7 text-white/72 sm:text-base">
               {film.description}
             </p>
-            <div className="mt-5 flex flex-wrap gap-x-7 gap-y-2 text-[9px] font-semibold uppercase tracking-[0.25em] text-white/48">
-              <span>{film.location}</span>
-              <span>{film.duration}</span>
-            </div>
           </motion.div>
         </div>
       </div>

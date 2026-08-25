@@ -3,8 +3,10 @@
 import { ArrowUpRight, Plus } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 
 import { homeContent } from "../../content/home";
+import { slugify } from "../../lib/admin/form";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 const productWorlds = [
@@ -75,6 +77,11 @@ export default function IconicDuo() {
                 transition={{ duration: shouldReduceMotion ? 0 : 1.05, delay: shouldReduceMotion ? 0 : index * 0.12, ease }}
                 className="group relative isolate min-h-175 overflow-hidden border border-white/10 sm:min-h-200"
               >
+                <Link
+                  aria-label={`View ${product.name}`}
+                  className="absolute inset-0 z-30 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                  href={`/products/${slugify(product.name)}`}
+                />
                 <Image
                   src={world.background}
                   alt=""
@@ -134,13 +141,9 @@ export default function IconicDuo() {
                         {product.name}
                       </h3>
                     </div>
-                    <button
-                      type="button"
-                      aria-label={`Discover ${product.name}`}
-                      className="flex size-12 shrink-0 items-center justify-center rounded-full border border-white/28 text-white transition-all duration-500 hover:border-white hover:bg-white hover:text-[#090d11] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                    >
+                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full border border-white/28 text-white transition-all duration-500 group-hover:border-white group-hover:bg-white group-hover:text-[#090d11]">
                       <ArrowUpRight className="size-4" />
-                    </button>
+                    </span>
                   </div>
                 </div>
               </motion.article>

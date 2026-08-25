@@ -11,7 +11,6 @@ export interface CollectionDesign {
   heroSurface: string;
   heroInk: string;
   heroProductIndexes: [number, number, number];
-  indexTitle: string;
   nextHref: string;
   nextLabel: string;
 }
@@ -41,6 +40,17 @@ export const productMatchesPriceBand = (
 };
 
 export const collectionDesigns: Record<CollectionSlug, CollectionDesign> = {
+  n7: {
+    accent: "#d1a15f",
+    code: "06 / N7",
+    ghost: "N7",
+    heroBase: "#11100e",
+    heroSurface: "#9d8059",
+    heroInk: "#201911",
+    heroProductIndexes: [0, 1, 2],
+    nextHref: "/yusuf-bhai-originals",
+    nextLabel: "Discover the Yusuf Bhai originals",
+  },
   "yusuf-bhai-originals": {
     accent: "#b88755",
     code: "01 / ORIGINALS",
@@ -49,9 +59,19 @@ export const collectionDesigns: Record<CollectionSlug, CollectionDesign> = {
     heroSurface: "#aa8a64",
     heroInk: "#21160f",
     heroProductIndexes: [1, 14, 15],
-    indexTitle: "House signatures",
     nextHref: "/recreations",
     nextLabel: "The art of recreation",
+  },
+  "premium-collection": {
+    accent: "#bca06b",
+    code: "04 / PREMIUM",
+    ghost: "PRIVATE",
+    heroBase: "#15130f",
+    heroSurface: "#9b8a68",
+    heroInk: "#211b12",
+    heroProductIndexes: [0, 5, 8],
+    nextHref: "/sale",
+    nextLabel: "Discover the seasonal edit",
   },
   recreations: {
     accent: "#809fa6",
@@ -61,9 +81,19 @@ export const collectionDesigns: Record<CollectionSlug, CollectionDesign> = {
     heroSurface: "#678285",
     heroInk: "#122327",
     heroProductIndexes: [0, 4, 5],
-    indexTitle: "The scent index",
     nextHref: "/bundles",
     nextLabel: "Curated fragrance trios",
+  },
+  sale: {
+    accent: "#c56f55",
+    code: "05 / SALE",
+    ghost: "LIMITED",
+    heroBase: "#1c100e",
+    heroSurface: "#9d6152",
+    heroInk: "#2a1510",
+    heroProductIndexes: [0, 1, 2],
+    nextHref: "/premium-collection",
+    nextLabel: "Return to the private collection",
   },
   bundles: {
     accent: "#a9725f",
@@ -73,7 +103,6 @@ export const collectionDesigns: Record<CollectionSlug, CollectionDesign> = {
     heroSurface: "#916655",
     heroInk: "#2b1712",
     heroProductIndexes: [0, 1, 2],
-    indexTitle: "The complete wardrobe",
     nextHref: "/yusuf-bhai-originals",
     nextLabel: "Return to the originals",
   },

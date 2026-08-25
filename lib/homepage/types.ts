@@ -14,6 +14,19 @@ export interface HomepageProduct {
   size: string;
 }
 
+export interface HeroProductPresentation {
+  productId: string;
+  title: string;
+  tagline: string;
+  description: string;
+  image: string;
+}
+
+export interface HeroContent {
+  productIds: string[];
+  products: HeroProductPresentation[];
+}
+
 export interface HeaderContent {
   topbarText: string;
   topbarRightText: string;
@@ -27,7 +40,6 @@ export interface FooterContent {
   newsletterDescription: string;
   newsletterPlaceholder: string;
   newsletterButtonLabel: string;
-  twitterUrl: string;
   copyright: string;
   legalLinks: FooterLink[];
 }
@@ -105,7 +117,7 @@ export interface ReviewsContent {
 }
 
 export interface HomepageConfiguration {
-  hero: { productIds: string[] };
+  hero: HeroContent;
   signature: SignatureContent;
   brandFilm: BrandFilmContent;
   recreations: RecreationsContent;

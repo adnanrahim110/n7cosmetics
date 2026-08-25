@@ -11,6 +11,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
+import { useBodyAnchoredDropdown } from "./useBodyAnchoredDropdown";
 
 export interface CustomSelectOption {
   value: string;
@@ -52,9 +54,11 @@ export default function CustomSelect({
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const { placement, portalTarget, style } = useBodyAnchoredDropdown(open, triggerRef, { minimumWidth: 256, preferredHeight: 430, offset: 8 });
 
   const selectedOptions = useMemo(
     () => options.filter((option) => selectedValues.includes(option.value)),
@@ -79,7 +83,7 @@ export default function CustomSelect({
 
   useEffect(() => {
     const closeOnOutsidePress = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
+      if (!rootRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) {
         setOpen(false);
         setQuery("");
       }
@@ -146,7 +150,7 @@ export default function CustomSelect({
     } else if (event.key === "End") {
       event.preventDefault();
       setActiveIndex(filteredOptions.length - 1);
-    } else if (event.key === "Enter") {
+    } else if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
       event.preventDefault();
       toggleValue(filteredOptions[activeIndex].value);
     }
@@ -220,18 +224,22 @@ export default function CustomSelect({
         />
       </button>
 
-      <AnimatePresence>
-        {open ? (
-          <motion.div
+      {portalTarget ? createPortal(
+        <AnimatePresence>
+          {open ? (
+            <motion.div
+              key={`${listboxId}-dropdown`}
             id={listboxId}
             role="listbox"
             aria-label={label}
             aria-multiselectable={multiple || undefined}
-            initial={{ opacity: 0, y: -8, scale: 0.985 }}
+            initial={{ opacity: 0, y: placement === "top" ? 8 : -8, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.99 }}
+            exit={{ opacity: 0, y: placement === "top" ? 6 : -6, scale: 0.99 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute left-0 right-0 z-60 mt-2 min-w-64 overflow-hidden border border-black/12 bg-[#fbf8f2]/98 shadow-[0_24px_70px_rgba(36,25,17,0.19)] backdrop-blur-xl"
+            className="flex min-w-64 flex-col overflow-hidden border border-black/12 bg-[#fbf8f2]/98 shadow-[0_24px_70px_rgba(36,25,17,0.19)] backdrop-blur-xl"
+            ref={menuRef}
+            style={style}
           >
             <div className="flex items-center justify-between border-b border-black/9 px-4 py-3">
               <span className="text-[8px] font-semibold uppercase tracking-[0.25em] text-black/44">
@@ -278,7 +286,7 @@ export default function CustomSelect({
               </div>
             ) : null}
 
-            <div className="max-h-70 overflow-y-auto p-2">
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
               {filteredOptions.map((option, index) => {
                 const selected = selectedValues.includes(option.value);
                 const active = index === activeIndex;
@@ -344,9 +352,11 @@ export default function CustomSelect({
                 </button>
               </div>
             ) : null}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>,
+        portalTarget,
+      ) : null}
     </div>
   );
 }

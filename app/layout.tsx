@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 
+const siteUrl = (process.env.APP_URL || "https://n7cosmetics.co.uk").replace(/\/$/, "");
+
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
@@ -33,13 +35,14 @@ const kindred = localFont({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "N7 Cosmetics | Luxury Signature Fragrances",
   description: "Discover the pinnacle of luxury perfumery. Handcrafted signature fragrances, exquisite recreations, and curated collections designed for distinct personalities.",
   keywords: ["luxury perfume", "fragrance", "N7 Cosmetics", "signature scent", "cologne", "parfum", "UK perfumes"],
   openGraph: {
     title: "N7 Cosmetics | Luxury Signature Fragrances",
     description: "Discover the pinnacle of luxury perfumery. Handcrafted signature fragrances.",
-    url: "https://n7cosmetics.co.uk",
+    url: siteUrl,
     siteName: "N7 Cosmetics",
     locale: "en_GB",
     type: "website",

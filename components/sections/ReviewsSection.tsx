@@ -12,7 +12,7 @@ export default function ReviewsSection({ content }: { content: ReviewsContent })
   const [featuredReview, ...supportingReviews] = content.reviews;
 
   return (
-    <section className="relative isolate overflow-hidden bg-[#c9b1a7] py-24 text-[#211917] md:py-32">
+    <section className="relative isolate overflow-hidden bg-[#c9b1a7] py-16 text-[#211917] sm:py-24 md:py-32">
       <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_82%_8%,rgba(247,228,216,0.62),transparent_35%),linear-gradient(135deg,#d1bbb1_0%,#bea096_100%)]" />
       <div className="pointer-events-none absolute -right-10 top-1/2 -z-10 -translate-y-1/2 font-kindred text-[clamp(10rem,25vw,28rem)] uppercase leading-none text-[#37231f]/[0.035]">
         Notes
@@ -35,10 +35,10 @@ export default function ReviewsSection({ content }: { content: ReviewsContent })
               whileInView={{ clipPath: "inset(0% 0 0 0)", y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: shouldReduceMotion ? 0 : 1.05, delay: shouldReduceMotion ? 0 : 0.05, ease }}
-              className="font-heading text-5xl uppercase leading-[0.9] tracking-[0.06em] text-[#241a17] sm:text-6xl lg:text-7xl"
+              className="font-heading text-4xl uppercase leading-[0.9] tracking-[0.06em] text-[#241a17] sm:text-6xl lg:text-7xl"
             >
               {content.titleLead}
-              <span className="ml-3 font-light italic lowercase tracking-normal text-[#815b4c]">{content.titleAccent}</span>
+              <span className="mt-2 block font-light italic lowercase tracking-normal text-[#815b4c] sm:ml-3 sm:mt-0 sm:inline">{content.titleAccent}</span>
             </motion.h2>
           </div>
           <motion.p
@@ -64,7 +64,7 @@ export default function ReviewsSection({ content }: { content: ReviewsContent })
               <FaQuoteLeft className="text-2xl text-[#7f5849]" />
               <span className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#3d2924]/40">Entry / 01</span>
             </div>
-            <p className="my-12 max-w-4xl font-heading text-3xl italic leading-[1.35] text-[#2b1e1a]/82 sm:text-4xl lg:text-5xl">
+            <p className="my-10 max-w-4xl font-heading text-2xl italic leading-[1.35] text-[#2b1e1a]/82 sm:my-12 sm:text-4xl lg:text-5xl">
               &ldquo;{featuredReview.text}&rdquo;
             </p>
             <div className="flex items-center justify-between gap-6 border-t border-[#3d2924]/16 pt-6">
@@ -90,10 +90,10 @@ export default function ReviewsSection({ content }: { content: ReviewsContent })
                   <FaQuoteLeft className="text-sm text-[#7f5849]" />
                   <span className="text-[9px] font-semibold uppercase tracking-[0.26em] text-[#3d2924]/38">0{index + 2}</span>
                 </div>
-                <p className="my-7 font-heading text-2xl italic leading-relaxed text-[#2b1e1a]/76 sm:text-3xl">
+                <p className="my-7 font-heading text-xl italic leading-relaxed text-[#2b1e1a]/76 sm:text-3xl">
                   &ldquo;{review.text}&rdquo;
                 </p>
-                <div className="flex items-center justify-between gap-4 text-[9px] font-semibold uppercase tracking-[0.24em]">
+                <div className="flex flex-col items-start justify-between gap-2 text-[9px] font-semibold uppercase tracking-[0.24em] sm:flex-row sm:items-center sm:gap-4">
                   <span className="text-[#2f211d]/68">{review.author}</span>
                   <span className="text-[#765246]">Verified client</span>
                 </div>
