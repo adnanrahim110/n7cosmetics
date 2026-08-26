@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import type { Variants } from "motion/react";
+import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -182,19 +183,11 @@ export default function MegaMenu({
                             </span>
                             <span className="text-[10px] text-[#5A5A5A] uppercase tracking-widest mt-2 flex items-center group-hover:text-[#967C55] transition-colors duration-300">
                               Explore
-                              <svg
-                                className="w-3 h-3 ml-2 transform group-hover:translate-x-2 transition-transform duration-300"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={1.5}
-                                  d="M14 5l7 7m0 0l-7 7m7-7H3"
-                                />
-                              </svg>
+                              <ArrowRight
+                                aria-hidden="true"
+                                className="ml-2 size-3 transition-transform duration-300 group-hover:translate-x-2"
+                                strokeWidth={1.5}
+                              />
                             </span>
                           </div>
                         </Link>
@@ -210,19 +203,11 @@ export default function MegaMenu({
                         >
                           <div className="relative w-20 h-24 shrink-0 overflow-hidden bg-[#F5F3ED] group-hover:bg-white flex items-center justify-center border border-transparent transition-colors duration-500">
                             <span className="text-[#967C55] opacity-60 group-hover:opacity-100 transition-opacity">
-                              <svg
-                                className="w-6 h-6 transform group-hover:scale-110 transition-transform duration-500"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={1.5}
-                                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                                />
-                              </svg>
+                              <ArrowRight
+                                aria-hidden="true"
+                                className="size-6 transition-transform duration-500 group-hover:scale-110"
+                                strokeWidth={1.5}
+                              />
                             </span>
                           </div>
                           <div className="flex flex-col">

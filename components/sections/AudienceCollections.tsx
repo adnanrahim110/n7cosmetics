@@ -88,7 +88,7 @@ export default function AudienceCollections({
               />
               <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_70%_46%,rgba(209,162,100,0.16),transparent_38%)]" />
 
-              <div className="absolute right-[3%] top-[14%] h-[68%] w-[58%] transition-transform duration-1000 ease-[0.22,1,0.36,1] group-hover:-translate-y-3 group-hover:scale-[1.035] sm:right-0 sm:w-[52%]">
+              <div className="absolute right-0 top-[1%] lg:top-[14%] h-[68%] w-[58%] transition-transform duration-1000 ease-[0.22,1,0.36,1] group-hover:-translate-y-3 group-hover:scale-[1.035] sm:w-[52%]">
                 <Image
                   src={collection.image}
                   alt={`${collection.title} fragrance collection`}

@@ -48,8 +48,8 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
   const handlePointerDown = (event: React.PointerEvent<HTMLElement>) => {
     if (
       event.button !== 0 ||
-      event.target instanceof Element &&
-      event.target.closest("button, a, input, select, textarea")
+      (event.target instanceof Element &&
+        event.target.closest("button, a, input, select, textarea"))
     ) {
       return;
     }
@@ -85,7 +85,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
       onPointerDown={handlePointerDown}
       onPointerUp={finishDrag}
       onPointerCancel={finishDrag}
-      className={`relative min-h-200 select-none overflow-hidden bg-cover bg-center bg-no-repeat ${
+      className={`relative min-h-150 lg:min-h-200 select-none overflow-hidden bg-cover bg-center bg-no-repeat ${
         isDragging ? "cursor-grabbing" : "cursor-grab"
       }`}
       style={{
@@ -96,7 +96,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
       <div className="absolute inset-0 bg-linear-to-b from-black/50 via-transparent to-transparent" />
       <div className="absolute inset-0 bg-linear-to-r from-black/20 via-transparent to-transparent" />
 
-      <div className="relative mx-auto w-full max-w-7xl px-4 pt-48 sm:px-6 sm:pt-52 lg:px-8 lg:pt-56">
+      <div className="relative mx-auto w-full max-w-7xl px-10 pt-48 sm:px-6 sm:pt-52 lg:px-8 lg:pt-56">
         <AnimatePresence initial mode="wait">
           <motion.div
             key={activeProduct.name}
@@ -193,7 +193,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
             </motion.div>
 
             <motion.p
-              className="my-4 max-w-64 font-heading text-sm leading-6 sm:my-5 sm:max-w-72 sm:text-base sm:leading-normal"
+              className="mt-2 mb-4 max-w-64 font-heading text-sm sm:my-5 sm:max-w-72 sm:text-base sm:leading-normal"
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 26 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{
@@ -316,7 +316,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
         })}
       </nav>
 
-      <div className="absolute left-[72%] top-[70%] z-2 aspect-576/1023 w-52 -translate-1/2 sm:left-[70%] sm:top-[67%] sm:w-64 md:top-[58%] md:w-72 lg:left-[64%] lg:w-80 xl:left-[57%] xl:top-[52%] xl:w-88">
+      <div className="absolute left-[78%] top-[70%] z-2 aspect-576/1023 w-52 -translate-1/2 sm:left-[70%] sm:top-[67%] sm:w-64 md:top-[58%] md:w-72 lg:left-[64%] lg:w-80 xl:left-[57%] xl:top-[52%] xl:w-88">
         <AnimatePresence initial>
           <motion.div
             key={activeProduct.image}
@@ -356,7 +356,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
           </motion.div>
         </AnimatePresence>
       </div>
-
+      <div className="lg:hidden inset-y-0 absolute left-0 w-1/2 bg-linear-to-r from-black/40 to-transparent z-4 pointer-events-none" />
       <Image
         src="/imgs/hero-cloud.png"
         alt=""

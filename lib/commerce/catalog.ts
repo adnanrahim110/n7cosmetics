@@ -56,6 +56,7 @@ export interface StorefrontRelatedProduct {
   variantTitle: string;
   pricePence: number;
   compareAtPricePence: number | null;
+  rating: number;
   image: string;
   imageAlt: string;
 }
@@ -97,6 +98,7 @@ interface RelatedProductRow extends RowDataPacket {
   compare_at_price_pence: number | null;
   image_url: string;
   image_alt: string | null;
+  average_rating: number | string;
 }
 
 function noteGroupsFromJson(value: unknown): ProductNoteGroups {
@@ -187,6 +189,7 @@ export async function getRelatedStorefrontProducts(
     `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name, p.brand, p.audience,
        v.title AS variant_title, v.price_pence, v.compare_at_price_pence,
        image.url AS image_url, image.alt_text AS image_alt,
+       COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating,
        (
          (SELECT COUNT(*)
           FROM product_collections current_pc
@@ -218,6 +221,7 @@ export async function getRelatedStorefrontProducts(
     variantTitle: row.variant_title,
     pricePence: Number(row.price_pence),
     compareAtPricePence: row.compare_at_price_pence === null ? null : Number(row.compare_at_price_pence),
+    rating: Number(row.average_rating) || 0,
     image: row.image_url,
     imageAlt: row.image_alt ?? `${row.name} product image`,
   }));

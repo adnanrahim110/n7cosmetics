@@ -1,14 +1,13 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+import ProductCard from "@/components/ui/ProductCard";
+import type { StorefrontRelatedProduct } from "@/lib/commerce/catalog";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import type { Swiper as SwiperInstance } from "swiper";
 import "swiper/css";
 import { A11y } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
-import type { StorefrontRelatedProduct } from "@/lib/commerce/catalog";
 
 function money(pence: number): string {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
@@ -58,29 +57,18 @@ export default function RelatedProductsSlider({ products }: { products: Storefro
           spaceBetween={16}
           watchOverflow
         >
-          {products.map((product, index) => (
+          {products.map((product) => (
             <SwiperSlide className="h-auto!" key={product.id}>
-              <Link
-                aria-label={`View ${product.name}`}
-                className="group flex h-full min-h-122 flex-col focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8d6745]"
-                href={`/products/${product.slug}`}
-              >
-                <div className="relative aspect-3/4 overflow-hidden bg-[#e8dfd1]">
-                  <span className="absolute left-4 top-4 z-10 text-[8px] font-semibold uppercase tracking-[0.22em] text-black/34">{String(index + 1).padStart(2, "0")} / N7</span>
-                  <span className="absolute right-4 top-4 z-10 grid size-9 place-items-center rounded-full border border-black/10 bg-white/55 text-black/55 opacity-0 backdrop-blur transition-all duration-500 group-hover:opacity-100"><ArrowUpRight size={14} /></span>
-                  <div className="absolute inset-[9%] transition-transform duration-700 ease-[0.22,1,0.36,1] group-hover:-translate-y-2 group-hover:scale-[1.045]">
-                    <Image alt={product.imageAlt} className="object-contain drop-shadow-[0_30px_24px_rgba(52,34,20,0.2)]" fill sizes="(max-width: 640px) 80vw, (max-width: 1024px) 42vw, 23vw" src={product.image} />
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between border-t border-black/8 bg-[#eee6da]/88 px-4 py-3 text-[8px] font-semibold uppercase tracking-[0.18em] text-black/45 backdrop-blur">
-                    <span>{product.brand ?? "N7 Cosmetics"}</span><span>{product.variantTitle}</span>
-                  </div>
-                </div>
-                <div className="grow border-b border-black/12 py-5">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#8d6745]">{product.audience.toLowerCase()}</p>
-                  <h3 className="mt-2 font-heading text-2xl font-normal leading-tight text-[#1c1814] transition-colors group-hover:text-[#8d6745]">{product.name}</h3>
-                  <div className="mt-4 flex items-baseline gap-2"><span className="text-base font-semibold">{money(product.pricePence)}</span>{product.compareAtPricePence ? <del className="text-xs text-black/35">{money(product.compareAtPricePence)}</del> : null}</div>
-                </div>
-              </Link>
+              <ProductCard
+                product={{
+                  slug: product.slug,
+                  name: product.name,
+                  image: product.image,
+                  price: money(product.pricePence),
+                  pricePence: product.pricePence,
+                  rating: product.rating,
+                }}
+              />
             </SwiperSlide>
           ))}
         </Swiper>

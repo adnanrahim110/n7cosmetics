@@ -1,106 +1,205 @@
 "use client";
 
+import type { ReviewContent, ReviewsContent } from "@/lib/homepage/types";
+import { ArrowLeft, ArrowRight, Star } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { FaQuoteLeft } from "react-icons/fa";
-
-import type { ReviewsContent } from "@/lib/homepage/types";
+import { useState } from "react";
+import type { Swiper as SwiperInstance } from "swiper";
+import "swiper/css";
+import { A11y, Autoplay, Keyboard } from "swiper/modules";
+import { Swiper, SwiperSlide } from "swiper/react";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-export default function ReviewsSection({ content }: { content: ReviewsContent }) {
-  const shouldReduceMotion = useReducedMotion();
-  const [featuredReview, ...supportingReviews] = content.reviews;
+function getRating(review: ReviewContent): number {
+  const rating = Number(review.rating ?? 5);
+  return Number.isFinite(rating)
+    ? Math.min(5, Math.max(1, Math.round(rating)))
+    : 5;
+}
+
+function ReviewCard({ review }: { review: ReviewContent }) {
+  const rating = getRating(review);
 
   return (
-    <section className="relative isolate overflow-hidden bg-[#c9b1a7] py-16 text-[#211917] sm:py-24 md:py-32">
-      <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_82%_8%,rgba(247,228,216,0.62),transparent_35%),linear-gradient(135deg,#d1bbb1_0%,#bea096_100%)]" />
-      <div className="pointer-events-none absolute -right-10 top-1/2 -z-10 -translate-y-1/2 font-kindred text-[clamp(10rem,25vw,28rem)] uppercase leading-none text-[#37231f]/[0.035]">
-        Notes
+    <article className="flex h-full min-h-80 flex-col border border-[#2f211d]/12 bg-[#f8f3eb] p-6 shadow-[0_0px_30px_rgba(47,33,29,0.05)] sm:min-h-88 sm:p-8 lg:min-h-96 lg:p-10">
+      <div
+        aria-label={`${rating} out of 5 stars`}
+        className="flex items-center gap-1 text-[#a66d2d]"
+        role="img"
+      >
+        {Array.from({ length: 5 }, (_, index) => (
+          <Star
+            aria-hidden="true"
+            className={index < rating ? "fill-current" : "opacity-25"}
+            key={index}
+            size={17}
+            strokeWidth={1.5}
+          />
+        ))}
       </div>
 
+      <p className="my-8 grow font-heading text-[1.55rem] font-light italic leading-[1.45] tracking-normal text-[#2b1e1a] sm:my-10 sm:text-[1.8rem] lg:text-[2rem]">
+        &ldquo;{review.text}&rdquo;
+      </p>
+
+      <p className="border-t border-[#2f211d]/12 pt-5 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#6f4e41]">
+        {review.author}
+      </p>
+    </article>
+  );
+}
+
+export default function ReviewsSection({
+  content,
+}: {
+  content: ReviewsContent;
+}) {
+  const shouldReduceMotion = useReducedMotion();
+  const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const reviewCount = content.reviews.length;
+
+  if (!reviewCount) return null;
+
+  return (
+    <section className="relative isolate overflow-hidden bg-[#c9b1a7] py-16 text-[#211917] sm:py-24 lg:py-32">
+      <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_82%_8%,rgba(247,228,216,0.62),transparent_35%),linear-gradient(135deg,#d1bbb1_0%,#bea096_100%)]" />
+
       <div className="mx-auto max-w-360 px-4 sm:px-8 lg:px-12">
-        <div className="mb-14 grid gap-8 border-b border-[#3d2924]/18 pb-9 lg:grid-cols-[1fr_0.72fr] lg:items-end">
+        <div className="grid gap-7 border-b border-[#3d2924]/18 pb-8 lg:grid-cols-[1fr_0.72fr] lg:items-end lg:pb-10">
           <div>
-            <motion.span
+            <motion.p
+              className="text-[10px] font-semibold uppercase tracking-[0.34em] text-[#755346]"
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.7, ease }}
               viewport={{ once: true }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.75, ease }}
-              className="mb-5 block text-[10px] font-semibold uppercase tracking-[0.34em] text-[#755346]"
+              whileInView={{ opacity: 1, y: 0 }}
             >
               {content.eyebrow}
-            </motion.span>
+            </motion.p>
             <motion.h2
-              initial={{ clipPath: shouldReduceMotion ? "inset(0)" : "inset(100% 0 0 0)", y: shouldReduceMotion ? 0 : 28 }}
-              whileInView={{ clipPath: "inset(0% 0 0 0)", y: 0 }}
+              className="mt-5 font-heading text-4xl uppercase leading-[0.92] tracking-wide text-[#241a17] sm:text-6xl lg:text-7xl"
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.85, ease }}
               viewport={{ once: true }}
-              transition={{ duration: shouldReduceMotion ? 0 : 1.05, delay: shouldReduceMotion ? 0 : 0.05, ease }}
-              className="font-heading text-4xl uppercase leading-[0.9] tracking-[0.06em] text-[#241a17] sm:text-6xl lg:text-7xl"
+              whileInView={{ opacity: 1, y: 0 }}
             >
-              {content.titleLead}
-              <span className="mt-2 block font-light italic lowercase tracking-normal text-[#815b4c] sm:ml-3 sm:mt-0 sm:inline">{content.titleAccent}</span>
+              {content.titleLead}{" "}
+              <span className="font-light italic lowercase tracking-normal text-[#815b4c]">
+                {content.titleAccent}
+              </span>
             </motion.h2>
           </div>
+
           <motion.p
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            className="max-w-xl font-light leading-7 text-[#382723]/65 lg:justify-self-end lg:text-right"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}
+            transition={{
+              delay: shouldReduceMotion ? 0 : 0.08,
+              duration: shouldReduceMotion ? 0 : 0.75,
+              ease,
+            }}
             viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.85, delay: shouldReduceMotion ? 0 : 0.14, ease }}
-            className="max-w-lg font-light leading-7 text-[#382723]/62 lg:justify-self-end lg:text-right"
+            whileInView={{ opacity: 1, y: 0 }}
           >
             {content.description}
           </motion.p>
         </div>
 
-        <div className="grid border-y border-[#3d2924]/18 lg:grid-cols-[1.15fr_0.85fr]">
-          <motion.article
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 34 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-70px" }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.95, ease }}
-            className="relative flex min-h-105 flex-col justify-between border-b border-[#3d2924]/18 py-10 lg:min-h-130 lg:border-b-0 lg:border-r lg:py-14 lg:pr-14"
+        <motion.div
+          className="mt-8 sm:mt-10 lg:mt-12"
+          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 28 }}
+          transition={{
+            delay: shouldReduceMotion ? 0 : 0.12,
+            duration: shouldReduceMotion ? 0 : 0.85,
+            ease,
+          }}
+          viewport={{ once: true, margin: "-60px" }}
+          whileInView={{ opacity: 1, y: 0 }}
+        >
+          <Swiper
+            aria-label="Customer reviews"
+            autoplay={
+              shouldReduceMotion || reviewCount <= 1
+                ? false
+                : {
+                    delay: 6000,
+                    disableOnInteraction: false,
+                    pauseOnMouseEnter: true,
+                  }
+            }
+            breakpoints={{
+              520: { slidesPerView: 1.35, spaceBetween: 20 },
+              768: { slidesPerView: 1.8, spaceBetween: 24 },
+              1024: { slidesPerView: 2.2, spaceBetween: 28 },
+              1440: { slidesPerView: 2.55, spaceBetween: 32 },
+            }}
+            className="overflow-visible!"
+            grabCursor={reviewCount > 1}
+            keyboard={{ enabled: true }}
+            modules={[A11y, Autoplay, Keyboard]}
+            onSlideChange={(instance) => setActiveIndex(instance.realIndex)}
+            onSwiper={setSwiper}
+            rewind={reviewCount > 1}
+            slidesPerView={1.08}
+            spaceBetween={14}
+            watchOverflow
           >
-            <div className="flex items-center justify-between">
-              <FaQuoteLeft className="text-2xl text-[#7f5849]" />
-              <span className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#3d2924]/40">Entry / 01</span>
-            </div>
-            <p className="my-10 max-w-4xl font-heading text-2xl italic leading-[1.35] text-[#2b1e1a]/82 sm:my-12 sm:text-4xl lg:text-5xl">
-              &ldquo;{featuredReview.text}&rdquo;
-            </p>
-            <div className="flex items-center justify-between gap-6 border-t border-[#3d2924]/16 pt-6">
-              <div>
-                <span className="block text-[10px] font-semibold uppercase tracking-[0.24em] text-[#2f211d]/72">{featuredReview.author}</span>
-                <span className="mt-2 block text-[9px] uppercase tracking-[0.22em] text-[#765246]">Verified client</span>
-              </div>
-              <span className="font-heading text-4xl italic text-[#725044]/36">N7</span>
-            </div>
-          </motion.article>
-
-          <div className="lg:pl-12">
-            {supportingReviews.map((review, index) => (
-              <motion.article
-                key={review.author}
-                initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 24 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ duration: shouldReduceMotion ? 0 : 0.82, delay: shouldReduceMotion ? 0 : index * 0.1, ease }}
-                className="group flex min-h-64 flex-col justify-between border-b border-[#3d2924]/18 py-9 last:border-b-0 lg:min-h-65 lg:py-10"
+            {content.reviews.map((review, index) => (
+              <SwiperSlide
+                className="h-auto!"
+                key={`${review.author}-${index}`}
               >
-                <div className="flex items-center justify-between gap-5">
-                  <FaQuoteLeft className="text-sm text-[#7f5849]" />
-                  <span className="text-[9px] font-semibold uppercase tracking-[0.26em] text-[#3d2924]/38">0{index + 2}</span>
-                </div>
-                <p className="my-7 font-heading text-xl italic leading-relaxed text-[#2b1e1a]/76 sm:text-3xl">
-                  &ldquo;{review.text}&rdquo;
-                </p>
-                <div className="flex flex-col items-start justify-between gap-2 text-[9px] font-semibold uppercase tracking-[0.24em] sm:flex-row sm:items-center sm:gap-4">
-                  <span className="text-[#2f211d]/68">{review.author}</span>
-                  <span className="text-[#765246]">Verified client</span>
-                </div>
-              </motion.article>
+                <ReviewCard review={review} />
+              </SwiperSlide>
             ))}
+          </Swiper>
+
+          <div className="mt-7 flex items-center gap-4 sm:mt-9 sm:gap-6">
+            <p
+              aria-live="polite"
+              className="shrink-0 text-[10px] font-semibold tracking-[0.2em] text-[#4b342d]/65"
+            >
+              {String(activeIndex + 1).padStart(2, "0")} /{" "}
+              {String(reviewCount).padStart(2, "0")}
+            </p>
+
+            <div
+              aria-hidden="true"
+              className="h-px min-w-0 flex-1 overflow-hidden bg-[#3d2924]/16"
+            >
+              <motion.span
+                animate={{
+                  width: `${((activeIndex + 1) / reviewCount) * 100}%`,
+                }}
+                className="block h-full bg-[#7f5849]"
+                transition={{ duration: shouldReduceMotion ? 0 : 0.4, ease }}
+              />
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                aria-label="Previous review"
+                className="grid size-11 place-items-center rounded-full border border-[#3d2924]/22 text-[#34231f] transition-colors hover:border-[#34231f] hover:bg-[#34231f] hover:text-[#f8f3eb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#34231f] disabled:cursor-not-allowed disabled:opacity-30"
+                disabled={reviewCount <= 1}
+                onClick={() => swiper?.slidePrev()}
+                type="button"
+              >
+                <ArrowLeft aria-hidden="true" size={17} strokeWidth={1.5} />
+              </button>
+              <button
+                aria-label="Next review"
+                className="grid size-11 place-items-center rounded-full border border-[#3d2924]/22 text-[#34231f] transition-colors hover:border-[#34231f] hover:bg-[#34231f] hover:text-[#f8f3eb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#34231f] disabled:cursor-not-allowed disabled:opacity-30"
+                disabled={reviewCount <= 1}
+                onClick={() => swiper?.slideNext()}
+                type="button"
+              >
+                <ArrowRight aria-hidden="true" size={17} strokeWidth={1.5} />
+              </button>
+            </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

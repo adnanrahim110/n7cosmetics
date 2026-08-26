@@ -12,7 +12,6 @@ import {
   ShoppingCart,
   Sparkles,
   Truck,
-  User,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -24,6 +23,7 @@ import type { NavigationItem } from "../../content/global";
 import { globalContent } from "../../content/global";
 import { useCommerce } from "../commerce/CommerceProvider";
 import MegaMenu from "./MegaMenu";
+import ProductSearchDialog from "./ProductSearchDialog";
 import SimpleDropdown from "./SimpleDropdown";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -103,9 +103,27 @@ export default function Header({ content }: { content: HeaderContent }) {
   const forceDarkText = pathname.startsWith("/products/");
   const headerContainerRef = useRef<HTMLElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [hoveredNav, setHoveredNav] = useState<number | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMobileMenuOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isMobileMenuOpen]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -175,10 +193,7 @@ export default function Header({ content }: { content: HeaderContent }) {
   ) => {
     return links.map((link, idx) => {
       const globalIdx = startIndex + idx;
-      const { activeSubHref, isActive } = activeNavigationState(
-        link,
-        pathname,
-      );
+      const { activeSubHref, isActive } = activeNavigationState(link, pathname);
       if (link.type === "mega") {
         return (
           <MegaMenu
@@ -251,7 +266,7 @@ export default function Header({ content }: { content: HeaderContent }) {
           />
           <span
             aria-hidden="true"
-            className={`absolute left-1/2 top-1/2 size-1 -translate-x-1/2 translate-y-[15px] rotate-45 transition-all duration-500 ${
+            className={`absolute left-1/2 top-1/2 size-1 -translate-x-1/2 translate-y-3.75 rotate-45 transition-all duration-500 ${
               isActive ? "scale-100 opacity-100" : "scale-0 opacity-0"
             } ${forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-300"}`}
           />
@@ -288,7 +303,7 @@ export default function Header({ content }: { content: HeaderContent }) {
           </div>
 
           <div
-            className={`grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch px-4 py-2 transition-[background-color,border-color,box-shadow] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] sm:px-6 sm:py-3 lg:px-8 ${
+            className={`grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-4 py-2 transition-[background-color,border-color,box-shadow] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] sm:gap-4 sm:px-6 sm:py-3 lg:px-8 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:items-stretch xl:gap-0 ${
               isScrolled
                 ? "border-b border-[#1A1A1A]/5 bg-white/95 shadow-sm backdrop-blur-2xl"
                 : forceDarkText
@@ -296,7 +311,7 @@ export default function Header({ content }: { content: HeaderContent }) {
                   : "border-b border-transparent bg-transparent"
             }`}
           >
-            <div className="flex min-w-0 items-stretch justify-end">
+            <div className="hidden min-w-0 items-stretch justify-end xl:flex">
               <nav className="hidden self-stretch items-center gap-x-6 pr-6 2xl:gap-x-10 2xl:pr-10 xl:flex">
                 {renderNavLinks(leftLinks, 0, forceDarkText)}
               </nav>
@@ -305,7 +320,7 @@ export default function Header({ content }: { content: HeaderContent }) {
             <Link
               href="/"
               aria-label={`${globalContent.header.name} home`}
-              className="relative z-30 mx-3 block w-20 shrink-0 self-center sm:mx-5 lg:mx-7"
+              className="relative z-30 block w-16 shrink-0 self-center xl:mx-7 xl:w-20"
             >
               <Image
                 src={globalContent.header.logo}
@@ -313,14 +328,14 @@ export default function Header({ content }: { content: HeaderContent }) {
                 width={291}
                 height={373}
                 priority
-                sizes="80px"
-                className={`h-auto w-20 object-contain transition-[filter] duration-500 ${
+                sizes="(max-width: 1279px) 64px, 80px"
+                className={`h-auto w-16 object-contain transition-[filter] duration-500 xl:w-20 ${
                   isScrolled || forceDarkText ? "invert-100" : ""
                 }`}
               />
             </Link>
 
-            <div className="flex min-w-0 items-stretch justify-start">
+            <div className="flex min-w-0 items-stretch justify-end xl:justify-start">
               <nav className="hidden self-stretch items-center gap-x-6 pl-6 pr-3 2xl:gap-x-10 2xl:pl-10 2xl:pr-6 xl:flex">
                 {renderNavLinks(rightLinks, 3, forceDarkText)}
               </nav>
@@ -328,17 +343,6 @@ export default function Header({ content }: { content: HeaderContent }) {
               <div
                 className={`hidden items-center gap-1 transition-colors duration-500 2xl:gap-2 xl:flex ${isScrolled || forceDarkText ? "text-[#1A1A1A]" : "text-dark-100"}`}
               >
-                <button
-                  aria-label="Search"
-                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled || forceDarkText ? "hover:bg-black/5" : "hover:bg-white/10"}`}
-                  type="button"
-                >
-                  <Search
-                    size={20}
-                    strokeWidth={1.5}
-                    className={`relative z-10 transition-all duration-500 ease-out group-hover/icon:scale-110 ${isScrolled || forceDarkText ? "group-hover/icon:text-[#967C55]" : "group-hover/icon:text-primary-400"}`}
-                  />
-                </button>
                 <Link
                   aria-label={`Wishlist with ${wishlistCount} items`}
                   href="/wishlist"
@@ -355,7 +359,23 @@ export default function Header({ content }: { content: HeaderContent }) {
                     </span>
                   ) : null}
                 </Link>
-
+                <button
+                  aria-label="Search"
+                  aria-controls="product-search-dialog"
+                  aria-expanded={isSearchOpen}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled || forceDarkText ? "hover:bg-black/5" : "hover:bg-white/10"}`}
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsSearchOpen(true);
+                  }}
+                  type="button"
+                >
+                  <Search
+                    size={20}
+                    strokeWidth={1.5}
+                    className={`relative z-10 transition-all duration-500 ease-out group-hover/icon:scale-110 ${isScrolled || forceDarkText ? "group-hover/icon:text-[#967C55]" : "group-hover/icon:text-primary-400"}`}
+                  />
+                </button>
                 <button
                   aria-label={`Cart with ${cartCount} items`}
                   aria-controls="cart-sidebar"
@@ -375,7 +395,20 @@ export default function Header({ content }: { content: HeaderContent }) {
                 </button>
               </div>
 
-              <div className="ml-auto flex items-center xl:hidden">
+              <div className="ml-auto flex items-center gap-0.5 sm:gap-1 xl:hidden">
+                <button
+                  aria-label="Search"
+                  aria-controls="product-search-dialog"
+                  aria-expanded={isSearchOpen}
+                  className={`relative grid size-11 place-items-center rounded-full transition-colors ${isScrolled || forceDarkText ? "text-[#1A1A1A] hover:bg-black/5" : "text-dark-100 hover:bg-white/10"}`}
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsSearchOpen(true);
+                  }}
+                  type="button"
+                >
+                  <Search aria-hidden="true" size={20} strokeWidth={1.5} />
+                </button>
                 <button
                   aria-label={`Cart with ${cartCount} items`}
                   aria-controls="cart-sidebar"
@@ -399,16 +432,21 @@ export default function Header({ content }: { content: HeaderContent }) {
                   ) : null}
                 </button>
                 <button
-                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  onClick={() => {
+                    setIsSearchOpen(false);
+                    setIsMobileMenuOpen(!isMobileMenuOpen);
+                  }}
                   aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+                  aria-controls="mobile-navigation-sidebar"
                   aria-expanded={isMobileMenuOpen}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none ${
+                  type="button"
+                  className={`grid size-11 place-items-center rounded-full transition-all duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400 ${
                     isScrolled || forceDarkText
                       ? "text-[#1A1A1A] hover:bg-black/5"
                       : "text-dark-100 hover:bg-primary-500/10"
                   }`}
                 >
-                  {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                  {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
                 </button>
               </div>
             </div>
@@ -416,74 +454,166 @@ export default function Header({ content }: { content: HeaderContent }) {
         </div>
       </header>
 
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            data-header-nav="true"
-            initial={{ opacity: 0, y: -20, filter: "blur(10px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -20, filter: "blur(10px)" }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            style={{
-              top: headerHeight,
-              height: `calc(100dvh - ${headerHeight}px)`,
-            }}
-            className="fixed inset-x-0 z-40 overflow-y-auto overscroll-contain border-t border-white/5 bg-dark-950/95 pb-20 backdrop-blur-3xl xl:hidden"
-          >
-            <div className="space-y-6 px-5 py-7 sm:space-y-8 sm:px-8 sm:py-10">
-              {content.navigation.map((link, idx) => {
-                const { activeSubHref, isActive } = activeNavigationState(
-                  link,
-                  pathname,
-                );
+      <div id="product-search-dialog">
+        <ProductSearchDialog
+          onClose={() => setIsSearchOpen(false)}
+          open={isSearchOpen}
+        />
+      </div>
 
-                return (
-                  <div key={idx} className="group/mobnav">
-                    <Link
-                      href={link.href}
-                      aria-current={isActive ? "page" : undefined}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={`relative flex items-center justify-between overflow-hidden border px-4 py-3 font-heading text-lg uppercase tracking-widest transition-all duration-300 sm:text-xl ${
-                        isActive
-                          ? "border-primary-400/30 bg-[linear-gradient(90deg,rgba(184,123,56,0.2),rgba(184,123,56,0.04))] text-primary-200 shadow-[inset_3px_0_0_#b87b38]"
-                          : "border-x-transparent border-t-transparent border-b-white/5 text-dark-50 group-hover/mobnav:text-primary-300"
-                      }`}
-                    >
-                      {link.label}
-                      {isActive ? (
-                        <span className="flex items-center gap-2 font-body text-[8px] font-semibold tracking-[0.22em] text-primary-300/75">
-                          <span className="size-1 rotate-45 bg-primary-400" />
-                          Current
-                        </span>
-                      ) : null}
-                    </Link>
-                    {link.items && (
-                      <div className="space-y-3 py-3 pl-4 sm:space-y-4 sm:py-4">
-                        {link.items.map((sub, sIdx) => (
-                          <Link
-                            key={sIdx}
-                            href={sub.href}
-                            aria-current={
-                              activeSubHref === sub.href ? "page" : undefined
-                            }
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className={`block border-l py-1 pl-4 text-[12px] uppercase tracking-[0.15em] transition-all ${
-                              activeSubHref === sub.href
-                                ? "border-primary-400 text-primary-200"
-                                : "border-white/10 text-dark-300 hover:border-primary-400/45 hover:text-primary-300"
-                            }`}
-                          >
-                            {sub.name}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
+      <AnimatePresence>
+        {isMobileMenuOpen ? (
+          <>
+            <motion.button
+              key="mobile-navigation-backdrop"
+              type="button"
+              aria-label="Close navigation menu"
+              data-header-nav="true"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 z-60 cursor-default bg-black/60 backdrop-blur-[2px] xl:hidden"
+            />
+
+            <motion.aside
+              key="mobile-navigation-sidebar"
+              id="mobile-navigation-sidebar"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mobile-navigation-title"
+              data-header-nav="true"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{
+                duration: 0.38,
+                ease: [0.16, 1, 0.3, 1],
+              }}
+              className="fixed inset-y-0 right-0 z-70 flex h-dvh w-[min(86vw,24rem)] flex-col overflow-hidden border-l border-[#1A1A1A]/10 bg-[#f7f2e9]/98 shadow-[-24px_0_70px_rgba(0,0,0,0.25)] xl:hidden"
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-[#1A1A1A]/10 bg-white/30 px-5 py-3 sm:px-6 sm:py-4">
+                <Link
+                  href="/"
+                  aria-label={`${globalContent.header.name} home`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="block w-12"
+                >
+                  <Image
+                    src={globalContent.header.logo}
+                    alt={globalContent.header.name}
+                    width={291}
+                    height={373}
+                    sizes="48px"
+                    className="h-auto w-12 object-contain invert-100"
+                  />
+                </Link>
+                <h2 id="mobile-navigation-title" className="sr-only">
+                  Navigation menu
+                </h2>
+                <button
+                  type="button"
+                  aria-label="Close navigation menu"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="grid size-11 place-items-center rounded-full border border-[#1A1A1A]/10 text-[#1A1A1A] transition-colors hover:border-primary-500/40 hover:bg-black/5 hover:text-[#7a5825] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                >
+                  <X aria-hidden="true" size={22} strokeWidth={1.6} />
+                </button>
+              </div>
+
+              <nav
+                aria-label="Mobile navigation"
+                className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-6 sm:space-y-6 sm:px-6 sm:py-8"
+              >
+                {content.navigation.map((link, idx) => {
+                  const { activeSubHref, isActive } = activeNavigationState(
+                    link,
+                    pathname,
+                  );
+
+                  return (
+                    <div key={idx} className="group/mobnav">
+                      <Link
+                        href={link.href}
+                        aria-current={isActive ? "page" : undefined}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={`relative flex items-center justify-between overflow-hidden border px-3 py-3 font-heading text-lg uppercase tracking-widest transition-all duration-300 sm:px-4 sm:text-xl ${
+                          isActive
+                            ? "border-primary-500/30 bg-[linear-gradient(90deg,rgba(184,123,56,0.18),rgba(184,123,56,0.03))] text-[#7a5825] shadow-[inset_3px_0_0_#b87b38]"
+                            : "border-x-transparent border-t-transparent border-b-[#1A1A1A]/8 text-[#1A1A1A] group-hover/mobnav:text-[#7a5825]"
+                        }`}
+                      >
+                        {link.label}
+                        {isActive ? (
+                          <span className="flex items-center gap-2 font-body text-[8px] font-semibold tracking-[0.22em] text-[#7a5825]/75">
+                            <span className="size-1 rotate-45 bg-primary-500" />
+                            Current
+                          </span>
+                        ) : null}
+                      </Link>
+                      {link.items && (
+                        <div className="space-y-3 py-3 pl-3 sm:space-y-4 sm:py-4 sm:pl-4">
+                          {link.items.map((sub, sIdx) => (
+                            <Link
+                              key={sIdx}
+                              href={sub.href}
+                              aria-current={
+                                activeSubHref === sub.href ? "page" : undefined
+                              }
+                              onClick={() => setIsMobileMenuOpen(false)}
+                              className={`block border-l py-1 pl-4 text-[12px] uppercase tracking-[0.15em] transition-all ${
+                                activeSubHref === sub.href
+                                  ? "border-primary-500 text-[#7a5825]"
+                                  : "border-[#1A1A1A]/12 text-[#1A1A1A]/60 hover:border-primary-500/45 hover:text-[#7a5825]"
+                              }`}
+                            >
+                              {sub.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </nav>
+
+              <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-[#1A1A1A]/10 bg-white/40 px-5 py-4 sm:px-6">
+                <Link
+                  href="/wishlist"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/10 px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1A1A1A] transition-colors hover:border-primary-500/40 hover:bg-white/60 hover:text-[#7a5825]"
+                >
+                  <Heart aria-hidden="true" size={16} strokeWidth={1.6} />
+                  Wishlist
+                </Link>
+                <button
+                  type="button"
+                  aria-label={`Open cart with ${cartCount} items`}
+                  aria-controls="cart-sidebar"
+                  aria-expanded={isCartOpen}
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    openCart();
+                  }}
+                  className="relative flex items-center justify-center gap-2 rounded-full border border-[#1A1A1A]/10 px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#1A1A1A] transition-colors hover:border-primary-500/40 hover:bg-white/60 hover:text-[#7a5825]"
+                >
+                  <ShoppingCart
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={1.6}
+                  />
+                  Cart
+                  {cartCount ? (
+                    <span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-primary-500 text-[8px] font-bold text-dark-950">
+                      {cartCount > 9 ? "9+" : cartCount}
+                    </span>
+                  ) : null}
+                </button>
+              </div>
+            </motion.aside>
+          </>
+        ) : null}
       </AnimatePresence>
     </>
   );

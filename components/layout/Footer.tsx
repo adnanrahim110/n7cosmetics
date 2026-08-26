@@ -74,7 +74,7 @@ export default function Footer({
           </div>
 
           <div className="flex flex-col justify-start sm:col-span-2 lg:col-span-4">
-            <h3 className="font-heading text-3xl text-white tracking-wider uppercase mb-2">
+            <h3 className="font-heading text-2xl lg:text-3xl text-white tracking-wider uppercase mb-2">
               {content.newsletterTitle}
             </h3>
             <p className="text-white/50 text-sm font-light mb-8 max-w-lg">

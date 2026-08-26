@@ -56,6 +56,7 @@ interface CollectionProductRow extends RowDataPacket {
   price_pence: number;
   compare_at_price_pence?: number | null;
   image_url: string;
+  average_rating: number | string;
 }
 
 interface PageSectionRow extends RowDataPacket {
@@ -82,6 +83,7 @@ function mapCollectionProduct(row: CollectionProductRow): CollectionProduct {
     compareAtPrice: row.compare_at_price_pence
       ? row.compare_at_price_pence / 100
       : undefined,
+    rating: Number(row.average_rating) || 0,
     image: row.image_url,
   };
 }
@@ -112,7 +114,8 @@ async function getProductsByIds(productIds: string[]): Promise<CollectionProduct
     `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name,
        (SELECT c.name FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id WHERE pc.product_id = p.id ORDER BY c.sort_order, c.name LIMIT 1) AS category,
        v.price_pence, v.compare_at_price_pence,
-       (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort_order, i.id LIMIT 1) AS image_url
+       (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort_order, i.id LIMIT 1) AS image_url,
+       COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating
      FROM products p
      INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 AND v.status = 'ACTIVE'
      WHERE p.status = 'ACTIVE'
@@ -133,7 +136,8 @@ async function getCollectionProducts(slug: CollectionSlug): Promise<CollectionPr
         `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name,
           COALESCE((SELECT c.name FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id WHERE pc.product_id = p.id ORDER BY c.sort_order, c.name LIMIT 1), 'Sale') AS category,
           v.price_pence, v.compare_at_price_pence,
-          (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort_order, i.id LIMIT 1) AS image_url
+          (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort_order, i.id LIMIT 1) AS image_url,
+          COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating
         FROM products p
         INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 AND v.status = 'ACTIVE'
         WHERE p.status = 'ACTIVE'
@@ -146,7 +150,8 @@ async function getCollectionProducts(slug: CollectionSlug): Promise<CollectionPr
         `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name,
           (SELECT c.name FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id WHERE pc.product_id = p.id ORDER BY c.sort_order, c.name LIMIT 1) AS category,
           v.price_pence, v.compare_at_price_pence,
-          (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort_order, i.id LIMIT 1) AS image_url
+          (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort_order, i.id LIMIT 1) AS image_url,
+          COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating
         FROM product_collections pcl
         INNER JOIN collections col ON col.id = pcl.collection_id AND col.status = 'ACTIVE'
         INNER JOIN products p ON p.id = pcl.product_id AND p.status = 'ACTIVE'

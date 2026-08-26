@@ -7,6 +7,7 @@ export interface HomepageProduct {
   type: string;
   price: string;
   pricePence: number;
+  rating: number;
   image: string;
   description: string;
   tagline: string;
@@ -107,7 +108,11 @@ export interface AudienceContent {
   cards: AudienceCardContent[];
 }
 
-export interface ReviewContent { text: string; author: string }
+export interface ReviewContent {
+  text: string;
+  author: string;
+  rating?: number;
+}
 export interface ReviewsContent {
   eyebrow: string;
   titleLead: string;

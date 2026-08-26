@@ -1,23 +1,22 @@
 "use client";
 
+import ProductCard from "@/components/ui/ProductCard";
+import { slugify } from "@/lib/admin/form";
 import type { StorefrontCollectionPageContent } from "@/lib/storefront-pages/config";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   collectionEase,
+  formatCollectionPrice,
   productBatchSize,
   productMatchesPriceBand,
   type CollectionDesign,
   type PriceBand,
   type SortOption,
 } from "./collection-config";
+import { CollectionComingSoonCard } from "./CollectionComingSoonCard";
 import CollectionControls from "./CollectionControls";
 import CollectionLoadingControls from "./CollectionLoadingControls";
-import {
-  CollectionComingSoonCard,
-  CollectionFeaturedCard,
-  CollectionProductCard,
-} from "./CollectionProductCards";
 
 interface CollectionCatalogProps {
   collection: StorefrontCollectionPageContent;
@@ -86,11 +85,6 @@ export default function CollectionCatalog({
   ]);
 
   const visibleProducts = filteredProducts.slice(0, visibleCount);
-  const isCuratedView =
-    !selectedCategories.length &&
-    !selectedPriceBands.length &&
-    !query &&
-    sortBy === "featured";
 
   useEffect(() => {
     const trigger = infiniteScrollTriggerRef.current;
@@ -146,8 +140,6 @@ export default function CollectionCatalog({
       id="collection-index"
       className="relative isolate scroll-mt-20 overflow-hidden bg-[#f3eee5] py-16 text-[#1c1814] sm:py-24 lg:py-32"
     >
-      <div className="pointer-events-none absolute inset-y-0 left-[12%] -z-10 w-px bg-black/[0.035]" />
-      <div className="pointer-events-none absolute inset-y-0 right-[12%] -z-10 w-px bg-black/[0.035]" />
       <span className="pointer-events-none absolute -right-7 top-18 -z-10 font-kindred text-[clamp(9rem,22vw,25rem)] uppercase leading-none text-[#2a2018]/2.5">
         INDEX
       </span>
@@ -215,7 +207,7 @@ export default function CollectionCatalog({
           <motion.div
             key={`${selectedCategories.join(".")}-${selectedPriceBands.join(".")}-${query}-${sortBy}`}
             layout
-            className={`grid grid-cols-1 gap-x-5 gap-y-16 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-18 md:gap-x-8 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-22 xl:grid-cols-4 ${isBundle ? "xl:grid-cols-3" : ""}`}
+            className={`grid grid-cols-2 gap-5 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-18 md:gap-x-8 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-22 xl:grid-cols-4 ${isBundle ? "xl:grid-cols-3" : ""}`}
           >
             {detail.comingSoon.enabled ? (
               <CollectionComingSoonCard
@@ -225,32 +217,35 @@ export default function CollectionCatalog({
               />
             ) : null}
 
-            {visibleProducts.map((product, index) => {
-              const isFeatured =
-                isCuratedView && (index === 0 || (!isBundle && index === 9));
-
-              return isFeatured ? (
-                <CollectionFeaturedCard
-                  key={`${product.name}-${product.category}`}
-                  product={product}
-                  index={index}
-                  design={design}
-                  shouldReduceMotion={shouldReduceMotion}
-                  isBundle={isBundle}
+            {visibleProducts.map((product, index) => (
+              <motion.div
+                key={`${product.name}-${product.category}`}
+                layout
+                initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 42 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-65px" }}
+                transition={{
+                  duration: shouldReduceMotion ? 0 : 0.9,
+                  delay: shouldReduceMotion ? 0 : (index % 4) * 0.07,
+                  ease: collectionEase,
+                }}
+                className="min-w-0"
+              >
+                <ProductCard
+                  product={{
+                    slug: product.slug ?? slugify(product.name),
+                    name: product.name,
+                    image: product.image,
+                    price: formatCollectionPrice(product.price),
+                    pricePence: Math.round(product.price * 100),
+                    rating: product.rating ?? 0,
+                  }}
                 />
-              ) : (
-                <CollectionProductCard
-                  key={`${product.name}-${product.category}`}
-                  product={product}
-                  index={index}
-                  design={design}
-                  shouldReduceMotion={shouldReduceMotion}
-                  isBundle={isBundle}
-                />
-              );
-            })}
+              </motion.div>
+            ))}
 
-            {!visibleProducts.length && !(detail.comingSoon.enabled && !collection.products.length) ? (
+            {!visibleProducts.length &&
+            !(detail.comingSoon.enabled && !collection.products.length) ? (
               <motion.div
                 key="empty"
                 initial={{ opacity: 0 }}
@@ -294,8 +289,6 @@ export default function CollectionCatalog({
             setVisibleCount((count) => count + productBatchSize)
           }
         />
-
-        {/* <CollectionOutro collection={collection} design={design} /> */}
       </div>
     </section>
   );
