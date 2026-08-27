@@ -4,8 +4,8 @@ import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
-import type { BrandFilmContent } from "@/lib/homepage/types";
 import Title from "@/components/ui/Title";
+import type { BrandFilmContent } from "@/lib/homepage/types";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -68,10 +68,6 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
             {film.eyebrow}
           </motion.span>
           <div className="flex items-center gap-3 sm:gap-5">
-            <div className="hidden text-right text-[9px] font-semibold uppercase tracking-[0.22em] text-white/55 sm:block">
-              <span className="block">{film.location}</span>
-              <span className="mt-1 block text-white/35">{film.duration}</span>
-            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"

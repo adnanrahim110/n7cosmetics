@@ -1,5 +1,6 @@
 "use client";
 
+import Title from "@/components/ui/Title";
 import {
   ArrowDown,
   ArrowRight,
@@ -12,7 +13,6 @@ import {
 import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import Title from "@/components/ui/Title";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -62,7 +62,7 @@ export default function AboutExperience() {
   return (
     <div className="overflow-hidden bg-[#f7f3eb]">
       <section className="relative isolate min-h-svh overflow-hidden bg-[#0a0d0d] pt-40 text-[#f6efe6] sm:pt-44">
-        <div className="grid min-h-[calc(100svh-6rem)] lg:grid-cols-[52%_48%]">
+        <div className="grid min-h-[calc(100svh-6rem)] lg:grid-cols-[47%_53%]">
           <motion.div
             initial={false}
             animate={{ opacity: 1, scale: 1 }}
@@ -80,15 +80,11 @@ export default function AboutExperience() {
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,9,9,0.08)_0%,rgba(7,9,9,0.08)_55%,rgba(7,9,9,0.64)_100%)] lg:bg-[linear-gradient(90deg,transparent_56%,#0a0d0d_100%)]" />
             <div className="pointer-events-none absolute inset-y-0 right-[21%] hidden w-px bg-white/8 lg:block" />
             <div className="pointer-events-none absolute inset-y-0 right-[42%] hidden w-px bg-white/6 lg:block" />
-            <div className="absolute bottom-5 left-5 flex items-center gap-3 text-[8px] font-semibold uppercase tracking-[0.28em] text-white/60 sm:bottom-8 sm:left-8 lg:bottom-10 lg:left-10">
-              <span className="h-px w-8 bg-[#d0a46d]" />
-              The atelier / Dubai
-            </div>
           </motion.div>
 
-          <div className="relative flex min-h-152 flex-col justify-center px-5 py-14 sm:px-9 sm:py-18 lg:min-h-0 lg:px-[clamp(2.75rem,5vw,7rem)] lg:py-12">
+          <div className="relative flex min-h-152 flex-col justify-center px-5 py-14 sm:px-9 sm:py-18 lg:min-h-0 lg:px-[clamp(2.75rem,3.5vw,5rem)] lg:py-12">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_5%_48%,rgba(201,155,105,0.12),transparent_36%)]" />
-            <div className="relative z-10 mx-auto w-full max-w-2xl">
+            <div className="relative z-10 mx-auto w-full">
               <motion.div
                 initial={false}
                 animate={{ opacity: 1, x: 0 }}
@@ -117,7 +113,7 @@ export default function AboutExperience() {
                 initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration, delay: reduceMotion ? 0 : 0.28, ease }}
-                className="mt-8 max-w-xl border-l border-primary-500 pl-5 text-sm font-light leading-7 text-white/66 sm:text-base sm:leading-8"
+                className="mt-8 border-l border-primary-500 pl-5 text-sm font-light leading-7 text-white/66 sm:text-base sm:leading-8"
               >
                 Proudly the first company in the UK to officially introduce the
                 exquisite fragrances of Yusuf Bhai from the UAE.
@@ -210,7 +206,7 @@ export default function AboutExperience() {
               className="mt-6 max-w-2xl text-[#201a16]"
               highlight="a legacy of luxury."
               highlightClassName="text-[#a47442]"
-              text="Our story, a legacy of luxury."
+              text="Our story <br/> a legacy of luxury."
               tone="custom"
             />
             <motion.div

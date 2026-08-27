@@ -1,13 +1,10 @@
 "use client";
 
-import type { StorefrontPageComingSoonContent } from "../../lib/storefront-pages/config";
+import Title from "@/components/ui/Title";
 import { motion } from "motion/react";
 import Image from "next/image";
-import Title from "@/components/ui/Title";
-import {
-  collectionEase,
-  type CollectionDesign,
-} from "./collection-config";
+import type { StorefrontPageComingSoonContent } from "../../lib/storefront-pages/config";
+import { collectionEase, type CollectionDesign } from "./collection-config";
 
 interface ComingSoonPresentationProps {
   content: StorefrontPageComingSoonContent;
@@ -27,7 +24,10 @@ export function CollectionComingSoonCard({
       className="relative min-h-150 overflow-hidden text-[#f6efe6] shadow-[0_35px_80px_-48px_rgba(18,11,7,0.88)] sm:col-span-2 sm:min-h-152 xl:col-span-2"
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 46 }}
       style={{ backgroundColor: design.heroBase }}
-      transition={{ duration: shouldReduceMotion ? 0 : 1, ease: collectionEase }}
+      transition={{
+        duration: shouldReduceMotion ? 0 : 1,
+        ease: collectionEase,
+      }}
       viewport={{ once: true, margin: "-70px" }}
       whileInView={{ opacity: 1, y: 0 }}
     >
@@ -59,7 +59,11 @@ export function CollectionComingSoonCard({
             <motion.div
               className="absolute inset-[8%]"
               initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.94 }}
-              transition={{ delay: shouldReduceMotion ? 0 : 0.12, duration: shouldReduceMotion ? 0 : 1.1, ease: collectionEase }}
+              transition={{
+                delay: shouldReduceMotion ? 0 : 0.12,
+                duration: shouldReduceMotion ? 0 : 1.1,
+                ease: collectionEase,
+              }}
               viewport={{ once: true }}
               whileInView={{ opacity: 1, scale: 1 }}
             >
@@ -73,8 +77,11 @@ export function CollectionComingSoonCard({
             </motion.div>
           </>
         ) : (
-          <div className="absolute inset-0 grid place-items-center" aria-hidden="true">
-            <span className="grid aspect-square w-[62%] place-items-center rounded-full border border-white/10 bg-white/[0.025] font-kindred text-[clamp(4.5rem,10vw,8rem)] uppercase text-white/[0.055]">
+          <div
+            className="absolute inset-0 grid place-items-center"
+            aria-hidden="true"
+          >
+            <span className="grid aspect-square w-[62%] place-items-center rounded-full border border-white/10 bg-white/2.5 font-kindred text-[clamp(4.5rem,10vw,8rem)] uppercase text-white/5.5">
               N7
             </span>
           </div>
@@ -83,11 +90,16 @@ export function CollectionComingSoonCard({
 
       <div className="relative z-10 flex min-h-150 flex-col justify-between p-7 sm:min-h-152 sm:w-[54%] sm:p-12 sm:pr-3">
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.045] px-3 py-2 text-[8px] font-semibold uppercase tracking-[0.28em] text-white/58 backdrop-blur-sm">
-            <span className="size-1.5 rounded-full" style={{ backgroundColor: design.accent }} />
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/4.5 px-3 py-2 text-[8px] font-semibold uppercase tracking-[0.28em] text-white/58 backdrop-blur-sm">
+            <span
+              className="size-1.5 rounded-full"
+              style={{ backgroundColor: design.accent }}
+            />
             Coming soon
           </span>
-          <span className="text-[8px] font-semibold uppercase tracking-[0.25em] text-white/28">Private preview</span>
+          <span className="text-[8px] font-semibold uppercase tracking-[0.25em] text-white/28">
+            Private preview
+          </span>
         </div>
 
         <div className="mb-[44%] mt-12 sm:mb-0 sm:mt-auto">
@@ -106,10 +118,6 @@ export function CollectionComingSoonCard({
           <p className="mt-5 max-w-lg text-sm leading-7 text-white/52 sm:text-[15px]">
             {content.description}
           </p>
-          <div className="mt-7 flex items-center gap-4 text-[8px] font-semibold uppercase tracking-[0.28em] text-white/32">
-            <span className="h-px w-12" style={{ backgroundColor: design.accent }} />
-            The next chapter
-          </div>
         </div>
       </div>
     </motion.article>

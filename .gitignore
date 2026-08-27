@@ -40,6 +40,8 @@ yarn-error.log*
 .env*
 !.env.example
 
+*.zip
+
 # vercel
 .vercel
 
