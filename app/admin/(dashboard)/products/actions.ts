@@ -18,12 +18,13 @@ import { withTransaction } from "@/lib/db/transaction";
 const noteListSchema = z.array(z.string().min(1).max(100)).max(20);
 const productInputSchema = z.object({
   name: z.string().min(2).max(190),
-  productType: z.enum(["STANDARD", "BUNDLE"]),
+  productType: z.literal("STANDARD"),
   status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]),
   shortDescription: z.string().max(500).nullable(),
   description: z.string().max(30000).nullable(),
   brand: z.string().max(150).nullable(),
   inspiredBy: z.string().max(190).nullable(),
+  productCode: z.string().max(100).nullable(),
   audience: z.enum(["MEN", "WOMEN", "UNISEX", "UNSPECIFIED"]),
   fragranceNotes: z.object({ top: noteListSchema, heart: noteListSchema, base: noteListSchema }),
   featured: z.boolean(),
@@ -41,6 +42,11 @@ const productInputSchema = z.object({
   if (product.compareAtPricePence !== null && product.compareAtPricePence <= product.pricePence) {
     context.addIssue({ code: "custom", path: ["compareAtPricePence"], message: "Compare-at price must be higher than the selling price." });
   }
+});
+
+const recreationFieldsSchema = z.object({
+  inspiredBy: z.string().min(1, "Inspired by is required.").max(190),
+  productCode: z.string().min(1, "Product code is required.").max(100),
 });
 
 export interface ProductActionState {
@@ -66,6 +72,10 @@ interface SlugRow extends RowDataPacket {
   slug: string;
 }
 
+interface RecreationCollectionRow extends RowDataPacket {
+  id: string;
+}
+
 function parseOptionalMoney(value: string): number | null | undefined {
   if (!value) return null;
   return poundsToPence(value) ?? undefined;
@@ -86,6 +96,7 @@ function parseProductForm(formData: FormData) {
     description: nullableFormString(formData, "description"),
     brand: nullableFormString(formData, "brand"),
     inspiredBy: nullableFormString(formData, "inspiredBy"),
+    productCode: nullableFormString(formData, "productCode"),
     audience: formString(formData, "audience"),
     fragranceNotes: {
       top: parseNoteList(formString(formData, "topNotes")),
@@ -104,6 +115,28 @@ function parseProductForm(formData: FormData) {
     categoryIds: formStringList(formData, "categoryIds"),
     collectionIds: formStringList(formData, "collectionIds"),
   });
+}
+
+async function hasRecreationsCollection(collectionIds: string[]): Promise<boolean> {
+  if (!collectionIds.length) return false;
+  const placeholders = collectionIds.map(() => "?").join(", ");
+  const recreation = await selectOne<RecreationCollectionRow>(
+    `SELECT CAST(id AS CHAR) AS id
+     FROM collections
+     WHERE slug = 'recreations' AND id IN (${placeholders})
+     LIMIT 1`,
+    collectionIds,
+  );
+  return Boolean(recreation);
+}
+
+async function applyCollectionFieldRules(product: z.infer<typeof productInputSchema>) {
+  const isRecreationsProduct = await hasRecreationsCollection(product.collectionIds);
+  if (!isRecreationsProduct) return { success: true as const, data: { ...product, inspiredBy: null, productCode: null } };
+
+  const recreationFields = recreationFieldsSchema.safeParse({ inspiredBy: product.inspiredBy ?? "", productCode: product.productCode ?? "" });
+  if (!recreationFields.success) return { success: false as const, error: recreationFields.error };
+  return { success: true as const, data: { ...product, ...recreationFields.data } };
 }
 
 function validationState(error: z.ZodError): ProductActionState {
@@ -155,7 +188,9 @@ export async function createProductAction(returnTo: string, _previousState: Prod
   if (!parsed.success) return validationState(parsed.error);
   const limitError = fileLimitState(formData);
   if (limitError) return limitError;
-  const product = parsed.data;
+  const checked = await applyCollectionFieldRules(parsed.data);
+  if (!checked.success) return validationState(checked.error);
+  const product = checked.data;
   const writtenAssets: StoredMediaAsset[] = [];
   let productId = "";
 
@@ -178,11 +213,11 @@ export async function createProductAction(returnTo: string, _previousState: Prod
 
       const created = await executeMutation(
         `INSERT INTO products
-           (name, slug, product_type, status, short_description, description, brand, inspired_by,
+           (name, slug, product_type, status, short_description, description, brand, inspired_by, product_code,
             audience, fragrance_notes_json, featured, track_inventory, seo_title, seo_description, published_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, IF(? = 'ACTIVE', CURRENT_TIMESTAMP(3), NULL))`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, IF(? = 'ACTIVE', CURRENT_TIMESTAMP(3), NULL))`,
         [product.name, slug, product.productType, product.status, product.shortDescription, product.description,
-         product.brand, product.inspiredBy, product.audience, JSON.stringify(product.fragranceNotes), product.featured,
+         product.brand, product.inspiredBy, product.productCode, product.audience, JSON.stringify(product.fragranceNotes), product.featured,
          product.seoTitle, product.seoDescription, product.status],
         connection,
       );
@@ -227,7 +262,9 @@ export async function updateProductAction(productId: string, returnTo: string, _
   if (!parsed.success) return validationState(parsed.error);
   const limitError = fileLimitState(formData);
   if (limitError) return limitError;
-  const product = parsed.data;
+  const checked = await applyCollectionFieldRules(parsed.data);
+  if (!checked.success) return validationState(checked.error);
+  const product = checked.data;
   const writtenAssets: StoredMediaAsset[] = [];
   let removedUrls: string[] = [];
   let savedSlug = "";
@@ -266,12 +303,12 @@ export async function updateProductAction(productId: string, returnTo: string, _
       await executeMutation(
         `UPDATE products SET
            name = ?, slug = ?, product_type = ?, status = ?, short_description = ?, description = ?,
-           brand = ?, inspired_by = ?, audience = ?, fragrance_notes_json = ?, featured = ?,
+           brand = ?, inspired_by = ?, product_code = ?, audience = ?, fragrance_notes_json = ?, featured = ?,
            track_inventory = 1, seo_title = ?, seo_description = ?,
            published_at = CASE WHEN ? = 'ACTIVE' THEN COALESCE(published_at, CURRENT_TIMESTAMP(3)) ELSE published_at END
          WHERE id = ?`,
         [product.name, savedSlug, product.productType, product.status, product.shortDescription, product.description,
-         product.brand, product.inspiredBy, product.audience, JSON.stringify(product.fragranceNotes), product.featured,
+         product.brand, product.inspiredBy, product.productCode, product.audience, JSON.stringify(product.fragranceNotes), product.featured,
          product.seoTitle, product.seoDescription, product.status, productId],
         connection,
       );

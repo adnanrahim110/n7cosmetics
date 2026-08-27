@@ -9,11 +9,15 @@ export type CollectionSlug =
 export interface CollectionProduct {
   id?: string;
   slug?: string;
+  productType?: "STANDARD" | "BUNDLE";
   name: string;
   category: string;
   price: number;
   compareAtPrice?: number;
   rating?: number;
+  inspiredBy?: string | null;
+  productCode?: string | null;
+  audience?: string | null;
   image: string;
 }
 

@@ -1,5 +1,6 @@
 import { ArrowDown, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import type { ReactNode } from "react";
+import Title from "@/components/ui/Title";
 import type { PublicSiteSettings } from "@/lib/commerce/settings";
 
 export interface LegalNavigationItem {
@@ -41,9 +42,12 @@ export function LegalPage({
             <span aria-hidden="true" className="h-px w-9 bg-current" />
             {eyebrow}
           </div>
-          <h1 className="mt-6 max-w-5xl break-words font-heading text-[clamp(2.8rem,13vw,4.8rem)] uppercase leading-[0.86] tracking-[-0.035em] sm:text-[clamp(3.4rem,7vw,7.6rem)]">
-            {title}
-          </h1>
+          <Title
+            as="h1"
+            className="mt-6 max-w-5xl uppercase"
+            text={title}
+            tone="gold"
+          />
           <div className="mt-8 flex max-w-3xl items-start gap-5 border-t border-white/12 pt-6 sm:items-center">
             <ArrowDown
               aria-hidden="true"
@@ -105,9 +109,12 @@ export function LegalSection({
         </span>
         <span aria-hidden="true" className="h-px grow bg-black/12" />
       </div>
-      <h2 className="mt-6 break-words font-heading text-2xl uppercase leading-tight tracking-[0.015em] sm:text-4xl">
-        {title}
-      </h2>
+      <Title
+        className="mt-6 uppercase"
+        text={title}
+        tone="gold"
+        variant="compact"
+      />
       <div className="mt-7 space-y-5 text-[15px] font-light leading-8 text-black/62 sm:text-base">
         {children}
       </div>
@@ -139,7 +146,13 @@ export function LegalContactCard({
       <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">
         Contact N7 Cosmetics
       </p>
-      <h3 className="mt-3 font-heading text-2xl uppercase sm:text-3xl">{title}</h3>
+      <Title
+        as="h3"
+        className="mt-3 uppercase"
+        text={title}
+        tone="gold"
+        variant="compact"
+      />
       <p className="mt-4 max-w-2xl text-sm font-light leading-7 text-black/55">
         {description}
       </p>

@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 
+import Title from "@/components/ui/Title";
 import type { AudienceContent } from "@/lib/homepage/types";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -31,21 +32,15 @@ export default function AudienceCollections({
               transition={{ duration: shouldReduceMotion ? 0 : 0.75, ease }}
               className="mb-4 block text-xs font-semibold uppercase tracking-[0.3em] text-[#756449]"
             >
-              Find your expression
+              {content.eyebrow}
             </motion.span>
-            <motion.h2
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{
-                duration: shouldReduceMotion ? 0 : 0.9,
-                delay: shouldReduceMotion ? 0 : 0.08,
-                ease,
-              }}
-              className="font-heading text-3xl uppercase tracking-[0.08em] text-[#17201d] sm:text-4xl md:text-6xl"
-            >
-              {content.title}
-            </motion.h2>
+            <Title
+              className="uppercase"
+              highlight={content.titleAccent}
+              highlightClassName="lowercase"
+              text={content.title}
+              tone="sage"
+            />
           </div>
           <motion.p
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}

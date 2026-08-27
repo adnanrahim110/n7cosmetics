@@ -1,6 +1,7 @@
 "use client";
 
 import ProductCard from "@/components/ui/ProductCard";
+import Title from "@/components/ui/Title";
 import { slugify } from "@/lib/admin/form";
 import type { StorefrontCollectionPageContent } from "@/lib/storefront-pages/config";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -40,10 +41,14 @@ export default function CollectionCatalog({
     PriceBand[]
   >([]);
   const [query, setQueryState] = useState("");
-  const [sortBy, setSortByState] = useState<SortOption>("featured");
+  const [sortBy, setSortByState] = useState<SortOption>("name");
   const [visibleCount, setVisibleCount] = useState(productBatchSize);
   const isBundle = collection.slug === "bundles";
   const usesInfiniteScroll = collection.products.length > productBatchSize;
+  const showCollectionControls =
+    collection.products.length >= 12 &&
+    collection.slug !== "bundles" &&
+    collection.slug !== "sale";
   const detail = collection.pageConfiguration.detail;
 
   const categories = useMemo(
@@ -145,16 +150,8 @@ export default function CollectionCatalog({
       </span>
 
       <div className="mx-auto max-w-360 px-5 sm:px-8 lg:px-12">
-        <div className="mb-10 grid gap-7 sm:mb-14 sm:gap-8 lg:grid-cols-[1fr_0.72fr] lg:items-end">
-          <motion.div
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{
-              duration: shouldReduceMotion ? 0 : 0.85,
-              ease: collectionEase,
-            }}
-          >
+        <div className="mb-10 grid gap-7 sm:mb-14 sm:gap-8 lg:grid-cols-[1.2fr_0.72fr] lg:items-end">
+          <div>
             <span className="mb-5 flex items-center gap-4 text-[9px] font-semibold uppercase tracking-[0.3em] text-[#8d6745]">
               <span
                 className="h-px w-10"
@@ -162,10 +159,8 @@ export default function CollectionCatalog({
               />
               {detail.eyebrow}
             </span>
-            <h2 className="font-heading text-4xl uppercase leading-[0.88] tracking-wider text-[#1d1814] sm:text-5xl md:text-6xl lg:text-7xl">
-              {detail.title}
-            </h2>
-          </motion.div>
+            <Title className="uppercase text-[#1d1814]" text={detail.title} tone="custom" />
+          </div>
           <motion.div
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -177,7 +172,7 @@ export default function CollectionCatalog({
             }}
             className="lg:justify-self-end lg:text-right"
           >
-            <p className="max-w-xl font-heading text-xl italic text-[#3b2e24]/66 sm:text-2xl">
+            <p className="max-w-xl font-heading text-xl italic text-[#3b2e24]/66 sm:text-xl">
               &ldquo;{detail.description}&rdquo;
             </p>
             <p className="mt-4 text-[8px] font-semibold uppercase tracking-[0.26em] text-black/32">
@@ -186,7 +181,7 @@ export default function CollectionCatalog({
           </motion.div>
         </div>
 
-        {collection.products.length ? (
+        {showCollectionControls ? (
           <CollectionControls
             collection={collection}
             design={design}
@@ -234,11 +229,18 @@ export default function CollectionCatalog({
                 <ProductCard
                   product={{
                     slug: product.slug ?? slugify(product.name),
+                    href:
+                      product.productType === "BUNDLE"
+                        ? `/bundles/${product.slug ?? slugify(product.name)}`
+                        : `/products/${product.slug ?? slugify(product.name)}`,
                     name: product.name,
                     image: product.image,
                     price: formatCollectionPrice(product.price),
                     pricePence: Math.round(product.price * 100),
                     rating: product.rating ?? 0,
+                    inspiredBy: product.inspiredBy,
+                    productCode: collection.slug === "recreations" ? product.productCode : undefined,
+                    audience: product.audience,
                   }}
                 />
               </motion.div>

@@ -14,15 +14,27 @@ export default async function Home() {
   const { configuration } = content;
   return (
     <>
-      <HeroSection products={content.heroProducts} />
-      <SignatureFragrances content={configuration.signature} products={content.signatureProducts} />
+      <HeroSection
+        content={configuration.hero}
+        products={content.heroProducts}
+      />
+      <SignatureFragrances
+        content={configuration.signature}
+        products={content.signatureProducts}
+      />
       <BrandFilmSection film={configuration.brandFilm} />
-      <RecreationsSlider content={configuration.recreations} products={content.recreationProducts} />
-      <FragranceOfWeek content={configuration.weekly} product={content.weeklyProduct} />
+      <RecreationsSlider
+        content={configuration.recreations}
+        products={content.recreationProducts}
+      />
+      <FragranceOfWeek
+        content={configuration.weekly}
+        product={content.weeklyProduct}
+      />
       <ScentStorySection story={configuration.scentStory} />
       <AudienceCollections content={configuration.audience} />
       <ReviewsSection content={configuration.reviews} />
-      <FeaturesStrip />
+      <FeaturesStrip content={configuration.features} />
     </>
   );
 }

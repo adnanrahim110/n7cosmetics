@@ -6,19 +6,24 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import type { HomepageProduct } from "@/lib/homepage/types";
+import type { HeroContent, HomepageProduct } from "@/lib/homepage/types";
 
 const revealEase = [0.22, 1, 0.36, 1] as const;
 const autoplayDelay = 7000;
 const swipeThreshold = 70;
 
-const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
+const HeroSection = ({
+  content,
+  products,
+}: {
+  content: HeroContent;
+  products: HomepageProduct[];
+}) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const pointerStartX = useRef<number | null>(null);
   const activeProduct = products[activeIndex];
-  const cta = "Shop Now";
   const entranceOffset = shouldReduceMotion ? 0 : 140;
   const sequence = {
     title: shouldReduceMotion ? 0 : 0.25,
@@ -89,7 +94,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
         isDragging ? "cursor-grabbing" : "cursor-grab"
       }`}
       style={{
-        backgroundImage: "url(/imgs/hero-bg.png)",
+        backgroundImage: `url(${content.backgroundImage})`,
         touchAction: "pan-y",
       }}
     >
@@ -214,7 +219,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
             </motion.p>
 
             <motion.a
-              href={`/products/${activeProduct.slug}`}
+              href={activeProduct.href ?? `/products/${activeProduct.slug}`}
               className="group relative z-10 inline-flex w-fit min-w-40 cursor-pointer items-center justify-center gap-3 overflow-hidden border border-[#f7e2bd] bg-linear-to-r from-[#c99a5b] via-[#f2d9ad] to-[#b98448] px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#17120d] shadow-[0_10px_35px_rgba(89,55,21,0.35),0_0_0_1px_rgba(255,245,221,0.25)_inset] transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f7e2bd] sm:min-w-44 sm:px-8 sm:py-4 sm:text-sm sm:tracking-[0.18em]"
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 26 }}
               animate={{ opacity: 1, y: 0 }}
@@ -244,7 +249,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
               }}
             >
               <span className="pointer-events-none relative z-10 flex items-center justify-center gap-2">
-                <span>{cta}</span>
+                <span>{content.ctaLabel}</span>
                 <ArrowRight className="size-4.5 transition-transform duration-300 group-hover:translate-x-1.5" />
               </span>
               <span className="absolute inset-0 translate-y-full bg-[#17120d] transition-transform duration-500 ease-[0.65,0,0.35,1] group-hover:translate-y-0" />
@@ -341,7 +346,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
             <Link
               aria-label={`View ${activeProduct.name}`}
               className="block size-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f5e4cc]"
-              href={`/products/${activeProduct.slug}`}
+              href={activeProduct.href ?? `/products/${activeProduct.slug}`}
             >
               <Image
                 src={activeProduct.image}
@@ -358,7 +363,7 @@ const HeroSection = ({ products }: { products: HomepageProduct[] }) => {
       </div>
       <div className="lg:hidden inset-y-0 absolute left-0 w-1/2 bg-linear-to-r from-black/40 to-transparent z-4 pointer-events-none" />
       <Image
-        src="/imgs/hero-cloud.png"
+        src={content.cloudImage}
         alt=""
         aria-hidden="true"
         width={1672}

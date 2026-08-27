@@ -4,6 +4,7 @@ import type { HomepageProduct, SignatureContent } from "@/lib/homepage/types";
 import { motion } from "motion/react";
 import Link from "next/link";
 import ProductCard from "../ui/ProductCard";
+import Title from "../ui/Title";
 
 const customEase = [0.65, 0, 0.35, 1] as const;
 
@@ -45,18 +46,13 @@ export default function SignatureFragrances({
             >
               {content.eyebrow}
             </motion.span>
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, ease: customEase, delay: 0.1 }}
-              className="font-heading text-3xl uppercase leading-[1.05] text-[#1A1A1A] sm:text-4xl md:text-6xl"
-            >
-              {content.titleLead} <br />
-              <span className="text-[#967C55] italic font-light lowercase">
-                {content.titleAccent}
-              </span>
-            </motion.h2>
+            <Title
+              className="uppercase"
+              highlight={content.titleAccent}
+              highlightClassName="lowercase"
+              text={`${content.titleLead} ${content.titleAccent}`}
+              tone="charcoal"
+            />
           </div>
 
           <motion.p

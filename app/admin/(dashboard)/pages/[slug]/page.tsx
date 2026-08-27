@@ -7,9 +7,10 @@ import CustomSelect, { type CustomSelectOption } from "@/components/admin/Custom
 import Notice from "@/components/admin/Notice";
 import PageHeader from "@/components/admin/PageHeader";
 import StorefrontComingSoonEditor from "@/components/admin/StorefrontComingSoonEditor";
-import { getStorefrontPageConfiguration } from "@/lib/commerce/collections";
+import { resolveStorefrontPageEditorTarget } from "@/lib/admin/storefront-page-editor";
+import { getStorefrontPageConfiguration, getStorefrontPageConfigurationByKey } from "@/lib/commerce/collections";
 import { selectRows } from "@/lib/db/query";
-import { isEditableStorefrontPageSlug, storefrontPageDefinitions } from "@/lib/storefront-pages/config";
+import { emptyStorefrontPageConfiguration, isEditableStorefrontPageSlug } from "@/lib/storefront-pages/config";
 import { saveStorefrontPageDetailAction, saveStorefrontPageHeroAction } from "./actions";
 
 interface ProductOptionRow extends RowDataPacket {
@@ -65,20 +66,27 @@ export default async function StorefrontPageEditor({
   searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
-  if (!isEditableStorefrontPageSlug(slug)) notFound();
+  const target = await resolveStorefrontPageEditorTarget(slug);
+  if (!target) notFound();
 
   const [configuration, products] = await Promise.all([
-    getStorefrontPageConfiguration(slug),
+    target.kind === "collection" && isEditableStorefrontPageSlug(slug)
+      ? getStorefrontPageConfiguration(slug)
+      : getStorefrontPageConfigurationByKey(
+          target.databaseKey,
+          target.defaultConfiguration ?? emptyStorefrontPageConfiguration(),
+        ),
     selectRows<ProductOptionRow>(
       `SELECT CAST(p.id AS CHAR) AS id, p.name, v.sku,
          (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) AS image_url
        FROM products p
        LEFT JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1
        WHERE p.status = 'ACTIVE'
+         ${target.saleId ? "AND EXISTS (SELECT 1 FROM sale_products sp WHERE sp.product_id = p.id AND sp.sale_id = ?)" : ""}
        ORDER BY p.name`,
+      target.saleId ? [target.saleId] : [],
     ),
   ]);
-  const definition = storefrontPageDefinitions[slug];
   const productOptions: CustomSelectOption[] = products.map((product) => ({
     value: product.id,
     label: product.name,
@@ -86,8 +94,8 @@ export default async function StorefrontPageEditor({
     mediaUrl: product.image_url,
     mediaType: "image",
   }));
-  const saveHero = saveStorefrontPageHeroAction.bind(null, slug);
-  const saveDetail = saveStorefrontPageDetailAction.bind(null, slug);
+  const saveHero = saveStorefrontPageHeroAction.bind(null, target.editorSlug);
+  const saveDetail = saveStorefrontPageDetailAction.bind(null, target.editorSlug);
 
   return (
     <div className="max-w-6xl">
@@ -95,12 +103,12 @@ export default async function StorefrontPageEditor({
         actions={(
           <>
             <Link className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50" href="/admin/pages"><ArrowLeft aria-hidden="true" size={14} /> Pages</Link>
-            <Link className="inline-flex items-center gap-2 rounded-lg bg-zinc-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800" href={definition.path} target="_blank">View page <ArrowUpRight aria-hidden="true" size={14} /></Link>
+            <Link className="inline-flex items-center gap-2 rounded-lg bg-zinc-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800" href={target.path} target="_blank">View page <ArrowUpRight aria-hidden="true" size={14} /></Link>
           </>
         )}
         description="Edit page-specific copy and product curation. The established storefront layout, colors, animations, and catalog behavior remain unchanged."
         eyebrow="Storefront page"
-        title={definition.name}
+        title={target.name}
       />
 
       {query.saved ? <Notice type="success">{query.saved === "hero" ? "Hero section" : "Detail section"} saved.</Notice> : null}
@@ -130,7 +138,7 @@ export default async function StorefrontPageEditor({
           <label className={label}>Section title<input className={input} defaultValue={configuration.detail.title} maxLength={190} name="title" required /></label>
           <label className={`${label} sm:col-span-2`}>Header statement<textarea className={input} defaultValue={configuration.detail.description} maxLength={1000} name="description" required rows={3} /></label>
           <label className={`${label} sm:col-span-2`}>Credit line<input className={input} defaultValue={configuration.detail.credit} maxLength={190} name="credit" required /></label>
-          <StorefrontComingSoonEditor content={configuration.detail.comingSoon} />
+          {target.kind === "collection" ? <StorefrontComingSoonEditor content={configuration.detail.comingSoon} /> : null}
         </Block>
       </div>
     </div>

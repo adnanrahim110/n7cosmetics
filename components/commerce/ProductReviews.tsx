@@ -3,6 +3,7 @@ import { BadgeCheck, Check, Play, Star } from "lucide-react";
 import type { ProductReviewSummary } from "@/lib/commerce/reviews";
 import RatingStars from "./RatingStars";
 import ReviewForm from "./ReviewForm";
+import Title from "@/components/ui/Title";
 
 function reviewDate(value: Date): string {
   return new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(value);
@@ -25,7 +26,12 @@ export default function ProductReviews({
         <div className="grid gap-10 border-b border-black/12 pb-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#8d6745]">Customer notes</p>
-            <h2 className="mt-4 font-heading text-4xl font-normal leading-none text-[#1c1814] sm:text-5xl lg:text-6xl">Worn, loved,<br /><span className="italic text-[#8d6745]">remembered.</span></h2>
+            <Title
+              className="mt-4"
+              highlight="remembered."
+              text="Worn, loved, remembered."
+              tone="ink"
+            />
             <p className="mt-5 max-w-xl text-sm font-light leading-7 text-black/55">Real impressions from customers who have made {productName} part of their ritual.</p>
           </div>
 

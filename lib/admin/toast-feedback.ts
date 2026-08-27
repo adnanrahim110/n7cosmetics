@@ -114,6 +114,21 @@ export function resolveAdminToastFeedback(pathname: string, query: URLSearchPara
     add("error", { type: "error", title: "Some discount details need attention", description: "Check the value, date range, and the products or collections it applies to." });
   }
 
+  if (pathname === "/admin/sales") {
+    const saved = query.get("saved");
+    if (saved) feedback.push(item(pathname, "saved", saved, {
+      type: "success",
+      title: saved === "created" ? "Sale created" : "Sale updated",
+      description: "The sale, offer condition, and qualifying products have been saved.",
+    }));
+    const error = query.get("error");
+    if (error) feedback.push(item(pathname, "error", error, {
+      type: "error",
+      title: error === "save" ? "The sale couldn’t be saved" : "Some sale details need attention",
+      description: "Check the quantities and select at least one qualifying product.",
+    }));
+  }
+
   if (pathname === "/admin/homepage") {
     const saved = query.get("saved");
     if (saved) feedback.push(item(pathname, "saved", saved, { type: "success", title: `${sectionName(saved)} saved`, description: "The homepage has been updated." }));

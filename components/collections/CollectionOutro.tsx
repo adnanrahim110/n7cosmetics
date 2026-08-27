@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import Title from "@/components/ui/Title";
 import type { CollectionPageContent } from "../../content/collections";
 import type { CollectionDesign } from "./collection-config";
 
@@ -29,9 +30,7 @@ export default function CollectionOutro({
           <span>Next collection</span>
         </div>
         <div className="mt-7 flex items-end justify-between gap-6 border-b border-black/16 pb-7 transition-colors duration-500 group-hover/next:border-black/48">
-          <h2 className="max-w-5xl font-heading text-4xl uppercase leading-[0.92] tracking-[0.04em] text-[#1c1814] sm:text-6xl lg:text-8xl">
-            {design.nextLabel}
-          </h2>
+          <Title className="max-w-5xl uppercase" text={design.nextLabel} tone="ink" />
           <span className="flex size-13 shrink-0 items-center justify-center rounded-full border border-black/20 text-black transition-all duration-500 group-hover/next:-rotate-45 group-hover/next:border-black group-hover/next:bg-black group-hover/next:text-white sm:size-16">
             <ArrowRight className="size-5" />
           </span>

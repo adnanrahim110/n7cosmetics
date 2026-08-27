@@ -35,8 +35,15 @@ interface AnnouncementMarqueeProps {
   }>;
 }
 
-function pathnameMatchesHref(pathname: string, href: string): boolean {
+function pathnameMatchesHref(
+  pathname: string,
+  href: string,
+  currentHash = "",
+): boolean {
   if (!href.startsWith("/")) return false;
+
+  const hrefHash = href.includes("#") ? `#${href.split("#", 2)[1]}` : "";
+  if (hrefHash && hrefHash !== currentHash) return false;
 
   const normalizedHref = href.split(/[?#]/, 1)[0].replace(/\/+$/, "") || "/";
   if (normalizedHref === "/") return pathname === "/";
@@ -46,9 +53,13 @@ function pathnameMatchesHref(pathname: string, href: string): boolean {
   );
 }
 
-function activeNavigationState(item: NavigationItem, pathname: string) {
+function activeNavigationState(
+  item: NavigationItem,
+  pathname: string,
+  currentHash: string,
+) {
   const activeSubHref = item.items?.find((subItem) =>
-    pathnameMatchesHref(pathname, subItem.href),
+    pathnameMatchesHref(pathname, subItem.href, currentHash),
   )?.href;
 
   return {
@@ -100,13 +111,22 @@ function AnnouncementMarquee({ items }: AnnouncementMarqueeProps) {
 export default function Header({ content }: { content: HeaderContent }) {
   const { cartCount, isCartOpen, openCart, wishlistCount } = useCommerce();
   const pathname = usePathname();
-  const forceDarkText = pathname.startsWith("/products/");
+  const forceDarkText =
+    pathname.startsWith("/products/") || /^\/bundles\/[^/]+/.test(pathname);
   const headerContainerRef = useRef<HTMLElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [hoveredNav, setHoveredNav] = useState<number | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [currentHash, setCurrentHash] = useState("");
+
+  useEffect(() => {
+    const syncHash = () => setCurrentHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isMobileMenuOpen) return;
@@ -193,7 +213,11 @@ export default function Header({ content }: { content: HeaderContent }) {
   ) => {
     return links.map((link, idx) => {
       const globalIdx = startIndex + idx;
-      const { activeSubHref, isActive } = activeNavigationState(link, pathname);
+      const { activeSubHref, isActive } = activeNavigationState(
+        link,
+        pathname,
+        currentHash,
+      );
       if (link.type === "mega") {
         return (
           <MegaMenu
@@ -220,6 +244,7 @@ export default function Header({ content }: { content: HeaderContent }) {
             isOpen={hoveredNav === globalIdx}
             isScrolled={isScrolled}
             forceDarkText={forceDarkText}
+            onOpen={() => setHoveredNav(globalIdx)}
             onMouseEnter={() => setHoveredNav(globalIdx)}
             onMouseLeave={() => setHoveredNav(null)}
           />
@@ -530,28 +555,32 @@ export default function Header({ content }: { content: HeaderContent }) {
                   const { activeSubHref, isActive } = activeNavigationState(
                     link,
                     pathname,
+                    currentHash,
                   );
 
                   return (
                     <div key={idx} className="group/mobnav">
-                      <Link
-                        href={link.href}
-                        aria-current={isActive ? "page" : undefined}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className={`relative flex items-center justify-between overflow-hidden border px-3 py-3 font-heading text-lg uppercase tracking-widest transition-all duration-300 sm:px-4 sm:text-xl ${
+                      {(() => {
+                        const parentClassName = `relative flex items-center justify-between overflow-hidden border px-3 py-3 font-heading text-lg uppercase tracking-widest transition-all duration-300 sm:px-4 sm:text-xl ${
                           isActive
                             ? "border-primary-500/30 bg-[linear-gradient(90deg,rgba(184,123,56,0.18),rgba(184,123,56,0.03))] text-[#7a5825] shadow-[inset_3px_0_0_#b87b38]"
                             : "border-x-transparent border-t-transparent border-b-[#1A1A1A]/8 text-[#1A1A1A] group-hover/mobnav:text-[#7a5825]"
-                        }`}
-                      >
-                        {link.label}
-                        {isActive ? (
-                          <span className="flex items-center gap-2 font-body text-[8px] font-semibold tracking-[0.22em] text-[#7a5825]/75">
-                            <span className="size-1 rotate-45 bg-primary-500" />
-                            Current
-                          </span>
-                        ) : null}
-                      </Link>
+                        }`;
+                        const label = <>{link.label}</>;
+                        return link.href === "/sale" &&
+                          link.type === "dropdown" ? (
+                          <div className={parentClassName}>{label}</div>
+                        ) : (
+                          <Link
+                            href={link.href}
+                            aria-current={isActive ? "page" : undefined}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className={parentClassName}
+                          >
+                            {label}
+                          </Link>
+                        );
+                      })()}
                       {link.items && (
                         <div className="space-y-3 py-3 pl-3 sm:space-y-4 sm:py-4 sm:pl-4">
                           {link.items.map((sub, sIdx) => (

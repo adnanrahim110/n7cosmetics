@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 export interface CommerceProduct {
   slug: string;
+  href?: string;
   name: string;
   image: string;
   pricePence: number;
@@ -20,6 +21,7 @@ interface CommerceContextValue {
   wishlistCount: number;
   isCartOpen: boolean;
   addToCart: (product: CommerceProduct, quantity?: number) => void;
+  addItemsToCart: (items: Array<{ product: CommerceProduct; quantity: number }>) => void;
   updateQuantity: (slug: string, quantity: number) => void;
   removeFromCart: (slug: string) => void;
   clearCart: () => void;
@@ -37,7 +39,15 @@ const WISHLIST_KEY = "n7-wishlist-v1";
 function isProduct(value: unknown): value is CommerceProduct {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
-  return typeof item.slug === "string" && typeof item.name === "string" && typeof item.image === "string" && typeof item.pricePence === "number";
+  return typeof item.slug === "string"
+    && typeof item.name === "string"
+    && typeof item.image === "string"
+    && typeof item.pricePence === "number"
+    && (item.href === undefined || (typeof item.href === "string" && /^\/(?:products|bundles)\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.href)));
+}
+
+export function commerceProductHref(product: CommerceProduct): string {
+  return product.href ?? `/products/${product.slug}`;
 }
 
 function loadProducts(key: string): CommerceProduct[] {
@@ -79,6 +89,19 @@ export default function CommerceProvider({ children }: { children: ReactNode }) 
     });
     setIsCartOpen(true);
   }, []);
+  const addItemsToCart = useCallback((items: Array<{ product: CommerceProduct; quantity: number }>) => {
+    setCart((current) => {
+      const next = [...current];
+      for (const { product, quantity } of items) {
+        const safeQuantity = Math.max(1, Math.min(99, Math.floor(quantity)));
+        const index = next.findIndex((item) => item.slug === product.slug);
+        if (index >= 0) next[index] = { ...next[index], quantity: Math.min(99, next[index].quantity + safeQuantity) };
+        else next.push({ ...product, quantity: safeQuantity });
+      }
+      return next;
+    });
+    setIsCartOpen(true);
+  }, []);
   const updateQuantity = useCallback((slug: string, quantity: number) => setCart((current) => quantity <= 0 ? current.filter((item) => item.slug !== slug) : current.map((item) => item.slug === slug ? { ...item, quantity: Math.min(99, Math.floor(quantity)) } : item)), []);
   const removeFromCart = useCallback((slug: string) => setCart((current) => current.filter((item) => item.slug !== slug)), []);
   const clearCart = useCallback(() => setCart([]), []);
@@ -95,6 +118,7 @@ export default function CommerceProvider({ children }: { children: ReactNode }) 
     wishlistCount: wishlist.length,
     isCartOpen,
     addToCart,
+    addItemsToCart,
     updateQuantity,
     removeFromCart,
     clearCart,
@@ -103,7 +127,7 @@ export default function CommerceProvider({ children }: { children: ReactNode }) 
     isInCart,
     toggleWishlist,
     isWishlisted,
-  }), [addToCart, cart, clearCart, closeCart, isCartOpen, isInCart, isWishlisted, openCart, removeFromCart, toggleWishlist, updateQuantity, wishlist]);
+  }), [addItemsToCart, addToCart, cart, clearCart, closeCart, isCartOpen, isInCart, isWishlisted, openCart, removeFromCart, toggleWishlist, updateQuantity, wishlist]);
   return <CommerceContext.Provider value={value}>{children}</CommerceContext.Provider>;
 }
 

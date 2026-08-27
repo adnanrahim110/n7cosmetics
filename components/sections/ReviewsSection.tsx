@@ -8,6 +8,7 @@ import type { Swiper as SwiperInstance } from "swiper";
 import "swiper/css";
 import { A11y, Autoplay, Keyboard } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
+import Title from "@/components/ui/Title";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -78,18 +79,13 @@ export default function ReviewsSection({
             >
               {content.eyebrow}
             </motion.p>
-            <motion.h2
-              className="mt-5 font-heading text-4xl uppercase leading-[0.92] tracking-wide text-[#241a17] sm:text-6xl lg:text-7xl"
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.85, ease }}
-              viewport={{ once: true }}
-              whileInView={{ opacity: 1, y: 0 }}
-            >
-              {content.titleLead}{" "}
-              <span className="font-light italic lowercase tracking-normal text-[#815b4c]">
-                {content.titleAccent}
-              </span>
-            </motion.h2>
+            <Title
+              className="mt-5 uppercase"
+              highlight={content.titleAccent}
+              highlightClassName="lowercase"
+              text={`${content.titleLead} ${content.titleAccent}`}
+              tone="rose"
+            />
           </div>
 
           <motion.p

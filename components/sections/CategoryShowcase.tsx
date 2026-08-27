@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import { useState } from "react";
 
+import Title from "@/components/ui/Title";
 import { homeContent } from "../../content/home";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -37,16 +38,13 @@ export default function CategoryShowcase() {
             >
               Curated collections
             </motion.span>
-            <motion.h2
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 22 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.9, delay: shouldReduceMotion ? 0 : 0.08, ease }}
-              className="font-heading text-5xl uppercase leading-[0.95] tracking-[0.07em] text-[#211c16] md:text-7xl"
-            >
-              The scent
-              <span className="ml-3 font-light italic lowercase tracking-normal text-[#9b7446]">index</span>
-            </motion.h2>
+            <Title
+              className="uppercase text-[#211c16]"
+              highlight="index"
+              highlightClassName="lowercase text-[#9b7446]"
+              text="The scent index"
+              tone="custom"
+            />
           </div>
           <motion.p
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}

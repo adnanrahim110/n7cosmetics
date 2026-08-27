@@ -23,7 +23,13 @@ export const defaultFooterContent: FooterContent = {
 };
 
 export const defaultHomepageConfiguration: HomepageConfiguration = {
-  hero: { productIds: [], products: [] },
+  hero: {
+    ctaLabel: homeContent.hero.cta,
+    backgroundImage: "/imgs/hero-bg.png",
+    cloudImage: "/imgs/hero-cloud.png",
+    productIds: [],
+    products: [],
+  },
   signature: {
     eyebrow: "The Masterpiece Collection",
     titleLead: "Signature",
@@ -44,13 +50,20 @@ export const defaultHomepageConfiguration: HomepageConfiguration = {
   },
   recreations: {
     label: "Masterpiece Collection",
+    titleLead: "Art",
+    titleAccent: "work",
     description: "A meticulously crafted masterpiece inspired by the world's most iconic aromas, elevated with our signature touch.",
     ctaLabel: "Discover Details",
+    priceLabel: "From",
+    selectorTitle: "Choose a fragrance",
+    selectorDescription: "Swipe the index or use the arrow controls.",
     productIds: [],
   },
   weekly: {
     productId: "",
     eyebrow: homeContent.weeklyPick.eyebrow,
+    titleLead: "Fragrance",
+    titleAccent: "of the week",
     description: homeContent.weeklyPick.description,
     ctaLabel: homeContent.weeklyPick.cta,
     ctaUrl: "/yusuf-bhai-originals",
@@ -64,10 +77,13 @@ export const defaultHomepageConfiguration: HomepageConfiguration = {
     mainVideo: homeContent.scentStory.mainVideo,
     detailVideo: homeContent.scentStory.detailVideo,
     filmLabel: homeContent.scentStory.filmLabel,
+    detailLabel: "A detail in motion",
     duration: homeContent.scentStory.duration,
   },
   audience: {
+    eyebrow: "Find your expression",
     title: "Curated for you",
+    titleAccent: "for you",
     description: "Distinctive compositions shaped around presence, personality and the art of leaving an impression.",
     cards: homeContent.audienceCollections.map((card) => ({ ...card, ctaLabel: card.cta, ctaUrl: "/yusuf-bhai-originals" })),
   },
@@ -77,5 +93,12 @@ export const defaultHomepageConfiguration: HomepageConfiguration = {
     titleAccent: homeContent.reviewsSection.title.accent,
     description: homeContent.reviewsSection.description,
     reviews: homeContent.reviews,
+  },
+  features: {
+    items: [
+      { title: "Reliable Delivery", subtitle: "Options confirmed at checkout" },
+      { title: "Secure Payments", subtitle: "Encrypted transactions" },
+      { title: "24/7 Concierge", subtitle: "Always here for your needs" },
+    ],
   },
 };

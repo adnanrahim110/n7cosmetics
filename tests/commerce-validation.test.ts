@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { checkoutInputSchema, quoteInputSchema } from "../lib/commerce/validation";
+import { calculateBuyXGetYPricing } from "../lib/commerce/sale-pricing";
 
 test("quote input rejects duplicate lines and excessive quantities", () => {
   assert.equal(quoteInputSchema.safeParse({ items: [{ slug: "amber", quantity: 1 }, { slug: "amber", quantity: 2 }], countryCode: "GB" }).success, false);
@@ -16,4 +17,30 @@ test("checkout requires matching delivery country and valid idempotency", () => 
   };
   assert.equal(checkoutInputSchema.safeParse(base).success, true);
   assert.equal(checkoutInputSchema.safeParse({ ...base, shippingAddress: { ...base.shippingAddress, countryCode: "US" } }).success, false);
+});
+
+test("buy X get Y pricing discounts qualifying units without customer selection", () => {
+  const result = calculateBuyXGetYPricing([
+    { key: "amber", quantity: 2, unitPricePence: 4500 },
+    { key: "oud", quantity: 2, unitPricePence: 3300 },
+    { key: "musk", quantity: 1, unitPricePence: 4000 },
+  ], 5, 1);
+  assert.equal(result.qualifyingQuantity, 5);
+  assert.equal(result.freeQuantity, 1);
+  assert.equal(result.amountPence, 3300);
+  assert.deepEqual([...result.allocations], [["oud", 3300]]);
+});
+
+test("buy X get Y pricing repeats only for complete groups", () => {
+  const incomplete = calculateBuyXGetYPricing([
+    { key: "amber", quantity: 4, unitPricePence: 4500 },
+  ], 5, 1);
+  assert.equal(incomplete.amountPence, 0);
+
+  const repeated = calculateBuyXGetYPricing([
+    { key: "amber", quantity: 5, unitPricePence: 4500 },
+    { key: "oud", quantity: 5, unitPricePence: 3300 },
+  ], 5, 1);
+  assert.equal(repeated.freeQuantity, 2);
+  assert.equal(repeated.amountPence, 6600);
 });

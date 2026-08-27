@@ -5,6 +5,7 @@ import { CheckCircle2, LoaderCircle, LockKeyhole } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useCommerce } from "@/components/commerce/CommerceProvider";
+import Title from "@/components/ui/Title";
 
 interface Quote {
   subtotalPence: number; discountPence: number; shippingPence: number; taxPence: number; totalPence: number; currency: string;
@@ -89,7 +90,7 @@ export default function CheckoutPage() {
         <div className="max-w-lg text-center">
           <CheckCircle2 className="mx-auto text-emerald-700" size={54} />
           <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">Order received</p>
-          <h1 className="mt-3 font-heading text-4xl sm:text-5xl">Thank you</h1>
+          <Title as="h1" className="mt-3" text="Thank you" tone="gold" />
           <p className="mt-5 leading-7 text-black/55">
             Your order <strong className="break-all text-black">{confirmation.orderNumber}</strong> has been created for {money(confirmation.totalPence, confirmation.currency)}. We’ll contact you with payment and delivery updates.
           </p>
@@ -103,7 +104,7 @@ export default function CheckoutPage() {
     return (
       <div className="grid min-h-screen place-items-center bg-[#f3eee5] px-5 pb-16 pt-40 text-[#1c1814] sm:pb-20 sm:pt-44">
         <div className="text-center">
-          <h1 className="font-heading text-4xl sm:text-5xl">Your cart is empty</h1>
+          <Title as="h1" text="Your cart is empty" tone="gold" />
           <Link className="mt-7 inline-flex bg-[#1c1814] px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white" href="/recreations">Continue shopping</Link>
         </div>
       </div>
@@ -114,13 +115,13 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-[#f3eee5] pb-16 pt-40 text-[#1c1814] sm:pb-24 sm:pt-44">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">Secure order</p>
-        <h1 className="mt-3 font-heading text-4xl sm:text-5xl">Checkout</h1>
+        <Title as="h1" className="mt-3" text="Checkout" tone="gold" />
         {error ? <div role="alert" className="mt-6 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         <form className="mt-8 grid gap-8 sm:mt-10 lg:grid-cols-[1fr_360px]" onSubmit={submitOrder}>
           <div className="space-y-6">
             <section className="grid gap-5 border border-black/10 bg-white/35 p-4 sm:grid-cols-2 sm:p-6">
-              <h2 className="font-heading text-2xl sm:col-span-2">Contact and delivery</h2>
+              <Title className="sm:col-span-2" text="Contact and delivery" tone="gold" variant="small" />
               <label className="text-sm">Full name<input className={input} name="name" required /></label>
               <label className="text-sm">Email<input className={input} name="email" required type="email" /></label>
               <label className="text-sm">Phone<input className={input} name="phone" /></label>
@@ -144,7 +145,7 @@ export default function CheckoutPage() {
             </section>
 
             <section className="border border-black/10 bg-white/35 p-4 sm:p-6">
-              <h2 className="font-heading text-2xl">Payment method</h2>
+              <Title text="Payment method" tone="gold" variant="small" />
               <label className="mt-4 flex items-start gap-3 border border-black/15 p-4">
                 <input defaultChecked name="paymentMethod" type="radio" value="CASH_ON_DELIVERY" />
                 <span><strong className="block text-sm">Cash on delivery</strong><span className="mt-1 block text-xs text-black/45">Pay when your order arrives.</span></span>
@@ -157,7 +158,7 @@ export default function CheckoutPage() {
           </div>
 
           <aside className="h-fit min-w-0 border border-black/10 bg-white/45 p-5 sm:p-6 lg:sticky lg:top-8">
-            <h2 className="font-heading text-2xl">Order summary</h2>
+            <Title text="Order summary" tone="gold" variant="small" />
             <div className="mt-5 space-y-3 border-b border-black/10 pb-5">
               {cart.map((item) => (
                 <div className="flex items-start justify-between gap-4 text-sm" key={item.slug}>

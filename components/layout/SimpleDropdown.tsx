@@ -1,7 +1,7 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
 import type { Variants } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import type { MouseEventHandler } from "react";
 import type { DropdownNavigationItem } from "../../content/global";
@@ -13,6 +13,7 @@ interface SimpleDropdownProps {
   isOpen: boolean;
   isScrolled: boolean;
   forceDarkText: boolean;
+  onOpen: () => void;
   onMouseEnter: MouseEventHandler<HTMLDivElement>;
   onMouseLeave: MouseEventHandler<HTMLDivElement>;
 }
@@ -24,6 +25,7 @@ export default function SimpleDropdown({
   isOpen,
   isScrolled,
   forceDarkText,
+  onOpen,
   onMouseEnter,
   onMouseLeave,
 }: SimpleDropdownProps) {
@@ -40,10 +42,19 @@ export default function SimpleDropdown({
     hidden: { opacity: 0, x: -10 },
     show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
   };
+  const triggerClassName = `relative z-10 text-[12px] font-medium uppercase tracking-[0.15em] transition-colors duration-300 ${
+    isActive
+      ? forceDarkText || isScrolled
+        ? "text-[#7a5825]"
+        : "text-primary-200"
+      : forceDarkText || isScrolled
+        ? "text-[#1A1A1A] group-hover/navlink:text-[#7a5825]"
+        : "text-dark-100 group-hover/navlink:text-primary-300"
+  }`;
 
   return (
     <div
-      className="group/droplink relative isolate flex h-full cursor-pointer items-center"
+      className="group/navlink relative isolate flex h-full cursor-pointer items-center"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -57,31 +68,35 @@ export default function SimpleDropdown({
             : "scale-95 border-transparent bg-transparent opacity-0"
         }`}
       />
-      <Link
-        href={item.href}
-        aria-current={isActive ? "page" : undefined}
-        className={`relative z-10 flex h-full items-center text-[12px] font-medium uppercase tracking-[0.15em] transition-colors duration-300 ${
-          isActive
-            ? forceDarkText || isScrolled
-              ? "text-[#7a5825]"
-              : "text-primary-200"
-            : forceDarkText || isScrolled
-              ? "text-[#1A1A1A] group-hover/droplink:text-[#967C55]"
-              : "text-dark-100 group-hover/droplink:text-primary-300"
-        }`}
-      >
-        {item.label}
-      </Link>
+      {item.href === "/sale" ? (
+        <button
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
+          className={triggerClassName}
+          onClick={onOpen}
+          type="button"
+        >
+          {item.label}
+        </button>
+      ) : (
+        <Link
+          href={item.href}
+          aria-current={isActive ? "page" : undefined}
+          className={triggerClassName}
+        >
+          {item.label}
+        </Link>
+      )}
 
       <span
         aria-hidden="true"
-        className={`absolute bottom-3 left-0 h-px w-full transition-transform duration-500 ease-out group-hover/droplink:origin-left ${isOpen || isActive ? "origin-left scale-x-100" : "origin-right scale-x-0"} ${
+        className={`absolute left-0 top-1/2 h-px w-full translate-y-4 transition-transform duration-500 ease-out group-hover/navlink:origin-left group-hover/navlink:scale-x-100 ${isOpen || isActive ? "origin-left scale-x-100" : "origin-right scale-x-0"} ${
           forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-400"
         }`}
       />
       <span
         aria-hidden="true"
-        className={`absolute bottom-2.5 left-1/2 size-1 -translate-x-1/2 rotate-45 transition-all duration-500 ${
+        className={`absolute left-1/2 top-1/2 size-1 -translate-x-1/2 translate-y-3.75 rotate-45 transition-all duration-500 ${
           isActive ? "scale-100 opacity-100" : "scale-0 opacity-0"
         } ${forceDarkText || isScrolled ? "bg-[#967C55]" : "bg-primary-300"}`}
       />
@@ -93,7 +108,7 @@ export default function SimpleDropdown({
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: 10, filter: "blur(2px)" }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="absolute top-full left-1/2 -translate-x-1/2 mt-0 min-w-60 bg-[#FDFCF8] border border-[#1A1A1A]/5 py-4 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] cursor-default z-100"
+            className="absolute top-full -translate-y-5 left-1/2 -translate-x-1/2 mt-0 min-w-60 bg-[#FDFCF8] border border-[#1A1A1A]/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] cursor-default z-100"
           >
             <motion.div
               variants={containerVariants}
@@ -101,12 +116,16 @@ export default function SimpleDropdown({
               animate="show"
               exit="exit"
               className="flex flex-col"
+              role="menu"
             >
-              {item.items.map((subItem, idx) => (
-                <motion.div key={idx} variants={itemVariants}>
+              {item.items.map((subItem) => (
+                <motion.div key={subItem.href} variants={itemVariants}>
                   <Link
                     href={subItem.href}
-                    aria-current={activeSubHref === subItem.href ? "page" : undefined}
+                    aria-current={
+                      activeSubHref === subItem.href ? "page" : undefined
+                    }
+                    role="menuitem"
                     className={`relative block border-l-2 px-8 py-3 text-[12px] uppercase tracking-[0.15em] transition-colors ${
                       activeSubHref === subItem.href
                         ? "border-[#967C55] bg-[#967C55]/8 text-[#7a5825]"

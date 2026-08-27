@@ -88,6 +88,44 @@ export function storefrontPageDatabaseKey(slug: EditableStorefrontPageSlug): str
   return `collection-page:${slug}`;
 }
 
+export function storefrontSaleDatabaseKey(saleId: string): string {
+  return `sale:${saleId}`;
+}
+
+export function defaultSalePageConfiguration(
+  saleName: string,
+  buyQuantity: number,
+  freeQuantity: number,
+): StorefrontPageConfiguration {
+  return {
+    hero: {
+      eyebrow: "Limited offer / Selected fragrances",
+      title: { lead: saleName, accent: "Sale" },
+      intro: `Choose ${buyQuantity} fragrances from this limited edit and enjoy ${freeQuantity} on us.`,
+      statement: "A considered selection. An exceptional opportunity.",
+      highlights: [
+        `${buyQuantity} qualifying products`,
+        `${freeQuantity} included free`,
+        "While availability lasts",
+      ],
+      productIds: [],
+    },
+    detail: {
+      eyebrow: "Build your selection",
+      title: saleName,
+      description: "Choose from the fragrances included in this offer.",
+      credit: "A limited offer by N7 Cosmetics",
+      comingSoon: {
+        enabled: false,
+        eyebrow: "",
+        title: "",
+        description: "",
+        image: "",
+      },
+    },
+  };
+}
+
 export function emptyStorefrontPageConfiguration(): StorefrontPageConfiguration {
   return {
     hero: {

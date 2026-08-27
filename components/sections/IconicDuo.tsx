@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 
+import Title from "@/components/ui/Title";
 import { homeContent } from "../../content/home";
 import { slugify } from "../../lib/admin/form";
 
@@ -43,15 +44,13 @@ export default function IconicDuo() {
             {duo.eyebrow}
           </motion.div>
 
-          <motion.h2
-            initial={{ clipPath: shouldReduceMotion ? "inset(0)" : "inset(100% 0 0 0)", y: shouldReduceMotion ? 0 : 25 }}
-            whileInView={{ clipPath: "inset(0% 0 0 0)", y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 1.1, delay: shouldReduceMotion ? 0 : 0.08, ease }}
-            className="text-left font-heading text-5xl uppercase leading-[0.88] tracking-[0.08em] lg:text-center lg:text-7xl xl:text-[5.5rem]"
-          >
-            Iconic <span className="font-light italic lowercase tracking-normal text-[#caa276]">duo</span>
-          </motion.h2>
+          <Title
+            className="text-left uppercase text-primary-300 lg:text-center"
+            highlight="duo"
+            highlightClassName="lowercase text-[#caa276]"
+            text="Iconic duo"
+            tone="custom"
+          />
 
           <motion.p
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 18 }}

@@ -4,6 +4,7 @@ import { Pause, Play } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import Title from "@/components/ui/Title";
 import type { ScentStoryContent } from "@/lib/homepage/types";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -119,25 +120,13 @@ export default function ScentStorySection({
             {story.eyebrow}
           </motion.span>
 
-          <motion.h2
-            initial={{
-              clipPath: shouldReduceMotion ? "inset(0)" : "inset(100% 0 0 0)",
-              y: shouldReduceMotion ? 0 : 28,
-            }}
-            whileInView={{ clipPath: "inset(0% 0 0 0)", y: 0 }}
-            viewport={{ once: true }}
-            transition={{
-              duration: shouldReduceMotion ? 0 : 1.05,
-              delay: shouldReduceMotion ? 0 : 0.06,
-              ease,
-            }}
-            className="font-heading text-4xl uppercase leading-[1.2] tracking-[0.055em] text-[#f1e8dc] sm:text-6xl xl:text-7xl"
-          >
-            {story.titleLead}
-            <span className="block font-light italic lowercase tracking-normal text-[#c99b69]">
-              {story.titleAccent}
-            </span>
-          </motion.h2>
+          <Title
+            className="uppercase"
+            highlight={story.titleAccent}
+            highlightClassName="lowercase"
+            text={`${story.titleLead} ${story.titleAccent}`}
+            tone="cream"
+          />
 
           <motion.p
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 22 }}
@@ -200,7 +189,7 @@ export default function ScentStorySection({
                   N7
                 </span>
                 <span className="mt-5 text-[8px] font-semibold uppercase tracking-[0.35em] text-white/28">
-                  Founder journal
+                  {story.filmLabel}
                 </span>
               </div>
             </div>
@@ -253,8 +242,8 @@ export default function ScentStorySection({
             <div
               className={`pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-5 text-[9px] font-semibold uppercase tracking-[0.25em] text-white/75 transition-opacity duration-500 sm:p-7 ${isPlaying ? "opacity-0" : "opacity-100"}`}
             >
-              <span>Founder journal</span>
-              <span>Dubai</span>
+              <span>{story.filmLabel}</span>
+              <span>{story.duration}</span>
             </div>
           </div>
 
@@ -272,7 +261,7 @@ export default function ScentStorySection({
             />
             <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/35 via-transparent to-transparent" />
             <span className="absolute bottom-4 left-4 text-[8px] font-semibold uppercase tracking-[0.24em] text-white/80 sm:bottom-5 sm:left-5">
-              A detail in motion
+              {story.detailLabel}
             </span>
           </div>
         </motion.div>

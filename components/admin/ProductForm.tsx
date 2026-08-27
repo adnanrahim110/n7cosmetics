@@ -86,10 +86,15 @@ export default function ProductForm({ product, categories, collections, action, 
   const shownError = useRef("");
   const [name, setName] = useState(product?.name ?? "");
   const [shortDescription, setShortDescription] = useState(product?.short_description ?? "");
+  const [inspiredBy, setInspiredBy] = useState(product?.inspired_by ?? "");
+  const [productCode, setProductCode] = useState(product?.product_code ?? "");
   const [seoTitle, setSeoTitle] = useState(product?.seo_title ?? "");
   const [seoDescription, setSeoDescription] = useState(product?.seo_description ?? "");
   const selectedCategories = product?.category_ids?.split(",").filter(Boolean) ?? [];
   const selectedCollections = product?.collection_ids?.split(",").filter(Boolean) ?? [];
+  const [selectedCollectionIds, setSelectedCollectionIds] = useState(selectedCollections);
+  const recreationCollectionIds = useMemo(() => new Set(collections.filter((collection) => collection.slug === "recreations").map((collection) => collection.id)), [collections]);
+  const isRecreationsProduct = selectedCollectionIds.some((collectionId) => recreationCollectionIds.has(collectionId));
   const notes = useMemo(() => structuredNotes(product), [product]);
   const slugPreview = slugify(name) || "product-name";
   const primaryImage = product?.images?.[0];
@@ -109,12 +114,17 @@ export default function ProductForm({ product, categories, collections, action, 
             <SectionHeader description="The essential information customers use to identify and browse this product." icon={Boxes} title="Product information" />
             <div className="grid gap-5 lg:grid-cols-2">
               <label className={`${labelClass} lg:col-span-2`}>Product name<span className="ml-1 text-red-600">*</span><input autoComplete="off" className={inputClass} maxLength={190} name="name" onChange={(event) => setName(event.target.value)} placeholder="e.g. Infinity Oud Eau de Parfum" required value={name} /><FieldError name="name" state={state} /><span className="mt-1.5 block text-xs font-normal text-zinc-500">Store URL is generated automatically: /products/{slugPreview}</span></label>
-              <CustomSelect defaultValue={product?.product_type ?? "STANDARD"} label="Product type" name="productType" options={[{ value: "STANDARD", label: "Standard product", description: "A single sellable fragrance or item" }, { value: "BUNDLE", label: "Bundle", description: "A grouped product sold as one item" }]} required searchable={false} />
+              <input name="productType" type="hidden" value="STANDARD" />
               <CustomSelect defaultValue={product?.audience ?? "UNSPECIFIED"} label="Audience" name="audience" options={[{ value: "UNSPECIFIED", label: "Unspecified" }, { value: "MEN", label: "Men" }, { value: "WOMEN", label: "Women" }, { value: "UNISEX", label: "Unisex" }]} required searchable={false} />
               <label className={labelClass}>Brand<input className={inputClass} defaultValue={product?.brand ?? "N7 Cosmetics"} maxLength={150} name="brand" placeholder="N7 Cosmetics" /><FieldError name="brand" state={state} /></label>
-              <label className={labelClass}>Inspired by<input className={inputClass} defaultValue={product?.inspired_by ?? ""} maxLength={190} name="inspiredBy" placeholder="Original fragrance or scent inspiration" /><FieldError name="inspiredBy" state={state} /></label>
               <CustomSelect className="lg:col-span-2" defaultValue={selectedCategories} emptyMessage="Create categories first." label="Categories" multiple name="categoryIds" options={categories.map((category) => ({ value: category.id, label: category.name, mediaUrl: category.image_url, mediaType: "image" }))} placeholder="Select one or more categories" />
-              <CustomSelect className="lg:col-span-2" defaultValue={selectedCollections} emptyMessage="Create collections first." label="Collections" multiple name="collectionIds" options={collections.map((collection) => ({ value: collection.id, label: collection.name, mediaUrl: collection.image_url, mediaType: "image" }))} placeholder="Select one or more collections" />
+              <CustomSelect className="lg:col-span-2" defaultValue={selectedCollections} emptyMessage="Create collections first." label="Collections" multiple name="collectionIds" onChange={setSelectedCollectionIds} options={collections.map((collection) => ({ value: collection.id, label: collection.name, mediaUrl: collection.image_url, mediaType: "image" }))} placeholder="Select one or more collections" />
+              {isRecreationsProduct ? (
+                <div className="grid gap-5 lg:col-span-2 lg:grid-cols-2">
+                  <label className={labelClass}>Inspired by<span className="ml-1 text-red-600">*</span><input className={inputClass} maxLength={190} name="inspiredBy" onChange={(event) => setInspiredBy(event.target.value)} placeholder="Original fragrance or scent inspiration" required value={inspiredBy} /><FieldError name="inspiredBy" state={state} /></label>
+                  <label className={labelClass}>Product code<span className="ml-1 text-red-600">*</span><input className={inputClass} maxLength={100} name="productCode" onChange={(event) => setProductCode(event.target.value)} placeholder="e.g. REC-001" required value={productCode} /><FieldError name="productCode" state={state} /></label>
+                </div>
+              ) : null}
               <AdminToggle defaultChecked={Boolean(product?.featured)} description="Show this item in eligible featured-product areas." label="Featured product" name="featured" />
             </div>
           </section>

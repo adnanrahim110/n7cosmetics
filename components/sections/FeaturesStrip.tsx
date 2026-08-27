@@ -2,21 +2,25 @@
 
 import { Headphones, ShieldCheck, Truck } from "lucide-react";
 import { motion } from "motion/react";
+import type { FeaturesContent } from "@/lib/homepage/types";
 
-const features = [
-  { icon: Truck, title: "Reliable Delivery", subtitle: "Options confirmed at checkout" },
-  { icon: ShieldCheck, title: "Secure Payments", subtitle: "Encrypted transactions" },
-  { icon: Headphones, title: "24/7 Concierge", subtitle: "Always here for your needs" },
+const featureIcons = [Truck, ShieldCheck, Headphones] as const;
+const fallbackItems: FeaturesContent["items"] = [
+  { title: "Reliable Delivery", subtitle: "Options confirmed at checkout" },
+  { title: "Secure Payments", subtitle: "Encrypted transactions" },
+  { title: "24/7 Concierge", subtitle: "Always here for your needs" },
 ];
 
-export default function FeaturesStrip() {
+export default function FeaturesStrip({ content }: { content?: FeaturesContent }) {
+  const items = content?.items?.length ? content.items : fallbackItems;
+
   return (
     <section className="relative overflow-hidden border-y border-[#1a1a1a]/10 bg-[#FDFCF8] py-12 sm:py-16 md:py-24">
       <div className="w-full max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8">
         {/* The Grid with Ultra-Thin Separators */}
         <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#1a1a1a]/10">
-          {features.map((feature, index) => {
-            const Icon = feature.icon;
+          {items.slice(0, featureIcons.length).map((feature, index) => {
+            const Icon = featureIcons[index];
             return (
               <div key={index} className="group flex flex-col items-center px-6 py-10 text-center sm:py-12 md:py-8">
                 <div className="relative mb-6 sm:mb-8 md:mb-10">

@@ -12,6 +12,7 @@ import { getRequestMetadata } from "@/lib/auth/request";
 import { requireAdministrator } from "@/lib/auth/session";
 import { executeMutation, selectOne, selectRows } from "@/lib/db/query";
 import { withTransaction } from "@/lib/db/transaction";
+import { getAvailableSaleNavigationItems } from "@/lib/commerce/sales";
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const optionalText = (max: number) => z.string().trim().max(max);
@@ -22,7 +23,7 @@ const navigationSubItem = z.object({ name: text(120), href: link, image: z.union
 const navigationItem = z.object({ label: text(120), href: link, type: z.enum(["link", "mega", "dropdown"]), items: z.array(navigationSubItem).max(20) });
 const review = z.object({ text: text(1000), author: text(120) });
 const footerLink = z.object({ label: text(120), href: link });
-interface ProductSlugRow extends RowDataPacket { slug: string }
+interface ProductSlugRow extends RowDataPacket { slug: string; product_type: "STANDARD" | "BUNDLE" }
 interface SectionContentRow extends RowDataPacket { content_json: unknown }
 interface HeroProductRow extends RowDataPacket { id: string; name: string }
 
@@ -115,15 +116,36 @@ function invalid(section: string): never { redirect(`/admin/homepage?error=${enc
 export async function saveHeaderAction(formData: FormData): Promise<void> {
   const parsed = z.object({ topbarText: text(300), topbarRightText: text(300), navigation: z.array(navigationItem).min(1).max(12) }).safeParse({ topbarText: formString(formData, "topbarText"), topbarRightText: formString(formData, "topbarRightText"), navigation: parseJson(formString(formData, "navigationJson")) });
   if (!parsed.success) invalid("header");
-  const fields = parsed.data.navigation.flatMap((item, index) => item.type === "link" ? [] : item.items.map((subItem, subIndex) => ({ name: `navigationThumbnail${index}-${subIndex}`, type: "image" as const, folder: "navigation/images", altText: `${subItem.name} navigation thumbnail` })));
+  const availableSales = await getAvailableSaleNavigationItems();
+  const availableSaleByHref = new Map(availableSales.map((sale) => [sale.href, sale]));
+  const navigation = parsed.data.navigation.map((item) => {
+    const containsSaleDestination = item.href.startsWith("/sale/") || item.items.some((subItem) => subItem.href === "/sale" || subItem.href.startsWith("/sale/"));
+    if (item.href !== "/sale" && containsSaleDestination) invalid("header");
+    if (item.href !== "/sale") return item;
+    if (!availableSales.length || item.type !== "dropdown") invalid("header");
+    const selectedHrefs = [...new Set(item.items.map((subItem) => subItem.href))];
+    if (!selectedHrefs.length || selectedHrefs.some((href) => !availableSaleByHref.has(href))) invalid("header");
+    return {
+      label: item.label,
+      href: "/sale",
+      type: "dropdown" as const,
+      items: selectedHrefs.map((href) => {
+        const sale = availableSaleByHref.get(href);
+        if (!sale) invalid("header");
+        return { name: sale.name, href: sale.href, image: "" };
+      }),
+    };
+  });
+  const fields = navigation.flatMap((item, index) => item.type === "link" || item.href === "/sale" ? [] : item.items.map((subItem, subIndex) => ({ name: `navigationThumbnail${index}-${subIndex}`, type: "image" as const, folder: "navigation/images", altText: `${subItem.name} navigation thumbnail` })));
   await saveMediaSection("global", "header", "Header", formData, fields, (mediaValues) => {
-    const navigation = parsed.data.navigation.map((item, index) => item.type === "link" ? { label: item.label, href: item.href } : { label: item.label, href: item.href, type: item.type, items: item.items.map((sub, subIndex) => ({ name: sub.name, href: sub.href, image: mediaValues[`navigationThumbnail${index}-${subIndex}`] })) });
-    return { topbarText: parsed.data.topbarText, topbarRightText: parsed.data.topbarRightText, navigation };
+    const persistedNavigation = navigation.map((item, index) => item.type === "link" ? { label: item.label, href: item.href } : item.href === "/sale" ? item : { label: item.label, href: item.href, type: item.type, items: item.items.map((sub, subIndex) => ({ name: sub.name, href: sub.href, image: mediaValues[`navigationThumbnail${index}-${subIndex}`] })) });
+    return { topbarText: parsed.data.topbarText, topbarRightText: parsed.data.topbarRightText, navigation: persistedNavigation };
   });
 }
 
 export async function saveHeroAction(formData: FormData): Promise<void> {
   const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
+  const ctaLabel = formString(formData, "ctaLabel");
   const productIds = formStringList(formData, "productIds");
   const products = productIds.map((productId, index) => ({
     productId: formString(formData, `hero${index}ProductId`) || productId,
@@ -132,6 +154,7 @@ export async function saveHeroAction(formData: FormData): Promise<void> {
     description: formString(formData, `hero${index}Description`),
   }));
   const parsed = z.object({
+    ctaLabel: text(120),
     productIds: idList.refine((ids) => new Set(ids).size === ids.length, "Duplicate products are not allowed"),
     products: z.array(z.object({
       productId: z.string().regex(/^[1-9]\d*$/),
@@ -143,7 +166,7 @@ export async function saveHeroAction(formData: FormData): Promise<void> {
     if (value.productIds.length !== value.products.length || value.products.some((product, index) => product.productId !== value.productIds[index])) {
       context.addIssue({ code: "custom", path: ["products"], message: "Hero products are out of sync." });
     }
-  }).safeParse({ productIds, products });
+  }).safeParse({ ctaLabel, productIds, products });
   if (!parsed.success) invalid("hero");
   const placeholders = parsed.data.productIds.map(() => "?").join(", ");
   const catalogProducts = await selectRows<HeroProductRow>(
@@ -152,13 +175,20 @@ export async function saveHeroAction(formData: FormData): Promise<void> {
   );
   const productNames = new Map(catalogProducts.map((product) => [product.id, product.name]));
   if (productNames.size !== parsed.data.productIds.length) invalid("hero");
-  const fields: SectionMediaField[] = parsed.data.products.map((product, index) => ({
-    name: `hero${index}Image`,
-    type: "image",
-    folder: "homepage/images",
-    altText: `${product.title || productNames.get(product.productId) || "Hero product"} promotional image`,
-  }));
+  const fields: SectionMediaField[] = [
+    { name: "backgroundImage", type: "image", folder: "homepage/images", altText: "Hero background image", required: true },
+    { name: "cloudImage", type: "image", folder: "homepage/images", altText: "Hero foreground image", required: true },
+    ...parsed.data.products.map((product, index) => ({
+      name: `hero${index}Image`,
+      type: "image" as const,
+      folder: "homepage/images",
+      altText: `${product.title || productNames.get(product.productId) || "Hero product"} promotional image`,
+    })),
+  ];
   await saveMediaSection("home", "hero", "Hero products", formData, fields, (mediaValues) => ({
+    ctaLabel: parsed.data.ctaLabel,
+    backgroundImage: mediaValues.backgroundImage,
+    cloudImage: mediaValues.cloudImage,
     productIds: parsed.data.productIds,
     products: parsed.data.products.map((product, index) => ({ ...product, image: mediaValues[`hero${index}Image`] ?? "" })),
   }), administrator.id);
@@ -177,21 +207,22 @@ export async function saveBrandFilmAction(formData: FormData): Promise<void> {
 }
 
 export async function saveRecreationsAction(formData: FormData): Promise<void> {
-  const parsed = z.object({ label: text(150), description: text(1000), ctaLabel: text(120), productIds: idList }).safeParse({ label: formString(formData, "label"), description: formString(formData, "description"), ctaLabel: formString(formData, "ctaLabel"), productIds: formStringList(formData, "productIds") });
+  const parsed = z.object({ label: text(150), titleLead: text(150), titleAccent: text(150), description: text(1000), ctaLabel: text(120), priceLabel: text(80), selectorTitle: text(150), selectorDescription: text(300), productIds: idList }).safeParse({ label: formString(formData, "label"), titleLead: formString(formData, "titleLead"), titleAccent: formString(formData, "titleAccent"), description: formString(formData, "description"), ctaLabel: formString(formData, "ctaLabel"), priceLabel: formString(formData, "priceLabel"), selectorTitle: formString(formData, "selectorTitle"), selectorDescription: formString(formData, "selectorDescription"), productIds: formStringList(formData, "productIds") });
   if (!parsed.success) invalid("recreations");
   await saveSection("home", "recreations", "Recreations Slider", parsed.data);
 }
 
 export async function saveWeeklyAction(formData: FormData): Promise<void> {
-  const parsed = z.object({ productId: z.string().regex(/^[1-9]\d*$/), eyebrow: text(150), description: optionalText(1000), ctaLabel: text(120) }).safeParse({ productId: formString(formData, "productId"), eyebrow: formString(formData, "eyebrow"), description: formString(formData, "description"), ctaLabel: formString(formData, "ctaLabel") });
+  const parsed = z.object({ productId: z.string().regex(/^[1-9]\d*$/), eyebrow: text(150), titleLead: text(150), titleAccent: text(150), description: optionalText(1000), ctaLabel: text(120) }).safeParse({ productId: formString(formData, "productId"), eyebrow: formString(formData, "eyebrow"), titleLead: formString(formData, "titleLead"), titleAccent: formString(formData, "titleAccent"), description: formString(formData, "description"), ctaLabel: formString(formData, "ctaLabel") });
   if (!parsed.success) invalid("fragrance-week");
-  const product = await selectOne<ProductSlugRow>("SELECT slug FROM products WHERE id = ? AND status = 'ACTIVE' LIMIT 1", [parsed.data.productId]);
+  const product = await selectOne<ProductSlugRow>("SELECT slug, product_type FROM products WHERE id = ? AND status = 'ACTIVE' LIMIT 1", [parsed.data.productId]);
   if (!product) invalid("fragrance-week");
-  await saveSection("home", "fragrance-week", "Fragrance of the Week", { ...parsed.data, ctaUrl: `/products/${product.slug}` });
+  const ctaUrl = product.product_type === "BUNDLE" ? `/bundles/${product.slug}` : `/products/${product.slug}`;
+  await saveSection("home", "fragrance-week", "Fragrance of the Week", { ...parsed.data, ctaUrl });
 }
 
 export async function saveScentStoryAction(formData: FormData): Promise<void> {
-  const parsed = z.object({ eyebrow: text(150), titleLead: text(150), titleAccent: text(150), description: text(2000), quote: text(1000), filmLabel: text(150), duration: text(100) }).safeParse({ eyebrow: formString(formData, "eyebrow"), titleLead: formString(formData, "titleLead"), titleAccent: formString(formData, "titleAccent"), description: formString(formData, "description"), quote: formString(formData, "quote"), filmLabel: formString(formData, "filmLabel"), duration: formString(formData, "duration") });
+  const parsed = z.object({ eyebrow: text(150), titleLead: text(150), titleAccent: text(150), description: text(2000), quote: text(1000), filmLabel: text(150), detailLabel: text(150), duration: text(100) }).safeParse({ eyebrow: formString(formData, "eyebrow"), titleLead: formString(formData, "titleLead"), titleAccent: formString(formData, "titleAccent"), description: formString(formData, "description"), quote: formString(formData, "quote"), filmLabel: formString(formData, "filmLabel"), detailLabel: formString(formData, "detailLabel"), duration: formString(formData, "duration") });
   if (!parsed.success) invalid("scent-story");
   await saveMediaSection("home", "scent-story", "Scent Story", formData, [
     { name: "mainVideo", type: "video", folder: "homepage/videos", altText: "Main scent story film", required: true },
@@ -202,14 +233,16 @@ export async function saveScentStoryAction(formData: FormData): Promise<void> {
 export async function saveAudienceAction(formData: FormData): Promise<void> {
   const cardSchema = z.object({ eyebrow: text(150), title: text(150), description: text(1000), ctaLabel: text(120), ctaUrl: link });
   const cards = [0, 1].map((index) => ({ eyebrow: formString(formData, `card${index}Eyebrow`), title: formString(formData, `card${index}Title`), description: formString(formData, `card${index}Description`), ctaLabel: formString(formData, `card${index}CtaLabel`), ctaUrl: formString(formData, `card${index}CtaUrl`) }));
-  const parsed = z.object({ title: text(150), description: text(1000), cards: z.array(cardSchema).length(2) }).safeParse({ title: formString(formData, "title"), description: formString(formData, "description"), cards });
+  const parsed = z.object({ eyebrow: text(150), title: text(150), titleAccent: text(150), description: text(1000), cards: z.array(cardSchema).length(2) }).safeParse({ eyebrow: formString(formData, "eyebrow"), title: formString(formData, "title"), titleAccent: formString(formData, "titleAccent"), description: formString(formData, "description"), cards });
   if (!parsed.success) invalid("audience-collections");
   const fields: SectionMediaField[] = parsed.data.cards.flatMap((card, index) => [
     { name: `card${index}Image`, type: "image", folder: "homepage/images", altText: `${card.title} product image`, required: true },
     { name: `card${index}Background`, type: "image", folder: "homepage/images", altText: `${card.title} background image`, required: true },
   ]);
   await saveMediaSection("home", "audience-collections", "Audience Collections", formData, fields, (mediaValues) => ({
+    eyebrow: parsed.data.eyebrow,
     title: parsed.data.title,
+    titleAccent: parsed.data.titleAccent,
     description: parsed.data.description,
     cards: parsed.data.cards.map((card, index) => ({ ...card, image: mediaValues[`card${index}Image`], background: mediaValues[`card${index}Background`] })),
   }));
@@ -219,6 +252,16 @@ export async function saveReviewsAction(formData: FormData): Promise<void> {
   const parsed = z.object({ eyebrow: text(150), titleLead: text(150), titleAccent: text(150), description: text(1500), reviews: z.array(review).min(1).max(12) }).safeParse({ eyebrow: formString(formData, "eyebrow"), titleLead: formString(formData, "titleLead"), titleAccent: formString(formData, "titleAccent"), description: formString(formData, "description"), reviews: parseJson(formString(formData, "reviewsJson")) });
   if (!parsed.success) invalid("reviews");
   await saveSection("home", "reviews", "Reviews", parsed.data);
+}
+
+export async function saveFeaturesAction(formData: FormData): Promise<void> {
+  const items = [0, 1, 2].map((index) => ({
+    title: formString(formData, `feature${index}Title`),
+    subtitle: formString(formData, `feature${index}Subtitle`),
+  }));
+  const parsed = z.object({ items: z.array(z.object({ title: text(150), subtitle: text(300) })).length(3) }).safeParse({ items });
+  if (!parsed.success) invalid("features");
+  await saveSection("home", "features", "Service Features", parsed.data);
 }
 
 export async function saveFooterAction(formData: FormData): Promise<void> {

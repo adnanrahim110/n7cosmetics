@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Minus, Plus, Trash2 } from "lucide-react";
-import { useCommerce } from "@/components/commerce/CommerceProvider";
+import { commerceProductHref, useCommerce } from "@/components/commerce/CommerceProvider";
+import Title from "@/components/ui/Title";
 
 function money(pence: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -25,7 +26,7 @@ export default function CartPage() {
         <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">
           Your selection
         </p>
-        <h1 className="mt-3 font-heading text-4xl sm:text-5xl">Shopping cart</h1>
+        <Title as="h1" className="mt-3" text="Shopping cart" tone="gold" />
 
         {cart.length ? (
           <div className="mt-8 grid gap-8 sm:mt-10 lg:grid-cols-[1fr_340px]">
@@ -38,7 +39,7 @@ export default function CartPage() {
                   <Link
                     aria-label={`View ${item.name}`}
                     className="absolute inset-0 z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8d6745]"
-                    href={`/products/${item.slug}`}
+                    href={commerceProductHref(item)}
                   />
                   <div className="pointer-events-none relative aspect-square bg-white/45">
                     <Image
@@ -90,7 +91,7 @@ export default function CartPage() {
             </section>
 
             <aside className="h-fit border border-black/10 bg-white/45 p-5 sm:p-6">
-              <h2 className="font-heading text-2xl">Summary</h2>
+              <Title text="Summary" tone="gold" variant="small" />
               <div className="mt-5 flex justify-between border-y border-black/10 py-4 text-sm">
                 <span>Subtotal</span>
                 <strong>{money(subtotal)}</strong>

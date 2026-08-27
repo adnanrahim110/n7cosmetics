@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 
+import Title from "@/components/ui/Title";
 import type { HomepageProduct, WeeklyContent } from "@/lib/homepage/types";
 import { homeContent } from "../../content/home";
 
@@ -20,7 +21,7 @@ export default function FragranceOfWeek({
   const shouldReduceMotion = useReducedMotion();
   const fallback = homeContent.weeklyPick;
   const detailHref = selectedProduct
-    ? `/products/${selectedProduct.slug}`
+    ? (selectedProduct.href ?? `/products/${selectedProduct.slug}`)
     : content.ctaUrl;
   const product = selectedProduct
     ? {
@@ -61,15 +62,19 @@ export default function FragranceOfWeek({
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-6">
           <div className="relative z-10 lg:pr-8">
-            <motion.h2
-              {...reveal(0.08)}
-              className="max-w-xl font-heading text-4xl uppercase leading-[0.95] tracking-[0.06em] text-[#1a1713] sm:text-5xl md:text-6xl lg:text-[4.75rem]"
+            <motion.span
+              {...reveal()}
+              className="mb-4 block text-[10px] font-semibold uppercase tracking-[0.3em] text-[#a67c49]"
             >
-              Fragrance
-              <span className="mt-2 block font-light italic lowercase tracking-normal text-[#a67c49]">
-                of the week
-              </span>
-            </motion.h2>
+              {content.eyebrow}
+            </motion.span>
+            <Title
+              className="max-w-md uppercase"
+              highlight={content.titleAccent}
+              highlightClassName="lowercase"
+              text={`${content.titleLead} ${content.titleAccent}`}
+              tone="weekly"
+            />
 
             <motion.div
               {...reveal(0.16)}

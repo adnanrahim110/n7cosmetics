@@ -1,20 +1,72 @@
 "use client";
 
-import { Check, Eye, Heart, ShoppingBag } from "lucide-react";
+import { Check, Heart, ShoppingBag } from "lucide-react";
 import { motion, useMotionValue, useTransform } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import CartAction from "../commerce/CartAction";
 import { useCommerce } from "../commerce/CommerceProvider";
 import RatingStars from "../commerce/RatingStars";
+import ProductCodeBar from "./ProductCodeBar";
 
 export interface ProductCardProduct {
   slug: string;
+  href?: string;
   name: string;
   image: string;
   price: string;
   pricePence: number;
   rating: number;
+  inspiredBy?: string | null;
+  productCode?: string | null;
+  audience?: string | null;
+}
+
+const genderBadges = {
+  MEN: { label: "Men", color: "bg-[#2563EB]" },
+  WOMEN: { label: "Women", color: "bg-[#DB2777]" },
+  UNISEX: { label: "Unisex", color: "bg-[#7C3AED]" },
+} as const;
+
+function GenderBadge({
+  audience,
+  className = "",
+  style,
+  vertical = false,
+}: {
+  audience?: string | null;
+  className?: string;
+  style?: React.CSSProperties;
+  vertical?: boolean;
+}) {
+  const normalizedAudience = audience?.trim().toUpperCase();
+  const badge =
+    normalizedAudience && normalizedAudience in genderBadges
+      ? genderBadges[normalizedAudience as keyof typeof genderBadges]
+      : null;
+
+  if (!badge) return null;
+
+  return (
+    <span
+      aria-label={`${badge.label} fragrance`}
+      className={`flex shrink-0 items-center justify-center text-center text-[7px] font-bold uppercase leading-none tracking-[0.04em] text-white ${
+        vertical ? "h-14 w-6 px-1 py-2" : "px-3 py-1"
+      } ${badge.color} ${className}`}
+      style={style}
+      title={`${badge.label} fragrance`}
+    >
+      <span
+        className={
+          vertical
+            ? "[writing-mode:vertical-rl] [text-orientation:mixed] rotate-180"
+            : undefined
+        }
+      >
+        {badge.label}
+      </span>
+    </span>
+  );
 }
 
 export default function ProductCard({
@@ -29,13 +81,17 @@ export default function ProductCard({
   const rotateX = useTransform(y, [-200, 200], [10, -10]);
   const rotateY = useTransform(x, [-200, 200], [-10, 10]);
   const slug = product.slug;
+  const href = product.href ?? `/products/${slug}`;
   const commerceProduct = {
     slug,
+    href,
     name: product.name,
     image: product.image,
     pricePence: product.pricePence,
   };
   const wishlisted = isWishlisted(slug);
+  const inspiredBy = product.inspiredBy?.trim();
+  const productCode = product.productCode?.trim();
 
   function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -57,7 +113,11 @@ export default function ProductCard({
           <Link
             aria-label={`View ${product.name}`}
             className="absolute inset-0 z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#967C55]"
-            href={`/products/${slug}`}
+            href={href}
+          />
+          <GenderBadge
+            audience={product.audience}
+            className="pointer-events-none absolute left-1 top-1 z-20"
           />
           <div className="pointer-events-none absolute inset-x-[14%] bottom-[7%] h-[12%] rounded-full bg-black/10 blur-xl" />
           <Image
@@ -67,12 +127,17 @@ export default function ProductCard({
             sizes="(max-width: 640px) 80vw, 25vw"
             className="pointer-events-none object-contain p-3 drop-shadow-[0_18px_18px_rgba(48,33,19,0.2)]"
           />
+          {inspiredBy ? (
+            <span className="pointer-events-none absolute bottom-0 left-1/2 z-30 inline-flex w-full -translate-x-1/2 items-center justify-center border-t border-[#967C55]/24 bg-[#f7f2ea]/90 px-2.5 py-0.5 text-center text-[7px] font-semibold uppercase leading-3 tracking-[0.08em] text-[#7A5D38] line-clamp-2">
+              Inspired by {inspiredBy}
+            </span>
+          ) : null}
           <button
             type="button"
             onClick={() => toggleWishlist(commerceProduct)}
             aria-label={`${wishlisted ? "Remove" : "Add"} ${product.name} ${wishlisted ? "from" : "to"} wishlist`}
             aria-pressed={wishlisted}
-            className={`absolute right-2 top-2 z-20 grid size-9 place-items-center rounded-full border shadow-[0_8px_24px_rgba(42,29,18,0.05)] backdrop-blur-md transition-colors active:bg-[#1A1A1A] active:text-white ${
+            className={`absolute right-1 top-1 z-20 grid size-9 place-items-center rounded-full border shadow-[0_8px_24px_rgba(42,29,18,0.05)] backdrop-blur-md transition-colors active:bg-[#1A1A1A] active:text-white ${
               wishlisted
                 ? "border-[#967C55]/35 bg-[#967C55] text-white"
                 : "border-black/8 bg-white/88 text-[#1A1A1A]"
@@ -90,12 +155,13 @@ export default function ProductCard({
         <div className="flex flex-1 flex-col pt-3 text-left">
           <Link
             className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#967C55]"
-            href={`/products/${slug}`}
+            href={href}
           >
-            <h3 className="line-clamp-2 font-heading text-base tracking-wide text-[#1A1A1A]">
+            <h3 className="line-clamp-1 font-heading text-base tracking-wide text-[#1A1A1A]">
               {product.name}
             </h3>
           </Link>
+          <ProductCodeBar code={productCode} className="mt-1.5" />
           <RatingStars className="mt-1.5" rating={product.rating} size={13} />
           <span className="mt-1 text-[15px] font-bold text-[#1A1A1A]">
             {product.price}
@@ -125,7 +191,7 @@ export default function ProductCard({
         <Link
           aria-label={`View ${product.name}`}
           className="absolute inset-0 z-20 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#967C55]"
-          href={`/products/${slug}`}
+          href={href}
         />
         <motion.div
           style={{ perspective: 1200 }}
@@ -164,52 +230,61 @@ export default function ProductCard({
               </div>
             </div>
 
-            <div
-              className="absolute inset-y-0 right-0 w-16 overflow-hidden z-30 pointer-events-none"
-              style={{ transform: "translateZ(60px)" }}
-            >
-              <div className="absolute right-0 lg:right-4 top-1/2 -translate-y-1/2 flex flex-col gap-3 pointer-events-auto">
-                <button
-                  type="button"
-                  onClick={() => toggleWishlist(commerceProduct)}
-                  aria-pressed={wishlisted}
-                  className="signature-card-action flex size-10 translate-x-0 items-center justify-center rounded-full border border-black/5 bg-white/90 text-[#1A1A1A] opacity-100 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-[#1A1A1A] hover:text-white"
-                  style={{
-                    transitionDuration: "500ms",
-                    transitionTimingFunction: "cubic-bezier(0.65, 0, 0.35, 1)",
-                    transitionDelay: "100ms",
-                  }}
-                  aria-label="Add to Wishlist"
-                >
-                  <Heart
-                    aria-hidden="true"
-                    className={wishlisted ? "fill-current" : ""}
-                    size={16}
-                    strokeWidth={1.5}
-                  />
-                </button>
-
-                <Link
-                  href={`/products/${slug}`}
-                  className="signature-card-action flex size-10 translate-x-0 items-center justify-center rounded-full border border-black/5 bg-white/90 text-[#1A1A1A] opacity-100 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-[#1A1A1A] hover:text-white"
-                  style={{
-                    transitionDuration: "500ms",
-                    transitionTimingFunction: "cubic-bezier(0.65, 0, 0.35, 1)",
-                    transitionDelay: "150ms",
-                  }}
-                  aria-label="Quick View"
-                >
-                  <Eye aria-hidden="true" size={16} strokeWidth={1.5} />
-                </Link>
+            {inspiredBy ? (
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-5 z-40 flex justify-center px-4"
+                style={{ transform: "translateZ(100px)" }}
+              >
+                <span className="inline-flex w-fit min-w-40 text-center items-center justify-center border-y border-[#967C55]/24 bg-[#f7f2ea]/90 px-2.5 py-1 text-[8px] font-semibold uppercase leading-3 tracking-[0.08em] text-[#7A5D38]">
+                  Inspired by {inspiredBy}
+                </span>
               </div>
-            </div>
+            ) : null}
           </motion.div>
         </motion.div>
 
-        <div className="pointer-events-none relative z-30 -mt-3 flex flex-col items-center text-center">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 aspect-3/4">
+          <div className="absolute inset-y-0 right-0 w-16 overflow-hidden pointer-events-none">
+            <div className="pointer-events-auto absolute right-0 lg:right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={() => toggleWishlist(commerceProduct)}
+                aria-pressed={wishlisted}
+                className="signature-card-action flex size-10 translate-x-0 items-center justify-center rounded-full border border-black/5 bg-white/90 text-[#1A1A1A] opacity-100 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-[#1A1A1A] hover:text-white"
+                style={{
+                  transitionDuration: "500ms",
+                  transitionTimingFunction: "cubic-bezier(0.65, 0, 0.35, 1)",
+                  transitionDelay: "100ms",
+                }}
+                aria-label="Add to Wishlist"
+              >
+                <Heart
+                  aria-hidden="true"
+                  className={wishlisted ? "fill-current" : ""}
+                  size={16}
+                  strokeWidth={1.5}
+                />
+              </button>
+
+              <GenderBadge
+                audience={product.audience}
+                className="signature-card-action translate-x-0 opacity-100 transition-all duration-300"
+                vertical
+                style={{
+                  transitionDuration: "500ms",
+                  transitionTimingFunction: "cubic-bezier(0.65, 0, 0.35, 1)",
+                  transitionDelay: "150ms",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="pointer-events-none relative z-30 mt-1 flex flex-col items-center text-center">
           <h3 className="font-heading text-xl md:text-xl text-[#1A1A1A] tracking-wide mb-1 transition-colors duration-300 line-clamp-1">
             {product.name}
           </h3>
+          <ProductCodeBar code={productCode} className="mb-1.5" />
           <RatingStars className="mb-1.5" rating={product.rating} size={14} />
           <span className="text-[#1A1A1A] font-bold text-base mb-3">
             {product.price}

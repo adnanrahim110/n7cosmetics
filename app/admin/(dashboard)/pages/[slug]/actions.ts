@@ -6,17 +6,14 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { formCheckbox, formString, formStringList } from "@/lib/admin/form";
 import { cleanupUnreferencedMediaUrls, mergeMediaSubmission, removeStoredMediaFiles, storeMediaFiles, submittedMediaFiles, type StoredMediaAsset } from "@/lib/admin/media";
+import { resolveStorefrontPageEditorTarget, type StorefrontPageEditorTarget } from "@/lib/admin/storefront-page-editor";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { getRequestMetadata } from "@/lib/auth/request";
 import { requireAdministrator } from "@/lib/auth/session";
 import { executeMutation, selectOne, selectRows } from "@/lib/db/query";
 import { withTransaction } from "@/lib/db/transaction";
 import {
-  isEditableStorefrontPageSlug,
   normalizeStorefrontPageDetail,
-  storefrontPageDatabaseKey,
-  storefrontPageDefinitions,
-  type EditableStorefrontPageSlug,
 } from "@/lib/storefront-pages/config";
 
 const requiredText = (maximum: number) => z.string().trim().min(1).max(maximum);
@@ -53,69 +50,69 @@ const detailSchema = z.object({
 interface ActiveProductRow extends RowDataPacket { id: string }
 interface SectionContentRow extends RowDataPacket { content_json: unknown }
 
-function invalid(slug: EditableStorefrontPageSlug, section: "hero" | "detail"): never {
+function invalid(slug: string, section: "hero" | "detail"): never {
   redirect(`/admin/pages/${slug}?error=${section}#${section}`);
 }
 
-async function validateActiveProductIds(ids: string[]): Promise<boolean> {
+async function validateActiveProductIds(ids: string[], saleId: string | null): Promise<boolean> {
   if (!ids.length) return true;
   const placeholders = ids.map(() => "?").join(", ");
   const rows = await selectRows<ActiveProductRow>(
-    `SELECT CAST(id AS CHAR) AS id FROM products WHERE status = 'ACTIVE' AND id IN (${placeholders})`,
-    ids,
+    `SELECT CAST(p.id AS CHAR) AS id FROM products p
+     WHERE p.status = 'ACTIVE' AND p.id IN (${placeholders})
+       ${saleId ? "AND EXISTS (SELECT 1 FROM sale_products sp WHERE sp.product_id = p.id AND sp.sale_id = ?)" : ""}`,
+    saleId ? [...ids, saleId] : ids,
   );
   const found = new Set(rows.map((row) => row.id));
   return ids.every((id) => found.has(id));
 }
 
 async function writeSection(
-  slug: EditableStorefrontPageSlug,
+  target: StorefrontPageEditorTarget,
   section: "hero" | "detail",
   displayName: string,
   content: unknown,
   connection?: PoolConnection,
 ): Promise<void> {
-  const pageKey = storefrontPageDatabaseKey(slug);
   await executeMutation(
     `INSERT INTO page_sections (page_key, section_key, section_type, display_name, content_json, is_enabled, sort_order)
      VALUES (?, ?, 'fixed', ?, ?, 1, ?)
      ON DUPLICATE KEY UPDATE section_type = 'fixed', display_name = VALUES(display_name), content_json = VALUES(content_json), is_enabled = 1, sort_order = VALUES(sort_order)`,
-    [pageKey, section, displayName, JSON.stringify(content), section === "hero" ? 10 : 20],
+    [target.databaseKey, section, displayName, JSON.stringify(content), section === "hero" ? 10 : 20],
     connection,
   );
 }
 
 async function finishSectionSave(
-  slug: EditableStorefrontPageSlug,
+  target: StorefrontPageEditorTarget,
   section: "hero" | "detail",
   displayName: string,
   administratorId: string,
 ): Promise<never> {
-  const pageKey = storefrontPageDatabaseKey(slug);
   const metadata = await getRequestMetadata();
   await writeAuditLog({
     administratorId,
     action: "STOREFRONT_PAGE_UPDATE",
     entityType: "page_section",
-    entityId: `${pageKey}.${section}`,
-    summary: `Updated ${storefrontPageDefinitions[slug].name} ${displayName.toLowerCase()}`,
+    entityId: `${target.databaseKey}.${section}`,
+    summary: `Updated ${target.name} ${displayName.toLowerCase()}`,
     ipAddress: metadata.ipAddress,
   });
-  revalidatePath(storefrontPageDefinitions[slug].path);
+  revalidatePath(target.path);
   revalidatePath("/admin/pages");
-  revalidatePath(`/admin/pages/${slug}`);
-  redirect(`/admin/pages/${slug}?saved=${section}#${section}`);
+  revalidatePath(`/admin/pages/${target.editorSlug}`);
+  redirect(`/admin/pages/${target.editorSlug}?saved=${section}#${section}`);
 }
 
 async function saveSection(
-  slug: EditableStorefrontPageSlug,
+  target: StorefrontPageEditorTarget,
   section: "hero" | "detail",
   displayName: string,
   content: unknown,
   administratorId: string,
 ): Promise<never> {
-  await writeSection(slug, section, displayName, content);
-  return finishSectionSave(slug, section, displayName, administratorId);
+  await writeSection(target, section, displayName, content);
+  return finishSectionSave(target, section, displayName, administratorId);
 }
 
 function parseContentJson(value: unknown): unknown {
@@ -129,7 +126,8 @@ function parseContentJson(value: unknown): unknown {
 
 export async function saveStorefrontPageHeroAction(slugValue: string, formData: FormData): Promise<void> {
   const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
-  if (!isEditableStorefrontPageSlug(slugValue)) redirect("/admin/pages");
+  const target = await resolveStorefrontPageEditorTarget(slugValue);
+  if (!target) redirect("/admin/pages");
   const parsed = heroSchema.safeParse({
     eyebrow: formString(formData, "eyebrow"),
     titleLead: formString(formData, "titleLead"),
@@ -139,8 +137,8 @@ export async function saveStorefrontPageHeroAction(slugValue: string, formData: 
     highlights: formStringList(formData, "highlights"),
     productIds: formStringList(formData, "productIds"),
   });
-  if (!parsed.success || !(await validateActiveProductIds(parsed.data.productIds))) invalid(slugValue, "hero");
-  await saveSection(slugValue, "hero", "Hero section", {
+  if (!parsed.success || !(await validateActiveProductIds(parsed.data.productIds, target.saleId))) invalid(slugValue, "hero");
+  await saveSection(target, "hero", "Hero section", {
     eyebrow: parsed.data.eyebrow,
     title: { lead: parsed.data.titleLead, accent: parsed.data.titleAccent },
     intro: parsed.data.intro,
@@ -152,27 +150,37 @@ export async function saveStorefrontPageHeroAction(slugValue: string, formData: 
 
 export async function saveStorefrontPageDetailAction(slugValue: string, formData: FormData): Promise<void> {
   const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
-  if (!isEditableStorefrontPageSlug(slugValue)) redirect("/admin/pages");
+  const target = await resolveStorefrontPageEditorTarget(slugValue);
+  if (!target) redirect("/admin/pages");
   const parsed = detailSchema.safeParse({
     eyebrow: formString(formData, "eyebrow"),
     title: formString(formData, "title"),
     description: formString(formData, "description"),
     credit: formString(formData, "credit"),
-    showComingSoon: formCheckbox(formData, "showComingSoon"),
+    showComingSoon: target.kind === "collection" && formCheckbox(formData, "showComingSoon"),
     comingSoonEyebrow: formString(formData, "comingSoonEyebrow"),
     comingSoonTitle: formString(formData, "comingSoonTitle"),
     comingSoonDescription: formString(formData, "comingSoonDescription"),
   });
   if (!parsed.success) invalid(slugValue, "detail");
 
+  if (target.kind === "sale") {
+    await saveSection(target, "detail", "Detail section", {
+      eyebrow: parsed.data.eyebrow,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      credit: parsed.data.credit,
+      comingSoon: { enabled: false, eyebrow: "", title: "", description: "", image: "" },
+    }, administrator.id);
+  }
+
   const written: StoredMediaAsset[] = [];
   let previousImage = "";
   try {
     await withTransaction(async (connection) => {
-      const pageKey = storefrontPageDatabaseKey(slugValue);
       const existing = await selectOne<SectionContentRow>(
         "SELECT content_json FROM page_sections WHERE page_key = ? AND section_key = 'detail' FOR UPDATE",
-        [pageKey],
+        [target.databaseKey],
         connection,
       );
       const previousDetail = normalizeStorefrontPageDetail(parseContentJson(existing?.content_json));
@@ -182,7 +190,7 @@ export async function saveStorefrontPageDetailAction(slugValue: string, formData
         connection,
         expectedType: "image",
         folder: "storefront-pages/coming-soon",
-        altTexts: [`${parsed.data.comingSoonTitle || storefrontPageDefinitions[slugValue].name} coming soon visual`],
+        altTexts: [`${parsed.data.comingSoonTitle || target.name} coming soon visual`],
         maximumFiles: 1,
       });
       written.push(...stored);
@@ -190,7 +198,7 @@ export async function saveStorefrontPageDetailAction(slugValue: string, formData
       const imageUrls = mergeMediaSubmission(formData, "comingSoonImage", stored, allowedExistingUrls);
       if (imageUrls.length > 1) throw new Error("Choose no more than one coming soon image.");
 
-      await writeSection(slugValue, "detail", "Detail section", {
+      await writeSection(target, "detail", "Detail section", {
         eyebrow: parsed.data.eyebrow,
         title: parsed.data.title,
         description: parsed.data.description,
@@ -211,5 +219,5 @@ export async function saveStorefrontPageDetailAction(slugValue: string, formData
   }
 
   await cleanupUnreferencedMediaUrls(previousImage ? [previousImage] : []).catch((error) => console.error(`Unable to clean replaced ${slugValue} detail media`, error));
-  await finishSectionSave(slugValue, "detail", "Detail section", administrator.id);
+  await finishSectionSave(target, "detail", "Detail section", administrator.id);
 }

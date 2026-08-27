@@ -6,7 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 
-import { useCommerce } from "./CommerceProvider";
+import { commerceProductHref, useCommerce } from "./CommerceProvider";
+import Title from "@/components/ui/Title";
 
 function money(pence: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -80,9 +81,13 @@ export default function CartDrawer() {
                 <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#9a7048]">
                   Your selection
                 </p>
-                <h2 className="mt-1 font-heading text-3xl" id="cart-drawer-title">
-                  Shopping bag
-                </h2>
+                <Title
+                  className="mt-1"
+                  id="cart-drawer-title"
+                  text="Shopping bag"
+                  tone="gold"
+                  variant="compact"
+                />
               </div>
               <button
                 aria-label="Close cart"
@@ -107,7 +112,7 @@ export default function CartDrawer() {
                       <Link
                         aria-label={`View ${item.name}`}
                         className="absolute inset-0 z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9a7048]"
-                        href={`/products/${item.slug}`}
+                        href={commerceProductHref(item)}
                         onClick={closeCart}
                       />
                       <div className="pointer-events-none relative aspect-square bg-[#ebe2d5]">

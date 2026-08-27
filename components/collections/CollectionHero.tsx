@@ -5,7 +5,8 @@ import { ArrowDown } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import type { CollectionPageContent } from "../../content/collections";
+import Title from "@/components/ui/Title";
+import type { CollectionPageContent, CollectionProduct } from "../../content/collections";
 import { slugify } from "../../lib/admin/form";
 import { collectionEase } from "./collection-config";
 
@@ -18,6 +19,7 @@ export type ProductHeroContent = Pick<
 
 export interface ProductHeroDesign {
   accent: string;
+  accentClass: string;
   heroBase: string;
   heroSurface: string;
   heroInk?: string;
@@ -33,6 +35,11 @@ export interface ProductHeroProps {
   ctaHref?: string;
   ctaLabel?: string;
   itemLabel?: string;
+}
+
+function productHref(product: CollectionProduct): string {
+  const slug = product.slug ?? slugify(product.name);
+  return product.productType === "BUNDLE" ? `/bundles/${slug}` : `/products/${slug}`;
 }
 
 export default function ProductHero({
@@ -136,24 +143,14 @@ export default function ProductHero({
               {heroContent.eyebrow}
             </motion.div>
 
-            <motion.h1
-              initial={false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: shouldReduceMotion ? 0 : 0.9,
-                delay: shouldReduceMotion ? 0 : 0.05,
-                ease: collectionEase,
-              }}
-              className="mt-6 font-heading text-[clamp(2.6rem,13vw,4.4rem)] uppercase leading-[0.9] tracking-[-0.03em] text-[#f7f0e8] sm:text-[clamp(3.25rem,4.6vw,5.2rem)]"
-            >
-              <span className="block">{heroContent.title.lead}</span>
-              <span
-                className="mt-2 block font-light italic lowercase leading-none tracking-[-0.04em]"
-                style={{ color: design.accent }}
-              >
-                {heroContent.title.accent}
-              </span>
-            </motion.h1>
+            <Title
+              as="h1"
+              className="mt-6 uppercase text-[#f7f0e8]"
+              highlight={heroContent.title.accent}
+              highlightClassName={`${design.accentClass} lowercase`}
+              text={`${heroContent.title.lead} ${heroContent.title.accent}`}
+              tone="custom"
+            />
 
             <motion.div
               initial={false}
@@ -241,7 +238,7 @@ export default function ProductHero({
                 <Link
                   aria-label={`View ${featuredProduct.name}`}
                   className="absolute inset-0 z-40 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                  href={`/products/${featuredProduct.slug ?? slugify(featuredProduct.name)}`}
+                  href={productHref(featuredProduct)}
                 />
                 <div
                   aria-hidden="true"
@@ -301,7 +298,7 @@ export default function ProductHero({
                     <Link
                       aria-label={`View ${product.name}`}
                       className="absolute inset-0 z-40 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                      href={`/products/${product.slug ?? slugify(product.name)}`}
+                      href={productHref(product)}
                     />
                     <div
                       aria-hidden="true"
@@ -340,7 +337,7 @@ export default function ProductHero({
                     <Link
                       aria-label={`View ${featuredProduct.name}`}
                       className="absolute inset-0 z-40 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                      href={`/products/${slugify(featuredProduct.name)}`}
+                      href={productHref(featuredProduct)}
                     />
                   ) : null}
                   <div
@@ -406,7 +403,7 @@ export default function ProductHero({
                         <Link
                           aria-label={`View ${product.name}`}
                           className="absolute inset-0 z-30 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                          href={`/products/${slugify(product.name)}`}
+                          href={productHref(product)}
                         />
                         <div className="absolute inset-y-[5%] right-[4%] w-[82%]">
                           <div className="relative size-full">

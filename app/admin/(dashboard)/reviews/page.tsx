@@ -15,6 +15,7 @@ interface ReviewRow extends RowDataPacket {
   product_id: string;
   product_name: string;
   product_slug: string;
+  product_type: "STANDARD" | "BUNDLE";
   product_image: string | null;
   status: "PENDING" | "PUBLISHED" | "REJECTED";
   rating: number;
@@ -58,7 +59,7 @@ export default async function ReviewsAdminPage({ searchParams }: ReviewsPageProp
   const page = Math.min(parsePage(query.page), totalPages);
   const reviews = await selectRows<ReviewRow>(
     `SELECT CAST(pr.id AS CHAR) AS id, CAST(pr.product_id AS CHAR) AS product_id,
-       p.name AS product_name, p.slug AS product_slug, pr.status, pr.rating,
+       p.name AS product_name, p.slug AS product_slug, p.product_type, pr.status, pr.rating,
        pr.reviewer_name, pr.reviewer_email, pr.title, pr.body, pr.recommends_product,
        pr.is_verified_purchase, pr.submitted_at,
        (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) AS product_image
@@ -99,9 +100,9 @@ export default async function ReviewsAdminPage({ searchParams }: ReviewsPageProp
               <div className="flex flex-col gap-4 border-b border-zinc-100 bg-zinc-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-zinc-100">{review.product_image ? <Image alt="" className="object-cover" fill sizes="44px" src={review.product_image} /> : null}</div>
-                  <div className="min-w-0"><Link className="block truncate text-sm font-semibold text-zinc-950 hover:text-amber-700" href={`/admin/products/${review.product_id}`}>{review.product_name}</Link><p className="mt-0.5 text-xs text-zinc-400">Submitted {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(new Date(review.submitted_at))}</p></div>
+                  <div className="min-w-0"><Link className="block truncate text-sm font-semibold text-zinc-950 hover:text-amber-700" href={review.product_type === "BUNDLE" ? `/admin/bundles/${review.product_id}` : `/admin/products/${review.product_id}`}>{review.product_name}</Link><p className="mt-0.5 text-xs text-zinc-400">Submitted {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(new Date(review.submitted_at))}</p></div>
                 </div>
-                <div className="flex items-center gap-2"><StatusBadge status={review.status} /><Link aria-label="View product page" className="grid size-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:text-amber-700" href={`/products/${review.product_slug}#reviews`} target="_blank"><Eye size={15} /></Link></div>
+                <div className="flex items-center gap-2"><StatusBadge status={review.status} /><Link aria-label="View product page" className="grid size-8 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:text-amber-700" href={`${review.product_type === "BUNDLE" ? "/bundles" : "/products"}/${review.product_slug}#reviews`} target="_blank"><Eye size={15} /></Link></div>
               </div>
 
               <div className="grid gap-6 p-5 lg:grid-cols-[12rem_minmax(0,1fr)_auto]">

@@ -3,6 +3,7 @@
 import type { StorefrontPageComingSoonContent } from "../../lib/storefront-pages/config";
 import { motion } from "motion/react";
 import Image from "next/image";
+import Title from "@/components/ui/Title";
 import {
   collectionEase,
   type CollectionDesign,
@@ -96,9 +97,12 @@ export function CollectionComingSoonCard({
           >
             {content.eyebrow}
           </span>
-          <h2 className="font-heading text-4xl leading-[0.94] text-[#f6efe6] sm:text-5xl" id="collection-coming-soon-title">
-            {content.title}
-          </h2>
+          <Title
+            className="text-[#f6efe6]"
+            id="collection-coming-soon-title"
+            text={content.title}
+            tone="custom"
+          />
           <p className="mt-5 max-w-lg text-sm leading-7 text-white/52 sm:text-[15px]">
             {content.description}
           </p>
@@ -111,4 +115,3 @@ export function CollectionComingSoonCard({
     </motion.article>
   );
 }
-

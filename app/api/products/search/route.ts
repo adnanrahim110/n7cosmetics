@@ -9,6 +9,7 @@ const MAX_RESULTS = 8;
 
 interface ProductSearchRow extends RowDataPacket {
   id: string;
+  product_type: "STANDARD" | "BUNDLE";
   slug: string;
   name: string;
   brand: string | null;
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
 
   try {
     const rows = await selectRows<ProductSearchRow>(
-      `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name, p.brand, p.inspired_by,
+      `SELECT CAST(p.id AS CHAR) AS id, p.product_type, p.slug, p.name, p.brand, p.inspired_by,
          (SELECT category.name
           FROM product_categories pc
           INNER JOIN categories category ON category.id = pc.category_id
@@ -118,11 +119,12 @@ export async function GET(request: Request) {
 
     const results = rows.map((row) => ({
       id: row.id,
+      productType: row.product_type,
       slug: row.slug,
       name: row.name,
       brand: row.brand,
       inspiredBy: row.inspired_by,
-      category: row.category ?? "Fragrance",
+      category: row.category ?? (row.product_type === "BUNDLE" ? "Bundle" : "Fragrance"),
       pricePence: Number(row.price_pence),
       compareAtPricePence:
         row.compare_at_price_pence === null

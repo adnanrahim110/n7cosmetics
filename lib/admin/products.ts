@@ -23,6 +23,7 @@ export interface ProductListRow extends RowDataPacket {
 export interface CatalogOption extends RowDataPacket {
   id: string;
   name: string;
+  slug: string;
   image_url: string | null;
 }
 
@@ -53,6 +54,7 @@ export interface ProductFormRecord extends RowDataPacket {
   description: string | null;
   brand: string | null;
   inspired_by: string | null;
+  product_code: string | null;
   audience: "MEN" | "WOMEN" | "UNISEX" | "UNSPECIFIED";
   fragrance_notes_json: string[] | string | null;
   featured: number;
@@ -89,7 +91,7 @@ export interface ProductVideoRecord extends RowDataPacket {
 }
 
 function productListWhere(filters: ProductListFilters): { sql: string; values: Array<string | number> } {
-  const clauses: string[] = [];
+  const clauses: string[] = ["p.product_type = 'STANDARD'"];
   const values: Array<string | number> = [];
 
   if (filters.q) {
@@ -200,16 +202,16 @@ export async function listProducts(filters: ProductListFilters, requestedPage: n
 
 export async function getProductListFilterOptions(): Promise<{ categories: ProductFilterOption[]; collections: ProductFilterOption[] }> {
   const [categories, collections] = await Promise.all([
-    selectRows<ProductFilterOption>("SELECT CAST(id AS CHAR) AS id, name, status FROM categories ORDER BY name"),
-    selectRows<ProductFilterOption>("SELECT CAST(id AS CHAR) AS id, name, status FROM collections ORDER BY name"),
+    selectRows<ProductFilterOption>("SELECT CAST(id AS CHAR) AS id, name, status FROM categories WHERE slug != 'bundles' ORDER BY name"),
+    selectRows<ProductFilterOption>("SELECT CAST(id AS CHAR) AS id, name, status FROM collections WHERE slug != 'bundles' ORDER BY name"),
   ]);
   return { categories, collections };
 }
 
 export async function getCatalogOptions(): Promise<{ categories: CatalogOption[]; collections: CatalogOption[] }> {
   const [categories, collections] = await Promise.all([
-    selectRows<CatalogOption>("SELECT CAST(id AS CHAR) AS id, name, image_url FROM categories WHERE status != 'HIDDEN' ORDER BY name"),
-    selectRows<CatalogOption>("SELECT CAST(id AS CHAR) AS id, name, image_url FROM collections WHERE status != 'ARCHIVED' ORDER BY name"),
+    selectRows<CatalogOption>("SELECT CAST(id AS CHAR) AS id, name, slug, image_url FROM categories WHERE status != 'HIDDEN' AND slug != 'bundles' ORDER BY name"),
+    selectRows<CatalogOption>("SELECT CAST(id AS CHAR) AS id, name, slug, image_url FROM collections WHERE status != 'ARCHIVED' AND slug != 'bundles' ORDER BY name"),
   ]);
   return { categories, collections };
 }
@@ -219,7 +221,7 @@ export async function getProductForEdit(id: string): Promise<ProductFormRecord |
     `SELECT
        CAST(p.id AS CHAR) AS id,
        p.name, p.slug, p.product_type, p.status, p.short_description, p.description,
-       p.brand, p.inspired_by, p.audience, p.fragrance_notes_json, p.featured,
+       p.brand, p.inspired_by, p.product_code, p.audience, p.fragrance_notes_json, p.featured,
        p.track_inventory, p.seo_title, p.seo_description,
        CAST(v.id AS CHAR) AS variant_id, v.title AS variant_title, v.sku,
        v.price_pence, v.compare_at_price_pence, v.cost_pence, v.stock_on_hand,
@@ -228,7 +230,7 @@ export async function getProductForEdit(id: string): Promise<ProductFormRecord |
        (SELECT GROUP_CONCAT(pc.collection_id) FROM product_collections pc WHERE pc.product_id = p.id) AS collection_ids
      FROM products p
      LEFT JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1
-     WHERE p.id = ?
+     WHERE p.id = ? AND p.product_type = 'STANDARD'
      LIMIT 1`,
     [id],
   );

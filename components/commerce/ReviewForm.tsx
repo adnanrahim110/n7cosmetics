@@ -5,6 +5,7 @@ import { CheckCircle2, FileVideo2, LoaderCircle, Send, Star, UploadCloud, X } fr
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { submitProductReviewAction, type ReviewFormState } from "@/app/(storefront)/products/[slug]/actions";
+import Title from "@/components/ui/Title";
 
 interface SelectedMedia {
   key: string;
@@ -116,7 +117,13 @@ export default function ReviewForm({ productId, productSlug, productName }: { pr
       <div className="grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:gap-12">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#8d6745]">Your experience</p>
-          <h3 className="mt-3 font-heading text-3xl font-normal text-[#1c1814] sm:text-4xl">Review {productName}</h3>
+          <Title
+            as="h3"
+            className="mt-3"
+            text={`Review ${productName}`}
+            tone="ink"
+            variant="compact"
+          />
           <p className="mt-4 max-w-md text-sm font-light leading-7 text-black/55">Your honest notes help other fragrance lovers choose with confidence. Reviews are checked before publication.</p>
 
           <fieldset className="mt-8">

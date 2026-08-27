@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import CartAction from "@/components/commerce/CartAction";
 import { useCommerce } from "@/components/commerce/CommerceProvider";
+import Title from "@/components/ui/Title";
 import type { HomepageProduct } from "@/lib/homepage/types";
 
 export default function AboutFeaturedCollection({
@@ -24,12 +25,13 @@ export default function AboutFeaturedCollection({
             <span className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#9b6a35]">
               Featured collection
             </span>
-            <h2 className="mt-6 font-heading text-[clamp(2.55rem,11vw,4.2rem)] leading-[0.88] tracking-tighter text-[#1f1915] sm:text-[clamp(3rem,5.8vw,6.4rem)]">
-              Find your
-              <span className="block font-light italic text-[#a47442]">
-                signature scent.
-              </span>
-            </h2>
+            <Title
+              className="mt-6 text-[#1f1915]"
+              highlight="signature scent."
+              highlightClassName="text-[#a47442]"
+              text="Find your signature scent."
+              tone="custom"
+            />
           </div>
           <p className="max-w-xl text-sm font-light leading-7 text-[#342a22]/58 sm:text-base sm:leading-8 md:justify-self-end">
             Explore a considered edit of fragrances chosen for depth,

@@ -90,7 +90,7 @@ test("product SKUs are generated from stable database identifiers", () => {
 test("hero presentation fields override product data only when provided", () => {
   const product: HomepageProduct = {
     id: "12", slug: "passio", name: "Passio", type: "Yusuf Bhai", price: "£40", pricePence: 4000, rating: 0,
-    image: "/media/product", description: "Catalog description", tagline: "Catalog tagline", notes: [], size: "100 ml",
+    image: "/media/product", description: "Catalog description", tagline: "Catalog tagline", notes: [], size: "100 ml", inspiredBy: null,
   };
   const [resolved] = applyHeroProductPresentations([product], [{
     productId: "12", title: "Hero Passio", tagline: "", description: "Hero description", image: "",

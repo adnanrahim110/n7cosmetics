@@ -7,13 +7,12 @@ import {
   Droplets,
   Gem,
   Leaf,
-  Play,
   Sparkles,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import Title from "@/components/ui/Title";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -57,16 +56,8 @@ function GoldArrow() {
 }
 
 export default function AboutExperience() {
-  const storyVideoRef = useRef<HTMLVideoElement>(null);
   const reduceMotion = useReducedMotion();
   const duration = reduceMotion ? 0 : 0.9;
-  const [isStoryVideoPlaying, setIsStoryVideoPlaying] = useState(false);
-
-  const playStoryVideo = () => {
-    storyVideoRef.current?.play().catch(() => {
-      setIsStoryVideoPlaying(false);
-    });
-  };
 
   return (
     <div className="overflow-hidden bg-[#f7f3eb]">
@@ -113,21 +104,14 @@ export default function AboutExperience() {
                 <span className="h-px grow bg-[#d8a66d]/35" />
               </motion.div>
 
-              <motion.h1
-                initial={false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: reduceMotion ? 0 : 1.05,
-                  delay: reduceMotion ? 0 : 0.18,
-                  ease,
-                }}
-                className="mt-8 font-heading text-[clamp(2.8rem,13vw,4.5rem)] leading-[0.88] tracking-[-0.055em] text-[#f8f1e8] sm:text-[clamp(3.35rem,6vw,5.5rem)]"
-              >
-                The essence of
-                <span className="mt-2 block font-light italic text-[#caa77f]">
-                  timeless elegance.
-                </span>
-              </motion.h1>
+              <Title
+                as="h1"
+                className="mt-8 text-[#f8f1e8]"
+                highlight="timeless elegance."
+                highlightClassName="text-[#caa77f]"
+                text="The essence of timeless elegance."
+                tone="custom"
+              />
 
               <motion.p
                 initial={false}
@@ -192,50 +176,22 @@ export default function AboutExperience() {
         className="relative isolate overflow-hidden bg-[#f7f3eb] py-20 text-[#201a16] sm:py-28 lg:py-36"
       >
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_12%_20%,rgba(184,123,56,0.10),transparent_26%)]" />
-        <div className="mx-auto grid max-w-360 items-center gap-14 px-5 sm:px-8 lg:grid-cols-[0.7fr_1.3fr] lg:gap-24 lg:px-12">
+        <div className="mx-auto grid max-w-360 items-center gap-14 px-5 sm:px-8 lg:grid-cols-[45%_auto] lg:gap-24 lg:px-12">
           <motion.figure
             initial={false}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration, ease }}
-            className="relative mx-auto w-full max-w-2xl pb-9 pr-5 sm:pb-12 sm:pr-12"
+            className="relative mx-auto w-full max-w-2xl"
           >
-            <div className="relative mx-auto w-full overflow-hidden bg-black shadow-[0_30px_80px_rgba(61,44,28,0.16)] lg:w-fit">
-              <video
-                ref={storyVideoRef}
-                src="/videos/about.mp4"
-                width={720}
-                height={1280}
-                controls
-                playsInline
-                preload="metadata"
-                onPlay={() => setIsStoryVideoPlaying(true)}
-                onPause={() => setIsStoryVideoPlaying(false)}
-                onEnded={() => setIsStoryVideoPlaying(false)}
-                className="block h-auto w-full lg:max-h-[76svh] lg:w-auto lg:max-w-full"
-                aria-label="Watch the N7 Cosmetics story"
-              >
-                Your browser does not support the video tag.
-              </video>
-              <div
-                className={`pointer-events-none absolute inset-0 bg-linear-to-t from-black/35 via-transparent to-black/10 transition-opacity duration-300 ${isStoryVideoPlaying ? "opacity-0" : "opacity-100"}`}
+            <div className="relative mx-auto aspect-4/3 w-full overflow-hidden bg-[#d8c4ad] shadow-[0_30px_80px_rgba(61,44,28,0.16)]">
+              <Image
+                src="/imgs/about/our-story.webp"
+                alt="A curated display of warm amber perfume bottles in a fragrance atelier"
+                fill
+                sizes="(max-width: 1024px) calc(100vw - 2.5rem), 32vw"
+                className="object-cover object-center"
               />
-              {!isStoryVideoPlaying ? (
-                <button
-                  type="button"
-                  onClick={playStoryVideo}
-                  aria-label="Play the N7 Cosmetics story video"
-                  className="group absolute left-1/2 top-1/2 z-10 flex size-18 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/65 bg-black/30 text-white shadow-[0_12px_35px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-300 hover:scale-105 hover:border-white hover:bg-black/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f7f3eb] sm:size-22"
-                >
-                  <Play
-                    aria-hidden="true"
-                    className="ml-1 size-6 sm:size-7"
-                    fill="currentColor"
-                    strokeWidth={1.5}
-                  />
-                </button>
-              ) : null}
-              <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/8" />
             </div>
           </motion.figure>
 
@@ -250,22 +206,13 @@ export default function AboutExperience() {
               <span className="h-px w-10 bg-[#9b6a35]/60" />
               Who we are
             </motion.div>
-            <motion.h2
-              initial={false}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{
-                duration: reduceMotion ? 0 : 1,
-                delay: reduceMotion ? 0 : 0.08,
-                ease,
-              }}
-              className="mt-6 max-w-2xl font-heading text-[clamp(2.4rem,11vw,4rem)] leading-[0.94] tracking-[-0.045em] text-[#201a16] sm:text-[clamp(2.75rem,5vw,5.8rem)]"
-            >
-              Our story,
-              <span className="block font-light italic text-[#a47442]">
-                a legacy of luxury.
-              </span>
-            </motion.h2>
+            <Title
+              className="mt-6 max-w-2xl text-[#201a16]"
+              highlight="a legacy of luxury."
+              highlightClassName="text-[#a47442]"
+              text="Our story, a legacy of luxury."
+              tone="custom"
+            />
             <motion.div
               initial={false}
               whileInView={{ opacity: 1, y: 0 }}
@@ -317,12 +264,13 @@ export default function AboutExperience() {
               <span className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#c99b69]">
                 Our passion
               </span>
-              <h2 className="mt-5 max-w-4xl font-heading text-[clamp(2.4rem,11vw,4.2rem)] leading-[1.1] tracking-[-0.045em] text-[#f4eadf] sm:text-[clamp(2.8rem,5.7vw,6.6rem)]">
-                Timeless elegance
-                <span className="block font-light italic text-[#caa77f]">
-                  in every bottle.
-                </span>
-              </h2>
+              <Title
+                className="mt-5 max-w-4xl text-[#f4eadf]"
+                highlight="in every bottle."
+                highlightClassName="text-[#caa77f]"
+                text="Timeless elegance in every bottle."
+                tone="custom"
+              />
             </motion.div>
             <motion.p
               initial={false}
@@ -396,22 +344,13 @@ export default function AboutExperience() {
               The N7 difference
               <span className="h-px grow bg-[#9b6a35]/30" />
             </motion.div>
-            <motion.h2
-              initial={false}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{
-                duration: reduceMotion ? 0 : 1,
-                delay: reduceMotion ? 0 : 0.08,
-                ease,
-              }}
-              className="mt-7 font-heading text-[clamp(2.5rem,11vw,4.2rem)] leading-[0.9] tracking-tighter text-[#211a15] sm:text-[clamp(3rem,5.5vw,6rem)]"
-            >
-              Why choose
-              <span className="block font-light italic text-[#a47442]">
-                N7 Cosmetics?
-              </span>
-            </motion.h2>
+            <Title
+              className="mt-7 text-[#211a15]"
+              highlight="N7 Cosmetics?"
+              highlightClassName="text-[#a47442]"
+              text="Why choose N7 Cosmetics?"
+              tone="custom"
+            />
             <div className="mt-10 divide-y divide-[#2a211b]/12 border-y border-[#2a211b]/12">
               {promises.map((item, index) => (
                 <motion.div
@@ -457,13 +396,6 @@ export default function AboutExperience() {
               />
               <div className="absolute inset-0 bg-linear-to-t from-[#0b1015]/58 via-transparent to-transparent" />
               <div className="absolute inset-5 border border-white/18 sm:inset-7" />
-              <figcaption className="absolute inset-x-9 bottom-8 flex items-end justify-between gap-6 text-[8px] font-semibold uppercase tracking-[0.24em] text-white/72 sm:inset-x-12 sm:bottom-11">
-                <span>Selected for character</span>
-                <span>UK / UAE</span>
-              </figcaption>
-            </div>
-            <div className="absolute -bottom-5 -left-3 border border-[#9b6a35]/45 bg-[#f3ede3] px-5 py-3 text-[8px] font-semibold uppercase tracking-[0.24em] text-[#6e4926] sm:-left-8 sm:px-7 sm:py-4">
-              Official UK introduction
             </div>
           </motion.figure>
         </div>
@@ -490,12 +422,13 @@ export default function AboutExperience() {
             <span className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#c99b69]">
               The art of scent
             </span>
-            <h2 className="mt-6 max-w-5xl font-heading text-[clamp(2.8rem,13vw,4.8rem)] leading-[0.86] tracking-[-0.055em] text-[#f6efe6] sm:text-[clamp(3.4rem,7vw,8rem)]">
-              A fragrance is
-              <span className="block font-light italic text-[#caa77f]">
-                an identity.
-              </span>
-            </h2>
+            <Title
+              className="mt-6 max-w-5xl text-[#f6efe6]"
+              highlight="an identity."
+              highlightClassName="text-[#caa77f]"
+              text="A fragrance is an identity."
+              tone="custom"
+            />
           </motion.div>
           <motion.div
             initial={false}

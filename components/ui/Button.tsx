@@ -13,9 +13,13 @@ interface ButtonProps {
   className?: string;
   variant?: ButtonVariant;
   onClick?: MouseEventHandler<HTMLButtonElement | HTMLAnchorElement>;
+  disabled?: boolean;
+  type?: "button" | "submit" | "reset";
+  ariaLabel?: string;
+  ariaPressed?: boolean;
 }
 
-export default function Button({ children, href, className = "", variant = "primary", onClick }: ButtonProps) {
+export default function Button({ children, href, className = "", variant = "primary", onClick, disabled = false, type = "button", ariaLabel, ariaPressed }: ButtonProps) {
   const buttonRef = useRef<HTMLSpanElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
@@ -32,7 +36,7 @@ export default function Button({ children, href, className = "", variant = "prim
     setPosition({ x: 0, y: 0 });
   };
 
-  const baseClasses = "relative inline-flex items-center justify-center overflow-hidden font-medium tracking-widest uppercase transition-all duration-300";
+  const baseClasses = "relative inline-flex items-center justify-center overflow-hidden font-medium tracking-widest uppercase transition-all duration-300 disabled:pointer-events-none disabled:opacity-40";
   
   const variants: Record<ButtonVariant, string> = {
     primary: "bg-primary-500 text-dark-950 hover:bg-primary-400 px-8 py-4 text-sm",
@@ -62,7 +66,7 @@ export default function Button({ children, href, className = "", variant = "prim
   }
 
   return (
-    <button className={`${baseClasses} ${variants[variant]} ${className}`} onClick={onClick}>
+    <button aria-label={ariaLabel} aria-pressed={ariaPressed} className={`${baseClasses} ${variants[variant]} ${className}`} disabled={disabled} onClick={onClick} type={type}>
       {Content}
     </button>
   );

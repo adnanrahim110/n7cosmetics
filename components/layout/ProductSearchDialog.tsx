@@ -6,12 +6,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import Title from "@/components/ui/Title";
 
 const MIN_QUERY_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 300;
 
 interface ProductSearchResult {
   id: string;
+  productType: "STANDARD" | "BUNDLE";
   slug: string;
   name: string;
   brand: string | null;
@@ -66,7 +68,9 @@ export default function ProductSearchDialog({
         ? document.activeElement
         : null;
     document.body.style.overflow = "hidden";
-    const focusFrame = window.requestAnimationFrame(() => inputRef.current?.focus());
+    const focusFrame = window.requestAnimationFrame(() =>
+      inputRef.current?.focus(),
+    );
 
     const handleDocumentKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -78,7 +82,7 @@ export default function ProductSearchDialog({
       if (event.key !== "Tab" || !panelRef.current) return;
       const focusable = Array.from(
         panelRef.current.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled])',
+          "a[href], button:not([disabled]), input:not([disabled])",
         ),
       );
       if (!focusable.length) return;
@@ -144,7 +148,7 @@ export default function ProductSearchDialog({
 
   const chooseResult = (result: ProductSearchResult) => {
     onClose();
-    router.push(`/products/${result.slug}`);
+    router.push(result.productType === "BUNDLE" ? `/bundles/${result.slug}` : `/products/${result.slug}`);
   };
 
   return (
@@ -162,7 +166,7 @@ export default function ProductSearchDialog({
           animate={{ opacity: 1 }}
           aria-labelledby={titleId}
           aria-modal="true"
-          className="fixed inset-0 z-[80] overflow-y-auto bg-[#0b0907]/78 px-0 backdrop-blur-md sm:px-5 sm:py-8"
+          className="fixed inset-0 z-80 overflow-y-auto bg-[#0b0907]/78 px-0 backdrop-blur-md sm:px-5 sm:py-8"
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
           onMouseDown={(event) => {
@@ -184,12 +188,13 @@ export default function ProductSearchDialog({
                 <p className="text-[8px] font-semibold uppercase tracking-[0.32em] text-[#967c55]">
                   Find your fragrance
                 </p>
-                <h2
-                  className="mt-1 font-heading text-xl tracking-normal text-[#1c1814] sm:text-2xl"
+                <Title
+                  className="mt-1"
                   id={titleId}
-                >
-                  Search the collection
-                </h2>
+                  text="Search the collection"
+                  tone="ink"
+                  variant="small"
+                />
               </div>
               <button
                 aria-label="Close product search"
@@ -309,7 +314,8 @@ export default function ProductSearchDialog({
                       Discover something memorable
                     </p>
                     <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-black/48">
-                      Search by fragrance name, house, inspiration, category or SKU.
+                      Search by fragrance name, house, inspiration, category or
+                      SKU.
                     </p>
                   </div>
                 </div>
@@ -343,9 +349,11 @@ export default function ProductSearchDialog({
                     <Link
                       aria-selected={activeIndex === index}
                       className={`group grid grid-cols-[5rem_minmax(0,1fr)_auto] items-center gap-4 py-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#967c55] sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-6 ${
-                        activeIndex === index ? "bg-white/45" : "hover:bg-white/35"
+                        activeIndex === index
+                          ? "bg-white/45"
+                          : "hover:bg-white/35"
                       }`}
-                      href={`/products/${result.slug}`}
+                      href={result.productType === "BUNDLE" ? `/bundles/${result.slug}` : `/products/${result.slug}`}
                       id={`${listboxId}-option-${index}`}
                       key={result.id}
                       onClick={onClose}
@@ -371,7 +379,7 @@ export default function ProductSearchDialog({
                         <span className="mt-1 block truncate text-xs text-black/42 sm:text-sm">
                           {result.inspiredBy
                             ? `Inspired by ${result.inspiredBy}`
-                            : result.brand ?? "N7 Cosmetics"}
+                            : (result.brand ?? "N7 Cosmetics")}
                         </span>
                       </span>
                       <span className="flex items-center gap-3 pr-1 text-right">

@@ -10,7 +10,6 @@ import {
   type ProductFeaturedFilter,
   type ProductListFilters,
   type ProductStatusFilter,
-  type ProductTypeFilter,
 } from "@/lib/admin/product-list-filters";
 
 interface FilterOption {
@@ -261,17 +260,12 @@ export default function ProductFiltersToolbar({ initialFilters, categories, coll
           </header>
 
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4">
               <FilterSelect label="Status" onChange={(value) => updateAdvancedFilter("status", value as ProductStatusFilter)} value={advancedFilters.status} visibleLabel widthClass="w-full">
                 <option value="">All statuses</option>
                 <option value="ACTIVE">Active</option>
                 <option value="DRAFT">Draft</option>
                 <option value="ARCHIVED">Archived</option>
-              </FilterSelect>
-              <FilterSelect label="Product type" onChange={(value) => updateAdvancedFilter("productType", value as ProductTypeFilter)} value={advancedFilters.productType} visibleLabel widthClass="w-full">
-                <option value="">All types</option>
-                <option value="STANDARD">Standard</option>
-                <option value="BUNDLE">Bundle</option>
               </FilterSelect>
             </div>
             <FilterSelect label="Category" onChange={(value) => updateAdvancedFilter("categoryId", value)} value={advancedFilters.categoryId} visibleLabel widthClass="w-full">

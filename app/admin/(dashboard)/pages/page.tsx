@@ -1,7 +1,11 @@
-import { ArrowUpRight, Blend, Crown, Gem, House, Layers3, PackageOpen, PencilLine } from "lucide-react";
+import type { RowDataPacket } from "mysql2/promise";
+import { ArrowUpRight, BadgePercent, Blend, Crown, Gem, House, Layers3, PackageOpen, PencilLine } from "lucide-react";
 import Link from "next/link";
 import PageHeader from "@/components/admin/PageHeader";
+import { selectRows } from "@/lib/db/query";
 import { editableStorefrontPageSlugs, storefrontPageDefinitions } from "@/lib/storefront-pages/config";
+
+interface SalePageRow extends RowDataPacket { id: string; name: string; slug: string; status: "DRAFT" | "ACTIVE" }
 
 const iconBySlug = {
   n7: Gem,
@@ -11,7 +15,7 @@ const iconBySlug = {
   bundles: PackageOpen,
 } as const;
 
-const pages = [
+const fixedPages = [
   {
     name: "Homepage",
     description: "Manage the storefront hero, featured edits, storytelling sections, reviews, header, and footer.",
@@ -30,7 +34,22 @@ const pages = [
   })),
 ];
 
-export default function PagesPage() {
+export default async function PagesPage() {
+  const sales = await selectRows<SalePageRow>(
+    `SELECT CAST(id AS CHAR) AS id, name, slug, status
+     FROM sales WHERE status != 'ARCHIVED' ORDER BY (status = 'ACTIVE') DESC, sort_order, created_at`,
+  );
+  const pages = [
+    ...fixedPages,
+    ...sales.map((sale) => ({
+      name: sale.name,
+      description: "Manage the editorial presentation and qualifying product curation for this sale on the shared Sale page.",
+      editorPath: `/admin/pages/sale-${sale.id}`,
+      storefrontPath: `/sale/${sale.slug}`,
+      Icon: BadgePercent,
+      note: sale.status === "ACTIVE" ? "Sale · Live" : "Sale · Draft",
+    })),
+  ];
   return (
     <div className="max-w-6xl">
       <PageHeader

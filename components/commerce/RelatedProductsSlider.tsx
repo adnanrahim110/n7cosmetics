@@ -1,6 +1,7 @@
 "use client";
 
 import ProductCard from "@/components/ui/ProductCard";
+import Title from "@/components/ui/Title";
 import type { StorefrontRelatedProduct } from "@/lib/commerce/catalog";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useState } from "react";
@@ -30,7 +31,12 @@ export default function RelatedProductsSlider({ products }: { products: Storefro
         <div className="flex items-end justify-between gap-6 border-b border-black/12 pb-7 sm:pb-9">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#8d6745]">Continue exploring</p>
-            <h2 className="mt-4 font-heading text-4xl font-normal leading-none text-[#1c1814] sm:text-5xl">You may also <span className="italic text-[#8d6745]">like.</span></h2>
+            <Title
+              className="mt-4"
+              highlight="like."
+              text="You may also like."
+              tone="ink"
+            />
           </div>
           <div className="hidden shrink-0 items-center gap-2 sm:flex">
             <button aria-label="Previous related products" className="grid size-11 place-items-center rounded-full border border-black/18 transition hover:border-black hover:bg-[#1c1814] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" disabled={atStart} onClick={() => swiper?.slidePrev()} type="button"><ArrowLeft size={17} strokeWidth={1.4} /></button>
@@ -67,6 +73,8 @@ export default function RelatedProductsSlider({ products }: { products: Storefro
                   price: money(product.pricePence),
                   pricePence: product.pricePence,
                   rating: product.rating,
+                  inspiredBy: product.inspiredBy,
+                  audience: product.audience,
                 }}
               />
             </SwiperSlide>

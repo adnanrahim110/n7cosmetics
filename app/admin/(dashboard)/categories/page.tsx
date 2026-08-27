@@ -114,6 +114,7 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
       FROM categories c
       LEFT JOIN categories parent ON parent.id = c.parent_id
       LEFT JOIN product_categories pc ON pc.category_id = c.id
+      WHERE c.slug != 'bundles'
       GROUP BY c.id, parent.name
       ORDER BY c.sort_order, c.name`,
     ),

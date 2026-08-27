@@ -1,6 +1,7 @@
 "use client";
 
 import SocialMediaLinks from "@/components/ui/SocialMediaLinks";
+import Title from "@/components/ui/Title";
 import type { NavigationItem } from "@/content/global";
 import type { FooterContent } from "@/lib/homepage/types";
 import { ArrowUpRight } from "lucide-react";
@@ -43,7 +44,7 @@ export default function Footer({
               {navigation.slice(0, 4).map((link) => (
                 <li key={link.label}>
                   <Link
-                    href={link.href}
+                    href={link.href === "/sale" ? link.items?.[0]?.href ?? "#" : link.href}
                     className="group relative inline-block text-white/60 hover:text-white text-[13px] tracking-widest uppercase transition-colors pb-1"
                   >
                     {link.label}
@@ -62,7 +63,7 @@ export default function Footer({
               {navigation.slice(4).map((link) => (
                 <li key={link.label}>
                   <Link
-                    href={link.href}
+                    href={link.href === "/sale" ? link.items?.[0]?.href ?? "#" : link.href}
                     className="group relative inline-block text-white/60 hover:text-white text-[13px] tracking-widest uppercase transition-colors pb-1"
                   >
                     {link.label}
@@ -74,9 +75,13 @@ export default function Footer({
           </div>
 
           <div className="flex flex-col justify-start sm:col-span-2 lg:col-span-4">
-            <h3 className="font-heading text-2xl lg:text-3xl text-white tracking-wider uppercase mb-2">
-              {content.newsletterTitle}
-            </h3>
+            <Title
+              as="h3"
+              className="mb-2 uppercase text-white"
+              text={content.newsletterTitle}
+              tone="custom"
+              variant="small"
+            />
             <p className="text-white/50 text-sm font-light mb-8 max-w-lg">
               {content.newsletterDescription}
             </p>

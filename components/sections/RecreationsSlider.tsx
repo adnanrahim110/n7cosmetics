@@ -10,6 +10,7 @@ import { Autoplay, Mousewheel } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
 
 import Button from "@/components/ui/Button";
+import Title from "@/components/ui/Title";
 import type { HomepageProduct, RecreationsContent } from "@/lib/homepage/types";
 
 const customEase = [0.65, 0, 0.35, 1] as const;
@@ -69,15 +70,14 @@ export default function RecreationsSlider({
                   {content.label}
                 </span>
               </div>
-              <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] text-black/35">
-                {String(mobileActiveIndex + 1).padStart(2, "0")} /{" "}
-                {String(recreations.length).padStart(2, "0")}
-              </span>
             </div>
 
-            <h2 className="mt-5 font-heading text-[clamp(2.75rem,14vw,5.5rem)] leading-[0.88] tracking-[-0.04em] text-[#1a1a1a]">
-              Art <span className="font-light italic text-[#967C55]">work</span>
-            </h2>
+            <Title
+              className="mt-5"
+              highlight={content.titleAccent}
+              text={`${content.titleLead} ${content.titleAccent}`}
+              tone="charcoal"
+            />
             <p className="mt-5 max-w-2xl text-[13px] font-light leading-6 text-[#5a5a5a] sm:text-sm sm:leading-7">
               {content.description}
             </p>
@@ -163,7 +163,7 @@ export default function RecreationsSlider({
                     <div className="flex items-end justify-between gap-4">
                       <div>
                         <span className="block text-[8px] font-semibold uppercase tracking-[0.24em] text-white/35">
-                          From
+                          {content.priceLabel}
                         </span>
                         <span className="mt-1 block text-2xl font-medium tracking-wide text-white">
                           {mobileActiveProduct.price}
@@ -172,7 +172,10 @@ export default function RecreationsSlider({
                     </div>
                     <Button
                       className="mt-5 min-h-12 w-full bg-[#c99555] px-5 py-3 text-[10px] text-[#17130f] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#c99555]"
-                      href={`/products/${mobileActiveProduct.slug}`}
+                      href={
+                        mobileActiveProduct.href ??
+                        `/products/${mobileActiveProduct.slug}`
+                      }
                     >
                       <span className="flex items-center gap-3">
                         {content.ctaLabel}
@@ -193,10 +196,10 @@ export default function RecreationsSlider({
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
                 <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#1a1a1a]">
-                  Choose a fragrance
+                  {content.selectorTitle}
                 </p>
                 <p className="mt-1 text-[11px] text-black/42">
-                  Swipe the index or use the arrow controls.
+                  {content.selectorDescription}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -310,10 +313,13 @@ export default function RecreationsSlider({
 
         <div className="hidden min-h-[75vh] grid-cols-1 items-center gap-8 sm:gap-12 lg:grid lg:grid-cols-12 lg:gap-8">
           <div className="relative z-10 flex flex-col justify-center pt-8 sm:pt-12 lg:col-span-5 lg:py-12 lg:pl-12 lg:pr-8">
-            <div className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-12 pointer-events-none opacity-[0.02]">
-              <h2 className="font-heading text-[8rem] md:text-[16rem] text-black leading-[0.8] tracking-tighter select-none">
-                ART WORK
-              </h2>
+            <div
+              aria-hidden="true"
+              className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-12 pointer-events-none opacity-[0.02]"
+            >
+              <span className="font-heading text-[8rem] md:text-[16rem] text-black leading-[0.8] tracking-tighter select-none">
+                {`${content.titleLead} ${content.titleAccent}`.toUpperCase()}
+              </span>
             </div>
 
             <div className="relative">
@@ -323,6 +329,14 @@ export default function RecreationsSlider({
                   {content.label}
                 </span>
               </div>
+
+              <Title
+                className="mb-8 uppercase"
+                highlight={content.titleAccent}
+                highlightClassName="lowercase"
+                text={`${content.titleLead} ${content.titleAccent}`}
+                tone="charcoal"
+              />
 
               <div>
                 <AnimatePresence mode="wait">
@@ -351,7 +365,10 @@ export default function RecreationsSlider({
                       </span>
                       <Button
                         className="px-6 py-3 text-xs sm:px-8 sm:py-4 sm:text-sm"
-                        href={`/products/${activeProduct.slug}`}
+                        href={
+                          activeProduct.href ??
+                          `/products/${activeProduct.slug}`
+                        }
                       >
                         <span className="flex items-center gap-3">
                           {content.ctaLabel}
@@ -413,7 +430,7 @@ export default function RecreationsSlider({
                       aria-current={isActive ? "true" : undefined}
                       aria-label={`View ${product.name}`}
                       className="group block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#967C55]"
-                      href={`/products/${product.slug}`}
+                      href={product.href ?? `/products/${product.slug}`}
                     >
                       <motion.div
                         className="relative aspect-3/4.5 w-full cursor-pointer active:cursor-grabbing"

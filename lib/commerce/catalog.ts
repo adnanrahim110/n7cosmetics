@@ -20,6 +20,7 @@ export interface StorefrontProductVideo {
 
 export interface StorefrontProduct {
   id: string;
+  productType: "STANDARD" | "BUNDLE";
   variantId: string;
   variantTitle: string;
   sku: string;
@@ -29,6 +30,7 @@ export interface StorefrontProduct {
   description: string | null;
   brand: string | null;
   inspiredBy: string | null;
+  productCode: string | null;
   audience: string;
   notes: string[];
   noteGroups: ProductNoteGroups;
@@ -51,6 +53,7 @@ export interface StorefrontRelatedProduct {
   id: string;
   slug: string;
   name: string;
+  inspiredBy: string | null;
   brand: string | null;
   audience: string;
   variantTitle: string;
@@ -63,6 +66,7 @@ export interface StorefrontRelatedProduct {
 
 interface StorefrontProductRow extends RowDataPacket {
   id: string;
+  product_type: "STANDARD" | "BUNDLE";
   variant_id: string;
   variant_title: string;
   sku: string;
@@ -72,6 +76,7 @@ interface StorefrontProductRow extends RowDataPacket {
   description: string | null;
   brand: string | null;
   inspired_by: string | null;
+  product_code: string | null;
   audience: string;
   fragrance_notes_json: unknown;
   seo_title: string | null;
@@ -91,6 +96,7 @@ interface RelatedProductRow extends RowDataPacket {
   id: string;
   slug: string;
   name: string;
+  inspired_by: string | null;
   brand: string | null;
   audience: string;
   variant_title: string;
@@ -116,11 +122,11 @@ function noteGroupsFromJson(value: unknown): ProductNoteGroups {
   return { top: [], heart: [], base: [] };
 }
 
-export async function getStorefrontProduct(slug: string): Promise<StorefrontProduct | null> {
+export async function getStorefrontProduct(slug: string, expectedType: "STANDARD" | "BUNDLE" = "STANDARD"): Promise<StorefrontProduct | null> {
   if (hasDatabaseConfig()) {
     const row = await selectOne<StorefrontProductRow>(
-      `SELECT CAST(p.id AS CHAR) AS id, CAST(v.id AS CHAR) AS variant_id, p.slug, p.name,
-         p.short_description, p.description, p.brand, p.inspired_by, p.audience,
+      `SELECT CAST(p.id AS CHAR) AS id, CAST(v.id AS CHAR) AS variant_id, p.product_type, p.slug, p.name,
+         p.short_description, p.description, p.brand, p.inspired_by, p.product_code, p.audience,
          p.fragrance_notes_json, p.seo_title, p.seo_description, p.track_inventory,
          (SELECT col.slug
           FROM product_collections pc
@@ -132,9 +138,9 @@ export async function getStorefrontProduct(slug: string): Promise<StorefrontProd
          v.stock_on_hand, v.weight_grams
        FROM products p
        INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 AND v.status = 'ACTIVE'
-       WHERE p.slug = ? AND p.status = 'ACTIVE'
+       WHERE p.slug = ? AND p.status = 'ACTIVE' AND p.product_type = ?
        LIMIT 1`,
-      [slug],
+      [slug, expectedType],
     );
     if (!row) return null;
     const [imageRows, videoRows] = await Promise.all([
@@ -148,6 +154,7 @@ export async function getStorefrontProduct(slug: string): Promise<StorefrontProd
     const primaryImage = images[0];
     return {
       id: row.id,
+      productType: row.product_type,
       variantId: row.variant_id,
       variantTitle: row.variant_title,
       sku: row.sku,
@@ -157,6 +164,7 @@ export async function getStorefrontProduct(slug: string): Promise<StorefrontProd
       description: row.description,
       brand: row.brand,
       inspiredBy: row.inspired_by,
+      productCode: row.product_code,
       audience: row.audience,
       notes: [...noteGroups.top, ...noteGroups.heart, ...noteGroups.base],
       noteGroups,
@@ -186,7 +194,7 @@ export async function getRelatedStorefrontProducts(
   if (!hasDatabaseConfig()) return [];
 
   const rows = await selectRows<RelatedProductRow>(
-    `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name, p.brand, p.audience,
+    `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name, p.inspired_by, p.brand, p.audience,
        v.title AS variant_title, v.price_pence, v.compare_at_price_pence,
        image.url AS image_url, image.alt_text AS image_alt,
        COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating,
@@ -206,7 +214,7 @@ export async function getRelatedStorefrontProducts(
      INNER JOIN product_images image ON image.id = (
        SELECT pi.id FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1
      )
-     WHERE p.id != ? AND p.status = 'ACTIVE'
+     WHERE p.id != ? AND p.status = 'ACTIVE' AND p.product_type = 'STANDARD'
      ORDER BY relevance_score DESC, (p.audience = ?) DESC, p.featured DESC, p.updated_at DESC
      LIMIT 8`,
     [productId, productId, productId, audience],
@@ -216,6 +224,7 @@ export async function getRelatedStorefrontProducts(
     id: row.id,
     slug: row.slug,
     name: row.name,
+    inspiredBy: row.inspired_by,
     brand: row.brand,
     audience: row.audience,
     variantTitle: row.variant_title,

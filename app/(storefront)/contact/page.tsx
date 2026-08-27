@@ -9,6 +9,7 @@ import {
 import ContactForm from "@/components/contact/ContactForm";
 import FeaturesStrip from "@/components/sections/FeaturesStrip";
 import SocialMediaLinks from "@/components/ui/SocialMediaLinks";
+import Title from "@/components/ui/Title";
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
 
 export const metadata: Metadata = {
@@ -49,9 +50,12 @@ export default async function ContactPage() {
               <span aria-hidden="true" className="h-px w-9 bg-current" />
               Customer care
             </div>
-            <h1 className="mt-6 max-w-6xl font-heading text-[clamp(3.2rem,15vw,5.5rem)] uppercase leading-[0.84] tracking-[-0.045em] sm:text-[clamp(4rem,9vw,9rem)]">
-              Let&apos;s talk
-            </h1>
+            <Title
+              as="h1"
+              className="mt-6 max-w-6xl uppercase"
+              text="Let's talk"
+              tone="gold"
+            />
             <div className="mt-8 flex max-w-3xl items-start gap-5 border-t border-white/12 pt-6 sm:items-center">
               <ArrowDown
                 aria-hidden="true"
@@ -72,9 +76,12 @@ export default async function ContactPage() {
               <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">
                 Contact details
               </p>
-              <h2 className="mt-5 max-w-md font-heading text-4xl uppercase leading-[0.96] tracking-[-0.02em] sm:text-5xl">
-                Our team is here to help
-              </h2>
+              <Title
+                className="mt-5 max-w-md uppercase"
+                text="Our team is here to help"
+                tone="gold"
+                variant="subsection"
+              />
               <p className="mt-6 max-w-md text-sm font-light leading-7 text-black/52">
                 Choose the contact method that suits you, or use the form for a
                 detailed enquiry. The information below is maintained through
@@ -161,9 +168,12 @@ export default async function ContactPage() {
                 <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">
                   Send an enquiry
                 </p>
-                <h2 className="mt-3 font-heading text-3xl uppercase sm:text-4xl">
-                  How can we help?
-                </h2>
+                <Title
+                  className="mt-3 uppercase"
+                  text="How can we help?"
+                  tone="gold"
+                  variant="compact"
+                />
                 <p className="mt-3 max-w-2xl text-sm font-light leading-7 text-black/48">
                   Complete the form below and your message will be delivered to
                   the contact email configured by the N7 Cosmetics team.

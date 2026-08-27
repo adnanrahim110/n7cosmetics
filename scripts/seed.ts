@@ -110,7 +110,6 @@ const collectionDefinitions = [
   { slug: "premium-collection", name: "Premium Collection", content: collectionPages.premium },
   { slug: "recreations", name: "Recreations", content: collectionPages.recreations },
   { slug: "sale", name: "Sale", content: collectionPages.sale },
-  { slug: "bundles", name: "Bundles", content: collectionPages.bundles },
 ] as const;
 
 const namedEntities: Record<string, string> = {
@@ -473,7 +472,7 @@ async function insertCatalog(
 
   const categoryByExternalId = new Map(categories.map((category) => [category.id, category]));
   const localCategoryIds = new Map<number, string>();
-  const orderedCategories = [...categories].sort((left, right) => categoryDepth(left, categoryByExternalId) - categoryDepth(right, categoryByExternalId) || left.name.localeCompare(right.name));
+  const orderedCategories = categories.filter((category) => category.slug !== "bundles").sort((left, right) => categoryDepth(left, categoryByExternalId) - categoryDepth(right, categoryByExternalId) || left.name.localeCompare(right.name));
   for (const [index, category] of orderedCategories.entries()) {
     const parentId = category.parent ? localCategoryIds.get(category.parent) : null;
     if (category.parent && !parentId) throw new Error(`Missing parent category for ${category.name}.`);
@@ -542,11 +541,13 @@ async function insertCatalog(
     }
 
     for (const category of product.categories) {
+      if (category.slug === "bundles") continue;
       const categoryId = localCategoryIds.get(category.id);
       if (!categoryId) throw new Error(`Missing category ${category.name} for ${product.cleanName}.`);
       await executeMutation("INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)", [productId, categoryId], connection);
     }
     for (const collectionSlug of product.collectionSlugs) {
+      if (collectionSlug === "bundles") continue;
       const collectionId = localCollectionIds.get(collectionSlug);
       if (!collectionId) throw new Error(`Missing collection ${collectionSlug}.`);
       const sortOrder = collectionSortOrders.get(collectionSlug) ?? 0;
@@ -618,7 +619,7 @@ async function seedCatalog(): Promise<void> {
   const soldOut = products.filter((product) => !product.is_in_stock).length;
   const recreationCount = products.filter((product) => product.isRecreation).length;
   process.stdout.write(`Seeded ${products.length} products (${soldOut} out of stock, ${products.length - soldOut} with stock 20).\n`);
-  process.stdout.write(`Seeded ${categories.length} categories and ${collectionDefinitions.length} collections; ${recreationCount} recreation products use the shared private 5.png asset.\n`);
+  process.stdout.write(`Seeded ${categories.filter((category) => category.slug !== "bundles").length} categories and ${collectionDefinitions.length} collections; ${recreationCount} recreation products use the shared private 5.png asset.\n`);
 }
 
 seedCatalog().catch((error: unknown) => {

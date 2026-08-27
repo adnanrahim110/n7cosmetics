@@ -108,6 +108,7 @@ export default async function CollectionsPage({ searchParams }: CollectionsPageP
         COUNT(pc.product_id) AS product_count
       FROM collections c
       LEFT JOIN product_collections pc ON pc.collection_id = c.id
+      WHERE c.slug != 'bundles'
       GROUP BY c.id
       ORDER BY c.sort_order, c.name`,
     ),

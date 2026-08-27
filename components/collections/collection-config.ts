@@ -5,6 +5,7 @@ export const productBatchSize = 12;
 
 export interface CollectionDesign {
   accent: string;
+  accentClass: string;
   code: string;
   ghost: string;
   heroBase: string;
@@ -42,6 +43,7 @@ export const productMatchesPriceBand = (
 export const collectionDesigns: Record<CollectionSlug, CollectionDesign> = {
   n7: {
     accent: "#d1a15f",
+    accentClass: "text-[#d1a15f]",
     code: "06 / N7",
     ghost: "N7",
     heroBase: "#11100e",
@@ -53,6 +55,7 @@ export const collectionDesigns: Record<CollectionSlug, CollectionDesign> = {
   },
   "yusuf-bhai-originals": {
     accent: "#b88755",
+    accentClass: "text-[#b88755]",
     code: "01 / ORIGINALS",
     ghost: "ORIGINAL",
     heroBase: "#1b120c",
@@ -64,17 +67,19 @@ export const collectionDesigns: Record<CollectionSlug, CollectionDesign> = {
   },
   "premium-collection": {
     accent: "#bca06b",
+    accentClass: "text-[#bca06b]",
     code: "04 / PREMIUM",
     ghost: "PRIVATE",
     heroBase: "#15130f",
     heroSurface: "#9b8a68",
     heroInk: "#211b12",
     heroProductIndexes: [0, 5, 8],
-    nextHref: "/sale",
-    nextLabel: "Discover the seasonal edit",
+    nextHref: "/bundles",
+    nextLabel: "Discover curated fragrance trios",
   },
   recreations: {
     accent: "#809fa6",
+    accentClass: "text-[#809fa6]",
     code: "02 / RECREATIONS",
     ghost: "RECREATE",
     heroBase: "#0d191c",
@@ -86,6 +91,7 @@ export const collectionDesigns: Record<CollectionSlug, CollectionDesign> = {
   },
   sale: {
     accent: "#c56f55",
+    accentClass: "text-[#c56f55]",
     code: "05 / SALE",
     ghost: "LIMITED",
     heroBase: "#1c100e",
@@ -97,6 +103,7 @@ export const collectionDesigns: Record<CollectionSlug, CollectionDesign> = {
   },
   bundles: {
     accent: "#a9725f",
+    accentClass: "text-[#a9725f]",
     code: "03 / BUNDLES",
     ghost: "THREE",
     heroBase: "#211310",

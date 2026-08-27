@@ -16,11 +16,13 @@ interface DestinationSelectProps {
   required?: boolean;
   className?: string;
   onChange?: (destination: DestinationValue | null) => void;
+  forbiddenHrefs?: string[];
+  forbiddenHrefPrefixes?: string[];
 }
 
 const kindLabels = { page: "Page", product: "Product", custom: "Custom URL" } as const;
 
-export default function DestinationSelect({ name, label = "Page", defaultValue = null, placeholder = "Search pages or products…", required = false, className = "", onChange }: DestinationSelectProps) {
+export default function DestinationSelect({ name, label = "Page", defaultValue = null, placeholder = "Search pages or products…", required = false, className = "", onChange, forbiddenHrefs = [], forbiddenHrefPrefixes = [] }: DestinationSelectProps) {
   const [selected, setSelected] = useState<DestinationValue | null>(defaultValue);
   const [query, setQuery] = useState(defaultValue?.label ?? "");
   const [options, setOptions] = useState<DestinationValue[]>([]);
@@ -36,8 +38,10 @@ export default function DestinationSelect({ name, label = "Page", defaultValue =
   const { portalTarget, style } = useBodyAnchoredDropdown(open, controlRef, { minimumWidth: 256, preferredHeight: 340 });
 
   const customValue = query.trim();
-  const showCustom = !selected && isAllowedDestinationHref(customValue) && !options.some((option) => option.href === customValue);
-  const visibleOptions = showCustom ? [...options, { label: customValue, href: customValue, kind: "custom" as const, description: "Use this custom destination" }] : options;
+  const isForbidden = (href: string) => forbiddenHrefs.includes(href) || forbiddenHrefPrefixes.some((prefix) => href.startsWith(prefix));
+  const availableOptions = options.filter((option) => !isForbidden(option.href));
+  const showCustom = !selected && isAllowedDestinationHref(customValue) && !isForbidden(customValue) && !availableOptions.some((option) => option.href === customValue);
+  const visibleOptions = showCustom ? [...availableOptions, { label: customValue, href: customValue, kind: "custom" as const, description: "Use this custom destination" }] : availableOptions;
 
   useEffect(() => {
     const close = (event: MouseEvent) => {

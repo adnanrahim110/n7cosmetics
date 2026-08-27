@@ -46,7 +46,7 @@ function normalize(items: NavigationItem[]): EditableItem[] {
   }));
 }
 
-export default function NavigationEditor({ defaultItems }: { defaultItems: NavigationItem[] }) {
+export default function NavigationEditor({ defaultItems, saleOptions }: { defaultItems: NavigationItem[]; saleOptions: Array<{ name: string; href: string }> }) {
   const [items, setItems] = useState<EditableItem[]>(() => normalize(defaultItems));
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -77,6 +77,27 @@ export default function NavigationEditor({ defaultItems }: { defaultItems: Navig
     setExpanded(key);
   }
 
+  function chooseMainDestination(index: number, destination: ReturnType<typeof destinationFromHref> | null) {
+    if (!destination) {
+      update(index, { label: "", href: "", type: "link", items: [] });
+      return;
+    }
+    if (destination.href === "/sale") {
+      update(index, {
+        label: destination.label,
+        href: destination.href,
+        type: "dropdown",
+        items: saleOptions.map((sale, saleIndex) => ({ key: `sale-${saleIndex}-${sale.href}`, name: sale.name, href: sale.href, image: "" })),
+      });
+      return;
+    }
+    update(index, {
+      label: destination.label,
+      href: destination.href,
+      ...(items[index]?.href === "/sale" ? { type: "link" as const, items: [] } : {}),
+    });
+  }
+
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -87,6 +108,10 @@ export default function NavigationEditor({ defaultItems }: { defaultItems: Navig
       <div className="space-y-2">
         {items.map((item, index) => {
           const isExpanded = expanded === item.key;
+          const otherMainHrefs = items
+            .filter((_, itemIndex) => itemIndex !== index)
+            .map((navigationItem) => navigationItem.href)
+            .filter(Boolean);
           return (
             <article className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50/60" key={item.key}>
               <div className="flex min-h-11 items-center gap-1.5 p-1.5">
@@ -104,18 +129,59 @@ export default function NavigationEditor({ defaultItems }: { defaultItems: Navig
               {isExpanded ? (
                 <div className="border-t border-zinc-200 bg-white p-3">
                   <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
-                    <DestinationSelect defaultValue={item.href ? destinationFromHref(item.href, item.label) : null} label="Page" onChange={(destination) => update(index, { label: destination?.label ?? "", href: destination?.href ?? "" })} required />
-                    <CustomSelect defaultValue={item.type} label="Link type" name={`navigationType${index}`} onChange={(values) => update(index, { type: (values[0] ?? "link") as EditableItem["type"] })} options={[{ value: "link", label: "Simple link" }, { value: "mega", label: "Mega menu" }, { value: "dropdown", label: "Dropdown" }]} searchable={false} />
+                    <DestinationSelect
+                      defaultValue={item.href ? destinationFromHref(item.href, item.label) : null}
+                      forbiddenHrefPrefixes={["/sale/"]}
+                      forbiddenHrefs={[
+                        ...otherMainHrefs,
+                        ...(saleOptions.length ? [] : ["/sale"]),
+                      ]}
+                      label="Page"
+                      onChange={(destination) => chooseMainDestination(index, destination)}
+                      required
+                    />
+                    {item.href === "/sale" ? (
+                      <div><p className="mb-1 text-[13px] font-medium leading-5 text-zinc-700">Link type</p><div className="flex min-h-9 items-center rounded-md border border-amber-200 bg-amber-50 px-2.5 text-sm font-medium text-amber-900">Dropdown</div><p className="mt-1 text-[11px] text-zinc-400">Sale navigation always uses the available-sales dropdown.</p></div>
+                    ) : (
+                      <CustomSelect defaultValue={item.type} label="Link type" name={`navigationType${index}`} onChange={(values) => update(index, { type: (values[0] ?? "link") as EditableItem["type"] })} options={[{ value: "link", label: "Simple link" }, { value: "mega", label: "Mega menu" }, { value: "dropdown", label: "Dropdown" }]} searchable={false} />
+                    )}
                   </div>
 
-                  {item.type !== "link" ? (
+                  {item.href === "/sale" ? (
+                    <div className="mt-3 border-t border-zinc-100 pt-3">
+                      <CustomSelect
+                        defaultValue={item.items.map((sub) => sub.href).filter((href) => saleOptions.some((sale) => sale.href === href))}
+                        emptyMessage="There are no available sales."
+                        label="Sales shown in dropdown"
+                        multiple
+                        name={`navigationSales${index}`}
+                        onChange={(values) => update(index, { items: saleOptions.filter((sale) => values.includes(sale.href)).map((sale, saleIndex) => ({ key: `sale-${saleIndex}-${sale.href}`, name: sale.name, href: sale.href, image: "" })) })}
+                        options={saleOptions.map((sale) => ({ value: sale.href, label: sale.name, description: sale.href }))}
+                        placeholder="Select available sales"
+                        required
+                      />
+                    </div>
+                  ) : item.type !== "link" ? (
                     <div className="mt-3 border-t border-zinc-100 pt-3">
                       <div className="mb-2 flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Menu items</p><button className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold" onClick={() => update(index, { items: [...item.items, { key: `sub-${Date.now()}`, name: "", href: "", image: "" }] })} type="button"><Plus size={12} />Add item</button></div>
                       <div className="grid gap-2 lg:grid-cols-2">
                         {item.items.map((sub, subIndex) => (
                           <div className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-2.5" key={sub.key}>
                             <div className="mb-2 flex items-center justify-between"><p className="text-[11px] font-semibold text-zinc-500">Item {subIndex + 1}</p><button aria-label="Remove menu item" className="grid size-7 place-items-center rounded-md border border-red-200 bg-white text-red-600 hover:bg-red-50" onClick={() => update(index, { items: item.items.filter((_, subItemIndex) => subItemIndex !== subIndex) })} type="button"><Trash2 size={12} /></button></div>
-                            <DestinationSelect defaultValue={sub.href ? destinationFromHref(sub.href, sub.name) : null} label="Page" onChange={(destination) => updateSub(index, subIndex, { name: destination?.label ?? "", href: destination?.href ?? "" })} required />
+                            <DestinationSelect
+                              defaultValue={sub.href ? destinationFromHref(sub.href, sub.name) : null}
+                              forbiddenHrefPrefixes={["/sale/"]}
+                              forbiddenHrefs={[
+                                "/sale",
+                                ...item.items
+                                  .filter((_, subItemIndex) => subItemIndex !== subIndex)
+                                  .map((menuItem) => menuItem.href)
+                                  .filter(Boolean),
+                              ]}
+                              label="Page"
+                              onChange={(destination) => updateSub(index, subIndex, { name: destination?.label ?? "", href: destination?.href ?? "" })}
+                              required
+                            />
                             <MediaDropzone accept="image" className="mt-2" defaultAssets={sub.image ? [{ url: sub.image, type: "image", name: sub.name }] : []} label="Menu thumbnail" name={`navigationThumbnail${index}-${subIndex}`} onChange={(assets) => updateSub(index, subIndex, { image: assets[0]?.url ?? "" })} />
                           </div>
                         ))}

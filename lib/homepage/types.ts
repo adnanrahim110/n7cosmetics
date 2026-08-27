@@ -3,11 +3,14 @@ import type { NavigationItem } from "@/content/global";
 export interface HomepageProduct {
   id: string;
   slug: string;
+  href?: string;
   name: string;
   type: string;
   price: string;
   pricePence: number;
   rating: number;
+  inspiredBy: string | null;
+  audience?: string | null;
   image: string;
   description: string;
   tagline: string;
@@ -24,6 +27,9 @@ export interface HeroProductPresentation {
 }
 
 export interface HeroContent {
+  ctaLabel: string;
+  backgroundImage: string;
+  cloudImage: string;
   productIds: string[];
   products: HeroProductPresentation[];
 }
@@ -67,14 +73,21 @@ export interface BrandFilmContent {
 
 export interface RecreationsContent {
   label: string;
+  titleLead: string;
+  titleAccent: string;
   description: string;
   ctaLabel: string;
+  priceLabel: string;
+  selectorTitle: string;
+  selectorDescription: string;
   productIds: string[];
 }
 
 export interface WeeklyContent {
   productId: string;
   eyebrow: string;
+  titleLead: string;
+  titleAccent: string;
   description: string;
   ctaLabel: string;
   ctaUrl: string;
@@ -89,6 +102,7 @@ export interface ScentStoryContent {
   mainVideo: string;
   detailVideo: string;
   filmLabel: string;
+  detailLabel: string;
   duration: string;
 }
 
@@ -103,9 +117,20 @@ export interface AudienceCardContent {
 }
 
 export interface AudienceContent {
+  eyebrow: string;
   title: string;
+  titleAccent: string;
   description: string;
   cards: AudienceCardContent[];
+}
+
+export interface FeatureContent {
+  title: string;
+  subtitle: string;
+}
+
+export interface FeaturesContent {
+  items: FeatureContent[];
 }
 
 export interface ReviewContent {
@@ -130,6 +155,7 @@ export interface HomepageConfiguration {
   scentStory: ScentStoryContent;
   audience: AudienceContent;
   reviews: ReviewsContent;
+  features: FeaturesContent;
 }
 
 export interface HomepageStorefrontContent {

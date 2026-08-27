@@ -44,8 +44,11 @@ function humanizeSlug(value: string): string {
 export function destinationFromHref(href: string, fallbackLabel?: string): DestinationValue {
   const known = storefrontDestinations.find((destination) => destination.href === href);
   if (known) return known;
+  if (href === "/sale") return { label: fallbackLabel || "Sale", href, kind: "page", description: "Sale dropdown" };
   const productMatch = href.match(/^\/products\/([^/?#]+)$/);
   if (productMatch) return { label: fallbackLabel || humanizeSlug(productMatch[1]), href, kind: "product", description: "Product page" };
+  const bundleMatch = href.match(/^\/bundles\/([^/?#]+)$/);
+  if (bundleMatch) return { label: fallbackLabel || humanizeSlug(bundleMatch[1]), href, kind: "product", description: "Bundle page" };
   const segment = href.split(/[/?#]/).filter(Boolean).at(-1);
   return { label: fallbackLabel || (segment ? humanizeSlug(segment) : href), href, kind: "custom", description: "Saved destination" };
 }

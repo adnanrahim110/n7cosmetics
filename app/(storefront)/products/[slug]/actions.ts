@@ -151,6 +151,7 @@ export async function submitProductReviewAction(
     }
 
     revalidatePath(`/products/${parsed.data.productSlug}`);
+    revalidatePath(`/bundles/${parsed.data.productSlug}`);
     return { status: "success", message: "Thank you. Your review was submitted and will appear after it has been approved." };
   } catch (error) {
     if (error instanceof MediaUploadError) {

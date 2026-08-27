@@ -33,9 +33,16 @@ export async function createOrder(input: CheckoutInput): Promise<ExistingOrderRo
       }
 
       for (const line of quote.lines) {
-        if (!line.trackInventory) continue;
-        const stock = await executeMutation("UPDATE product_variants SET stock_on_hand = stock_on_hand - ? WHERE id = ? AND stock_on_hand >= ?", [line.quantity, line.variantId, line.quantity], connection);
-        if (stock.affectedRows !== 1) throw new CommerceError("OUT_OF_STOCK", `${line.name} no longer has enough stock.`);
+        if (line.trackInventory) {
+          const stock = await executeMutation("UPDATE product_variants SET stock_on_hand = stock_on_hand - ? WHERE id = ? AND stock_on_hand >= ?", [line.quantity, line.variantId, line.quantity], connection);
+          if (stock.affectedRows !== 1) throw new CommerceError("OUT_OF_STOCK", `${line.name} no longer has enough stock.`);
+        }
+        for (const component of line.bundleComponents) {
+          if (!component.trackInventory) continue;
+          const required = component.quantity * line.quantity;
+          const stock = await executeMutation("UPDATE product_variants SET stock_on_hand = stock_on_hand - ? WHERE id = ? AND stock_on_hand >= ?", [required, component.variantId, required], connection);
+          if (stock.affectedRows !== 1) throw new CommerceError("OUT_OF_STOCK", `${component.name} no longer has enough stock for ${line.name}.`);
+        }
       }
 
       const number = orderNumber();

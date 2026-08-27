@@ -15,7 +15,7 @@ import { withTransaction } from "@/lib/db/transaction";
 const mediaUrlSchema = z.string().max(1000).refine((value) => value.startsWith("/") || z.url().safeParse(value).success);
 const collectionSchema = z.object({
   name: z.string().min(2).max(150),
-  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(190),
+  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(190).refine((value) => value !== "bundles", "Bundles is reserved for the dedicated bundle manager."),
   description: z.string().max(10000).nullable(),
   imageUrl: mediaUrlSchema.nullable(),
   status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]),

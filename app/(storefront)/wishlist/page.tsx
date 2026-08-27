@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Heart, ShoppingBag } from "lucide-react";
 import CartAction from "@/components/commerce/CartAction";
-import { useCommerce } from "@/components/commerce/CommerceProvider";
+import { commerceProductHref, useCommerce } from "@/components/commerce/CommerceProvider";
+import Title from "@/components/ui/Title";
 
 function money(pence: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -22,7 +23,7 @@ export default function WishlistPage() {
         <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">
           Saved for later
         </p>
-        <h1 className="mt-3 font-heading text-4xl sm:text-5xl">Wishlist</h1>
+        <Title as="h1" className="mt-3" text="Wishlist" tone="gold" />
 
         {wishlist.length ? (
           <div className="mt-8 grid gap-x-6 gap-y-12 sm:mt-10 sm:grid-cols-2 sm:gap-x-8 lg:grid-cols-4">
@@ -31,7 +32,7 @@ export default function WishlistPage() {
                 <Link
                   aria-label={`View ${item.name}`}
                   className="absolute inset-0 z-10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8d6745]"
-                  href={`/products/${item.slug}`}
+                  href={commerceProductHref(item)}
                 />
                 <div className="pointer-events-none relative block aspect-3/4 bg-[#e8dfd1]">
                   <Image

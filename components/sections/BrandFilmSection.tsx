@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
 import type { BrandFilmContent } from "@/lib/homepage/types";
+import Title from "@/components/ui/Title";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -56,52 +57,58 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,7,8,0.42),transparent_42%,rgba(5,7,8,0.18))]" />
 
       <div className="mx-auto flex min-h-168 max-w-360 flex-col justify-between px-5 py-7 sm:min-h-[70svh] sm:px-8 md:min-h-[78svh] md:py-10 lg:px-12">
-        <div className="flex items-start justify-end gap-6 border-t border-white/28 pt-5">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={togglePlayback}
-              aria-label={isPlaying ? "Pause brand film" : "Play brand film"}
-              className="flex size-11 items-center justify-center rounded-full border border-white/30 bg-black/10 text-white backdrop-blur-md transition-colors duration-300 hover:border-white/70 hover:bg-black/35 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-            >
-              {isPlaying ? (
-                <Pause className="size-4" fill="currentColor" />
-              ) : (
-                <Play className="ml-0.5 size-4" fill="currentColor" />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsMuted((muted) => !muted)}
-              aria-label={isMuted ? "Unmute brand film" : "Mute brand film"}
-              className="flex size-11 items-center justify-center rounded-full border border-white/30 bg-black/10 text-white backdrop-blur-md transition-colors duration-300 hover:border-white/70 hover:bg-black/35 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-            >
-              {isMuted ? (
-                <VolumeX className="size-4" />
-              ) : (
-                <Volume2 className="size-4" />
-              )}
-            </button>
+        <div className="flex items-start justify-between gap-6 border-t border-white/28 pt-5">
+          <motion.span
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.7, ease }}
+            className="pt-3 text-[9px] font-semibold uppercase tracking-[0.3em] text-white/70 sm:text-[10px]"
+          >
+            {film.eyebrow}
+          </motion.span>
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="hidden text-right text-[9px] font-semibold uppercase tracking-[0.22em] text-white/55 sm:block">
+              <span className="block">{film.location}</span>
+              <span className="mt-1 block text-white/35">{film.duration}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={togglePlayback}
+                aria-label={isPlaying ? "Pause brand film" : "Play brand film"}
+                className="flex size-11 items-center justify-center rounded-full border border-white/30 bg-black/10 text-white backdrop-blur-md transition-colors duration-300 hover:border-white/70 hover:bg-black/35 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              >
+                {isPlaying ? (
+                  <Pause className="size-4" fill="currentColor" />
+                ) : (
+                  <Play className="ml-0.5 size-4" fill="currentColor" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsMuted((muted) => !muted)}
+                aria-label={isMuted ? "Unmute brand film" : "Mute brand film"}
+                className="flex size-11 items-center justify-center rounded-full border border-white/30 bg-black/10 text-white backdrop-blur-md transition-colors duration-300 hover:border-white/70 hover:bg-black/35 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              >
+                {isMuted ? (
+                  <VolumeX className="size-4" />
+                ) : (
+                  <Volume2 className="size-4" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
         <div className="grid items-end gap-8 pb-2 md:grid-cols-[1.35fr_0.65fr] md:pb-4">
-          <motion.div
-            initial={{
-              clipPath: shouldReduceMotion ? "inset(0)" : "inset(100% 0 0 0)",
-              y: shouldReduceMotion ? 0 : 35,
-            }}
-            whileInView={{ clipPath: "inset(0% 0 0 0)", y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 1.15, ease }}
-          >
-            <h2 className="max-w-7xl font-heading text-[clamp(2.5rem,11vw,4rem)]! uppercase leading-[1.1] tracking-tight text-[#f4eadf] md:text-[clamp(3.25rem,5.2vw,5rem)]!">
-              {film.titleLead}{" "}
-              <span className="inline font-light tracking-normal text-[#d6ad7c]">
-                {film.titleAccent}
-              </span>
-            </h2>
-          </motion.div>
+          <Title
+            className="max-w-7xl uppercase text-[#f4eadf]"
+            highlight={film.titleAccent}
+            highlightClassName="text-[#d6ad7c]"
+            text={`${film.titleLead} ${film.titleAccent}`}
+            tone="custom"
+          />
 
           <motion.div
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 24 }}
