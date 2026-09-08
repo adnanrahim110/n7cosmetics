@@ -7,6 +7,7 @@ export interface CommerceProduct {
   slug: string;
   href?: string;
   name: string;
+  productCode?: string | null;
   image: string;
   pricePence: number;
 }
@@ -43,6 +44,7 @@ function isProduct(value: unknown): value is CommerceProduct {
     && typeof item.name === "string"
     && typeof item.image === "string"
     && typeof item.pricePence === "number"
+    && (item.productCode == null || typeof item.productCode === "string")
     && (item.href === undefined || (typeof item.href === "string" && /^\/(?:products|bundles)\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.href)));
 }
 
@@ -64,9 +66,12 @@ function loadCart(): CartItem[] {
   });
 }
 
-export default function CommerceProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [wishlist, setWishlist] = useState<CommerceProduct[]>([]);
+export default function CommerceProvider({ children, productCodes }: { children: ReactNode; productCodes: Record<string, string> }) {
+  const [storedCart, setCart] = useState<CartItem[]>([]);
+  const [storedWishlist, setWishlist] = useState<CommerceProduct[]>([]);
+  // Resolve current codes for items saved before product codes were stored locally.
+  const cart = useMemo(() => storedCart.map((item) => ({ ...item, productCode: Object.hasOwn(productCodes, item.slug) ? productCodes[item.slug] : item.productCode })), [storedCart, productCodes]);
+  const wishlist = useMemo(() => storedWishlist.map((item) => ({ ...item, productCode: Object.hasOwn(productCodes, item.slug) ? productCodes[item.slug] : item.productCode })), [storedWishlist, productCodes]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 

@@ -88,6 +88,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const commerceProduct = {
     slug: product.slug,
     name: product.name,
+    productCode: product.productCode,
     image: product.image,
     pricePence: product.pricePence,
   };
@@ -154,38 +155,40 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </span>
           </nav>
 
-          <div className="mt-7 grid gap-10 lg:grid-cols-[1.06fr_0.94fr] lg:items-start lg:gap-14 xl:gap-20">
+          <div className="mt-7 grid gap-10 lg:grid-cols-2 lg:items-start lg:gap-14 xl:gap-10">
             <ProductGallery items={gallery} productName={product.name} />
 
             <div className="lg:sticky lg:top-28">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">
                   {product.brand ?? "N7 Cosmetics"} ·{" "}
                   {product.audience.toLowerCase()}
                 </p>
-                <p className="text-[9px] uppercase tracking-[0.18em] text-black/32">
-                  Ref. {product.sku}
-                </p>
+                <ProductCodeBar
+                  code={product.productCode}
+                  className="ml-auto"
+                />
               </div>
               <Title as="h1" className="mt-4" text={product.name} tone="ink" />
-              <ProductCodeBar code={product.productCode} className="mt-3 max-w-sm" />
-              {inspiredBy ? (
-                <span className="mt-3 inline-flex max-w-full items-center rounded-full border border-[#967C55]/24 bg-[#967C55]/8 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#7A5D38]">
-                  Inspired by {inspiredBy}
-                </span>
-              ) : null}
+              <div className="flex items-center mt-3 gap-3">
+                {inspiredBy ? (
+                  <span className="inline-flex max-w-full items-center rounded-full border border-[#967C55]/24 bg-[#967C55]/8 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#7A5D38]">
+                    Inspired by {inspiredBy}
+                  </span>
+                ) : null}
 
-              <a
-                className="mt-5 inline-flex items-center gap-3 text-xs text-black/55 transition hover:text-black"
-                href="#reviews"
-              >
-                <RatingStars rating={reviewSummary.averageRating} size={14} />
-                <span>
-                  {reviewSummary.totalReviews
-                    ? `${reviewSummary.averageRating.toFixed(1)} · ${reviewSummary.totalReviews} ${reviewSummary.totalReviews === 1 ? "review" : "reviews"}`
-                    : "No reviews yet"}
-                </span>
-              </a>
+                <a
+                  className="inline-flex items-center gap-3 text-xs text-black/55 transition hover:text-black"
+                  href="#reviews"
+                >
+                  <RatingStars rating={reviewSummary.averageRating} size={14} />
+                  <span>
+                    {reviewSummary.totalReviews
+                      ? `${reviewSummary.averageRating.toFixed(1)} · ${reviewSummary.totalReviews} ${reviewSummary.totalReviews === 1 ? "review" : "reviews"}`
+                      : "No reviews yet"}
+                  </span>
+                </a>
+              </div>
 
               <p className="mt-6 max-w-xl text-base font-light leading-7 text-black/62">
                 {product.shortDescription ??
@@ -196,7 +199,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <ScentNotesAccordion groups={noteGroups} />
 
               <div className="mt-7 flex flex-wrap items-end gap-x-4 gap-y-2 border-b border-black/12 pb-7">
-                <span className="font-heading text-3xl font-normal sm:text-4xl">
+                <span className="text-3xl font-normal sm:text-4xl">
                   {money(product.pricePence)}
                 </span>
                 {product.compareAtPricePence ? (

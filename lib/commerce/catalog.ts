@@ -54,6 +54,7 @@ export interface StorefrontRelatedProduct {
   slug: string;
   name: string;
   inspiredBy: string | null;
+  productCode: string | null;
   brand: string | null;
   audience: string;
   variantTitle: string;
@@ -91,12 +92,22 @@ interface StorefrontProductRow extends RowDataPacket {
 
 interface ProductImageRow extends RowDataPacket { url: string; alt_text: string | null }
 interface ProductVideoRow extends RowDataPacket { url: string; title: string | null }
+interface ProductCodeRow extends RowDataPacket { slug: string; product_code: string }
+
+export async function getStorefrontProductCodes(): Promise<Record<string, string>> {
+  if (!hasDatabaseConfig()) return {};
+  const rows = await selectRows<ProductCodeRow>(
+    "SELECT slug, product_code FROM products WHERE status = 'ACTIVE' AND product_type = 'STANDARD' AND product_code IS NOT NULL",
+  );
+  return Object.fromEntries(rows.map((row) => [row.slug, row.product_code]));
+}
 
 interface RelatedProductRow extends RowDataPacket {
   id: string;
   slug: string;
   name: string;
   inspired_by: string | null;
+  product_code: string | null;
   brand: string | null;
   audience: string;
   variant_title: string;
@@ -194,7 +205,7 @@ export async function getRelatedStorefrontProducts(
   if (!hasDatabaseConfig()) return [];
 
   const rows = await selectRows<RelatedProductRow>(
-    `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name, p.inspired_by, p.brand, p.audience,
+    `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name, p.inspired_by, p.product_code, p.brand, p.audience,
        v.title AS variant_title, v.price_pence, v.compare_at_price_pence,
        image.url AS image_url, image.alt_text AS image_alt,
        COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating,
@@ -225,6 +236,7 @@ export async function getRelatedStorefrontProducts(
     slug: row.slug,
     name: row.name,
     inspiredBy: row.inspired_by,
+    productCode: row.product_code,
     brand: row.brand,
     audience: row.audience,
     variantTitle: row.variant_title,

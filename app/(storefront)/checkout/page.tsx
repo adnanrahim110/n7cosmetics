@@ -1,5 +1,7 @@
 "use client";
 
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
+
 import Link from "next/link";
 import { CheckCircle2, LoaderCircle, LockKeyhole } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -162,7 +164,10 @@ export default function CheckoutPage() {
             <div className="mt-5 space-y-3 border-b border-black/10 pb-5">
               {cart.map((item) => (
                 <div className="flex items-start justify-between gap-4 text-sm" key={item.slug}>
-                  <span className="min-w-0 break-words">{item.name} × {item.quantity}</span>
+                  <span className="min-w-0 break-words">
+                    <ProductCodeBar code={item.productCode} className="mb-2" />
+                    {item.name} × {item.quantity}
+                  </span>
                   <span className="shrink-0">{money(item.pricePence * item.quantity)}</span>
                 </div>
               ))}

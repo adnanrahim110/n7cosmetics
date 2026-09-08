@@ -1,4 +1,5 @@
 import ProductDetailActions from "@/components/commerce/ProductDetailActions";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import ProductGallery from "@/components/commerce/ProductGallery";
 import ProductReviews from "@/components/commerce/ProductReviews";
 import Title from "@/components/ui/Title";
@@ -90,7 +91,6 @@ export default async function BundlePage({ params }: BundlePageProps) {
             <div className="lg:sticky lg:top-28">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">N7 Cosmetics · Curated bundle</p>
-                <p className="text-[9px] uppercase tracking-[0.18em] text-black/32">Ref. {bundle.sku}</p>
               </div>
               <Title as="h1" className="mt-4" text={bundle.name} tone="ink" />
               <a className="mt-5 inline-flex items-center gap-3 text-xs text-black/55 transition hover:text-black" href="#reviews">
@@ -118,6 +118,7 @@ export default async function BundlePage({ params }: BundlePageProps) {
                     <Link className="group grid grid-cols-[68px_minmax(0,1fr)] items-center gap-3 border border-black/10 bg-white/35 p-2.5 transition hover:border-[#8d6745]/45 hover:bg-white/60" href={`/products/${component.slug}`} key={component.variantId}>
                       <span className="relative aspect-square overflow-hidden bg-[#e8dfd1]"><Image alt={component.imageAlt} className="object-contain p-1.5" fill sizes="68px" src={component.image} /></span>
                       <span className="min-w-0">
+                        <ProductCodeBar code={component.productCode} className="mb-2" compact />
                         <span className="flex items-start justify-between gap-2"><span className="line-clamp-2 font-heading text-base leading-tight group-hover:text-[#8d6745]">{component.name}</span><Check className="mt-0.5 shrink-0 text-[#66704b]" size={14} /></span>
                         <span className="mt-1 block text-[10px] uppercase tracking-[0.12em] text-black/38">{component.quantity > 1 ? `${component.quantity} × ` : ""}{component.variantTitle}</span>
                       </span>

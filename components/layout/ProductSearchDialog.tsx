@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import Title from "@/components/ui/Title";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
 
 const MIN_QUERY_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -18,6 +19,7 @@ interface ProductSearchResult {
   name: string;
   brand: string | null;
   inspiredBy: string | null;
+  productCode: string | null;
   category: string;
   pricePence: number;
   compareAtPricePence: number | null;
@@ -373,6 +375,7 @@ export default function ProductSearchDialog({
                         <span className="block text-[8px] font-semibold uppercase tracking-[0.24em] text-[#967c55] sm:text-[9px]">
                           {result.category}
                         </span>
+                        <ProductCodeBar code={result.productCode} className="mt-1" />
                         <span className="mt-1 block truncate font-heading text-lg text-[#1c1814] sm:text-2xl">
                           {result.name}
                         </span>

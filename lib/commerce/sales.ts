@@ -26,6 +26,7 @@ interface SaleProductRow extends RowDataPacket {
   slug: string;
   name: string;
   inspired_by: string | null;
+  product_code: string | null;
   audience: string;
   category: string | null;
   price_pence: number;
@@ -78,6 +79,7 @@ function mapProduct(row: SaleProductRow): CollectionProduct {
       : undefined,
     rating: Number(row.average_rating) || 0,
     inspiredBy: row.inspired_by,
+    productCode: row.product_code,
     audience: row.audience,
     image: row.image_url,
   };
@@ -144,7 +146,7 @@ export async function getActiveSalePage(
   if (!sale) return null;
   const products = await selectRows<SaleProductRow>(
     `SELECT CAST(sp.sale_id AS CHAR) AS sale_id, CAST(p.id AS CHAR) AS id,
-       p.slug, p.name, p.inspired_by, p.audience,
+       p.slug, p.name, p.inspired_by, p.product_code, p.audience,
        (SELECT c.name FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id
         WHERE pc.product_id = p.id ORDER BY c.sort_order, c.name LIMIT 1) AS category,
        v.price_pence, v.compare_at_price_pence,

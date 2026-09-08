@@ -10,6 +10,7 @@ export interface HomepageProduct {
   pricePence: number;
   rating: number;
   inspiredBy: string | null;
+  productCode?: string | null;
   audience?: string | null;
   image: string;
   description: string;

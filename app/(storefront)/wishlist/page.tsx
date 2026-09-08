@@ -6,6 +6,7 @@ import { ArrowRight, Heart, ShoppingBag } from "lucide-react";
 import CartAction from "@/components/commerce/CartAction";
 import { commerceProductHref, useCommerce } from "@/components/commerce/CommerceProvider";
 import Title from "@/components/ui/Title";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
 
 function money(pence: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -45,6 +46,7 @@ export default function WishlistPage() {
                 </div>
                 <div className="mt-4 flex items-start justify-between gap-4">
                   <div className="min-w-0">
+                    <ProductCodeBar code={item.productCode} className="mb-2" />
                     <h2 className="break-words font-heading text-xl transition-colors group-hover:text-[#8d6745]">{item.name}</h2>
                     <p className="mt-1 text-sm text-black/45">{money(item.pricePence)}</p>
                   </div>

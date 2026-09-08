@@ -1,5 +1,7 @@
 "use client";
 
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
+
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import Image from "next/image";
@@ -127,6 +129,7 @@ export default function CartDrawer() {
                       <div className="min-w-0">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
+                            <ProductCodeBar code={item.productCode} className="mb-2" />
                             <h3 className="block break-words font-heading text-lg leading-tight transition-colors group-hover:text-[#9a7048]">{item.name}</h3>
                             <p className="mt-1.5 text-xs text-black/48">{money(item.pricePence)}</p>
                           </div>

@@ -10,9 +10,9 @@ import Footer from "./Footer";
 import Header from "./Header";
 import type { FooterContent, HeaderContent } from "@/lib/homepage/types";
 
-export default function AppShell({ children, settings, headerContent, footerContent }: Readonly<{ children: ReactNode; settings?: PublicSiteSettings; headerContent: HeaderContent; footerContent: FooterContent }>) {
+export default function AppShell({ children, settings, headerContent, footerContent, productCodes }: Readonly<{ children: ReactNode; settings?: PublicSiteSettings; headerContent: HeaderContent; footerContent: FooterContent; productCodes: Record<string, string> }>) {
   return (
-    <CommerceProvider>
+    <CommerceProvider productCodes={productCodes}>
       <div className="flex min-h-screen flex-col overflow-x-clip">
         <CustomCursor />
         <CartDrawer />

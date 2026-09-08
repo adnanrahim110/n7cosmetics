@@ -8,6 +8,7 @@ export interface StorefrontBundleComponent {
   variantId: string;
   slug: string;
   name: string;
+  productCode: string | null;
   variantTitle: string;
   pricePence: number;
   stockOnHand: number;
@@ -27,6 +28,7 @@ interface BundleComponentRow extends RowDataPacket {
   variant_id: string;
   slug: string;
   name: string;
+  product_code: string | null;
   variant_title: string;
   price_pence: number;
   stock_on_hand: number;
@@ -49,6 +51,7 @@ export async function getStorefrontBundle(slug: string): Promise<StorefrontBundl
        CAST(v.id AS CHAR) AS variant_id,
        p.slug,
        p.name,
+       p.product_code,
        v.title AS variant_title,
        v.price_pence,
        v.stock_on_hand,
@@ -78,6 +81,7 @@ export async function getStorefrontBundle(slug: string): Promise<StorefrontBundl
       variantId: row.variant_id,
       slug: row.slug,
       name: row.name,
+      productCode: row.product_code,
       variantTitle: row.variant_title,
       pricePence: Number(row.price_pence),
       stockOnHand: Number(row.stock_on_hand),

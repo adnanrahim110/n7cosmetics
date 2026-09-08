@@ -4,6 +4,7 @@ import { formatCollectionPrice } from "@/components/collections/collection-confi
 import { useCommerce } from "@/components/commerce/CommerceProvider";
 import Button from "@/components/ui/Button";
 import Title from "@/components/ui/Title";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import type { SaleStorefrontContent } from "@/lib/commerce/sales";
 import { ArrowRight, Check, Minus, Plus, ShoppingBag } from "lucide-react";
 import Image from "next/image";
@@ -81,6 +82,7 @@ export default function SaleCatalog({ sale }: { sale: SaleStorefrontContent }) {
       slug: product.slug ?? "",
       href: `/products/${product.slug}`,
       name: product.name,
+      productCode: product.productCode,
       image: product.image,
       pricePence: Math.round(product.price * 100),
     },
@@ -153,6 +155,7 @@ export default function SaleCatalog({ sale }: { sale: SaleStorefrontContent }) {
                   />
                 </Link>
                 <div className="flex flex-1 flex-col pt-3">
+                  <ProductCodeBar code={product.productCode} className="mb-2" />
                   <Link
                     className="line-clamp-1 font-heading text-base tracking-wide hover:text-[#9d4d3d] sm:text-lg"
                     href={`/products/${slug}`}

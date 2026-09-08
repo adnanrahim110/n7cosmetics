@@ -7,7 +7,6 @@ import Link from "next/link";
 import CartAction from "../commerce/CartAction";
 import { useCommerce } from "../commerce/CommerceProvider";
 import RatingStars from "../commerce/RatingStars";
-import ProductCodeBar from "./ProductCodeBar";
 
 export interface ProductCardProduct {
   slug: string;
@@ -27,6 +26,39 @@ const genderBadges = {
   WOMEN: { label: "Women", color: "bg-[#DB2777]" },
   UNISEX: { label: "Unisex", color: "bg-[#7C3AED]" },
 } as const;
+
+function ProductCardLabels({
+  code,
+  inspiredBy,
+}: {
+  code?: string;
+  inspiredBy?: string;
+}) {
+  return (
+    <div className="flex w-full flex-col items-center overflow-hidden border-y border-[#967C55]/25 bg-[#f7f2ea]/95 text-center text-[#7A5D38]">
+      {code ? (
+        <span className="flex w-full items-center justify-center gap-1.5 px-2 py-1">
+          <span className="shrink-0 text-[7px] font-semibold uppercase tracking-widest">
+            Product code:
+          </span>
+          <span
+            className="min-w-0 truncate font-mono text-sm font-bold leading-4 tracking-[0.12em]"
+            title={code}
+          >
+            {code}
+          </span>
+        </span>
+      ) : null}
+      {inspiredBy ? (
+        <span
+          className={`line-clamp-2 w-full px-2 py-0.5 text-[7px] font-semibold uppercase leading-3 tracking-[0.08em] ${code ? "border-t border-[#967C55]/15" : ""}`}
+        >
+          Inspired by {inspiredBy}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function GenderBadge({
   audience,
@@ -86,6 +118,7 @@ export default function ProductCard({
     slug,
     href,
     name: product.name,
+    productCode: product.productCode,
     image: product.image,
     pricePence: product.pricePence,
   };
@@ -125,12 +158,12 @@ export default function ProductCard({
             alt={product.name}
             fill
             sizes="(max-width: 640px) 80vw, 25vw"
-            className="pointer-events-none object-contain p-3 drop-shadow-[0_18px_18px_rgba(48,33,19,0.2)]"
+            className={`pointer-events-none object-contain drop-shadow-[0_18px_18px_rgba(48,33,19,0.2)] ${productCode ? "px-3 pt-3 pb-12" : "p-3"}`}
           />
-          {inspiredBy ? (
-            <span className="pointer-events-none absolute bottom-0 left-1/2 z-30 inline-flex w-full -translate-x-1/2 items-center justify-center border-t border-[#967C55]/24 bg-[#f7f2ea]/90 px-2.5 py-0.5 text-center text-[7px] font-semibold uppercase leading-3 tracking-[0.08em] text-[#7A5D38] line-clamp-2">
-              Inspired by {inspiredBy}
-            </span>
+          {productCode || inspiredBy ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
+              <ProductCardLabels code={productCode} inspiredBy={inspiredBy} />
+            </div>
           ) : null}
           <button
             type="button"
@@ -161,7 +194,6 @@ export default function ProductCard({
               {product.name}
             </h3>
           </Link>
-          <ProductCodeBar code={productCode} className="mt-1.5" />
           <RatingStars className="mt-1.5" rating={product.rating} size={13} />
           <span className="mt-1 text-[15px] font-bold text-[#1A1A1A]">
             {product.price}
@@ -216,10 +248,12 @@ export default function ProductCard({
             </div>
 
             <div
-              className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
+              className={`absolute inset-x-0 top-0 z-20 flex items-center justify-center pointer-events-none ${productCode ? "bottom-14" : "bottom-0"}`}
               style={{ transform: "translateZ(80px)" }}
             >
-              <div className="relative w-[80%] h-[80%] transition-transform duration-700 ease-[0.65,0,0.35,1] group-hover:scale-110 group-hover:-translate-y-4">
+              <div
+                className={`relative w-[80%] transition-transform duration-700 ease-[0.65,0,0.35,1] group-hover:scale-110 group-hover:-translate-y-4 ${productCode ? "h-[90%]" : "h-[80%]"}`}
+              >
                 <Image
                   src={product.image}
                   alt={product.name}
@@ -230,14 +264,17 @@ export default function ProductCard({
               </div>
             </div>
 
-            {inspiredBy ? (
+            {productCode || inspiredBy ? (
               <div
-                className="pointer-events-none absolute inset-x-0 bottom-5 z-40 flex justify-center px-4"
+                className={`pointer-events-none absolute inset-x-0 z-40 flex justify-center px-4 ${productCode ? "bottom-5" : "bottom-5"}`}
                 style={{ transform: "translateZ(100px)" }}
               >
-                <span className="inline-flex w-fit min-w-40 text-center items-center justify-center border-y border-[#967C55]/24 bg-[#f7f2ea]/90 px-2.5 py-1 text-[8px] font-semibold uppercase leading-3 tracking-[0.08em] text-[#7A5D38]">
-                  Inspired by {inspiredBy}
-                </span>
+                <div className="w-fit min-w-40 max-w-full">
+                  <ProductCardLabels
+                    code={productCode}
+                    inspiredBy={inspiredBy}
+                  />
+                </div>
               </div>
             ) : null}
           </motion.div>
@@ -284,7 +321,6 @@ export default function ProductCard({
           <h3 className="font-heading text-xl md:text-xl text-[#1A1A1A] tracking-wide mb-1 transition-colors duration-300 line-clamp-1">
             {product.name}
           </h3>
-          <ProductCodeBar code={productCode} className="mb-1.5" />
           <RatingStars className="mb-1.5" rating={product.rating} size={14} />
           <span className="text-[#1A1A1A] font-bold text-base mb-3">
             {product.price}

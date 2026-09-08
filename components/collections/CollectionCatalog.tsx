@@ -239,7 +239,7 @@ export default function CollectionCatalog({
                     pricePence: Math.round(product.price * 100),
                     rating: product.rating ?? 0,
                     inspiredBy: product.inspiredBy,
-                    productCode: collection.slug === "recreations" ? product.productCode : undefined,
+                    productCode: product.productCode,
                     audience: product.audience,
                   }}
                 />

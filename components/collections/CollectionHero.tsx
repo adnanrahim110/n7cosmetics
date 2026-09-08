@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import Title from "@/components/ui/Title";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import type { CollectionPageContent, CollectionProduct } from "../../content/collections";
 import { slugify } from "../../lib/admin/form";
 import { collectionEase } from "./collection-config";
@@ -273,9 +274,12 @@ export default function ProductHero({
                   </div>
                 </motion.div>
                 <div className="absolute inset-x-3 bottom-2 z-30 flex items-end justify-between gap-5 pt-3">
-                  <span className="max-w-[72%] truncate text-[8px] font-semibold uppercase tracking-[0.2em] text-current/72 sm:text-[9px]">
-                    {featuredProduct.name}
-                  </span>
+                  <div className="max-w-full">
+                    <ProductCodeBar code={featuredProduct.productCode} className="mb-1" compact />
+                    <span className="block truncate text-[8px] font-semibold uppercase tracking-[0.2em] text-current/72 sm:text-[9px]">
+                      {featuredProduct.name}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : productCount === 2 ? (
@@ -317,6 +321,7 @@ export default function ProductHero({
                       </div>
                     </div>
                     <div className="absolute inset-x-1 bottom-1 z-30 pt-2.5">
+                      <ProductCodeBar code={product.productCode} className="mb-1" compact />
                       <span className="block truncate text-[7px] font-semibold uppercase tracking-[0.18em] text-current/70 sm:text-[8px]">
                         {product.name}
                       </span>
@@ -363,6 +368,7 @@ export default function ProductHero({
                       transition={{ duration: 0.45, ease: collectionEase }}
                       className="absolute top-1/2 left-[48%] z-20 h-full w-[70%] -translate-1/2"
                     >
+                      <ProductCodeBar code={featuredProduct.productCode} className="absolute bottom-2 left-0 z-30" compact />
                       <div className="relative size-full">
                         <Image
                           src={featuredProduct.image}
@@ -417,9 +423,12 @@ export default function ProductHero({
                             />
                           </div>
                         </div>
-                        <span className="absolute bottom-1 left-1 z-20 max-w-[72%] truncate text-[6px] font-semibold uppercase tracking-[0.16em] text-white/42 sm:text-[7px]">
-                          {product.name}
-                        </span>
+                        <div className="absolute inset-x-1 bottom-1 z-20">
+                          <ProductCodeBar code={product.productCode} className="mb-1" compact />
+                          <span className="block truncate text-[6px] font-semibold uppercase tracking-[0.16em] text-white/42 sm:text-[7px]">
+                            {product.name}
+                          </span>
+                        </div>
                       </motion.div>
                     ))}
                   </div>

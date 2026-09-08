@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Minus, Plus, Trash2 } from "lucide-react";
 import { commerceProductHref, useCommerce } from "@/components/commerce/CommerceProvider";
 import Title from "@/components/ui/Title";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
 
 function money(pence: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -52,6 +53,7 @@ export default function CartPage() {
                   </div>
 
                   <div className="min-w-0">
+                    <ProductCodeBar code={item.productCode} className="mb-2" />
                     <h3 className="break-words font-heading text-lg transition-colors group-hover:text-[#8d6745] sm:text-xl">{item.name}</h3>
                     <p className="mt-2 text-sm text-black/45">{money(item.pricePence)}</p>
                     <div className="relative z-20 mt-3 inline-flex items-center border border-black/15 sm:mt-4">

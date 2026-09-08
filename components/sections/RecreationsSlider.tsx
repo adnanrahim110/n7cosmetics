@@ -11,6 +11,7 @@ import { Swiper, SwiperSlide } from "swiper/react";
 
 import Button from "@/components/ui/Button";
 import Title from "@/components/ui/Title";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import type { HomepageProduct, RecreationsContent } from "@/lib/homepage/types";
 
 const customEase = [0.65, 0, 0.35, 1] as const;
@@ -148,6 +149,7 @@ export default function RecreationsSlider({
 
                 <div className="flex flex-col justify-between bg-[#17130f] p-4 pt-3 text-[#f5eee5] sm:p-7 md:p-8">
                   <div>
+                    <ProductCodeBar code={mobileActiveProduct.productCode} className="mb-3" />
                     <h3
                       className="font-heading text-[2rem] leading-[0.98] tracking-normal text-[#f5eee5] sm:text-[2.6rem]"
                       id={`${mobilePanelId}-title`}
@@ -281,6 +283,7 @@ export default function RecreationsSlider({
                         src={product.image}
                       />
                     </span>
+                    <ProductCodeBar code={product.productCode} className="mt-2" compact />
                     <span className="mt-2 flex items-start justify-between gap-2">
                       <span
                         className={`line-clamp-2 text-[10px] font-medium leading-4 ${isSelected ? "text-[#1a1a1a]" : "text-black/48"}`}
@@ -350,6 +353,7 @@ export default function RecreationsSlider({
                     <span className="font-heading text-[#1a1a1a]/20 text-6xl md:text-8xl absolute -top-12 -left-6 -z-10 select-none">
                       {String(activeIndex + 1).padStart(2, "0")}
                     </span>
+                    <ProductCodeBar code={activeProduct.productCode} className="mb-3" />
                     <h3 className="mb-4 font-heading text-3xl leading-tight tracking-wide text-[#1a1a1a] sm:text-4xl md:text-5xl lg:text-6xl">
                       {activeProduct.name}
                     </h3>
@@ -445,6 +449,7 @@ export default function RecreationsSlider({
 
                         <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-sm border border-[#967C55]/20 bg-[#F9F7F1] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.06)] transition-all duration-700 group-hover:shadow-[0_30px_80px_rgba(0,0,0,0.12)]">
                           <div className="pointer-events-none absolute inset-2 border-[0.5px] border-[#967C55]/30 transition-transform duration-700 group-hover:scale-[0.98]" />
+                          <ProductCodeBar code={product.productCode} className="absolute bottom-3 left-3 z-10" compact />
 
                           <div className="relative h-[85%] w-full transition-transform duration-1000 ease-[0.65,0,0.35,1] group-hover:scale-110">
                             <Image

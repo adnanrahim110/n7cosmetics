@@ -74,6 +74,7 @@ export default function RelatedProductsSlider({ products }: { products: Storefro
                   pricePence: product.pricePence,
                   rating: product.rating,
                   inspiredBy: product.inspiredBy,
+                  productCode: product.productCode,
                   audience: product.audience,
                 }}
               />

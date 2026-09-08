@@ -14,6 +14,7 @@ interface ProductSearchRow extends RowDataPacket {
   name: string;
   brand: string | null;
   inspired_by: string | null;
+  product_code: string | null;
   category: string | null;
   price_pence: number;
   compare_at_price_pence: number | null;
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
 
   try {
     const rows = await selectRows<ProductSearchRow>(
-      `SELECT CAST(p.id AS CHAR) AS id, p.product_type, p.slug, p.name, p.brand, p.inspired_by,
+      `SELECT CAST(p.id AS CHAR) AS id, p.product_type, p.slug, p.name, p.brand, p.inspired_by, p.product_code,
          (SELECT category.name
           FROM product_categories pc
           INNER JOIN categories category ON category.id = pc.category_id
@@ -124,6 +125,7 @@ export async function GET(request: Request) {
       name: row.name,
       brand: row.brand,
       inspiredBy: row.inspired_by,
+      productCode: row.product_code,
       category: row.category ?? (row.product_type === "BUNDLE" ? "Bundle" : "Fragrance"),
       pricePence: Number(row.price_pence),
       compareAtPricePence:

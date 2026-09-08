@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import Title from "@/components/ui/Title";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import type { HomepageProduct, WeeklyContent } from "@/lib/homepage/types";
 import { homeContent } from "../../content/home";
 
@@ -80,6 +81,7 @@ export default function FragranceOfWeek({
               {...reveal(0.16)}
               className="mt-7 border-l border-[#a67c49]/60 pl-6"
             >
+              <ProductCodeBar code={selectedProduct?.productCode} className="mb-3" />
               <h3 className="font-heading text-2xl uppercase tracking-[0.14em] text-[#1a1713] md:text-3xl">
                 <Link
                   className="transition-colors hover:text-[#a67c49]"

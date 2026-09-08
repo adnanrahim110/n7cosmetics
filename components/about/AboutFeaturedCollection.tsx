@@ -7,6 +7,7 @@ import Link from "next/link";
 import CartAction from "@/components/commerce/CartAction";
 import { useCommerce } from "@/components/commerce/CommerceProvider";
 import Title from "@/components/ui/Title";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import type { HomepageProduct } from "@/lib/homepage/types";
 
 export default function AboutFeaturedCollection({
@@ -44,6 +45,7 @@ export default function AboutFeaturedCollection({
             const commerceProduct = {
               slug: product.slug,
               name: product.name,
+              productCode: product.productCode,
               image: product.image,
               pricePence: product.pricePence,
             };
@@ -79,6 +81,7 @@ export default function AboutFeaturedCollection({
                       <span className="text-[8px] font-semibold uppercase tracking-[0.22em] text-[#9b6a35]">
                         {product.type}
                       </span>
+                      <ProductCodeBar code={product.productCode} className="mt-2" />
                       <h3 className="mt-2 font-heading text-2xl tracking-normal text-[#1f1915]">
                         {product.name}
                       </h3>
