@@ -25,7 +25,7 @@ const saleSchema = z.object({
     context.addIssue({
       code: "custom",
       path: ["freeQuantity"],
-      message: "The free quantity must be lower than the qualifying quantity.",
+      message: "The free quantity must be lower than the paid quantity.",
     });
   }
   if (new Set(value.productIds).size !== value.productIds.length) {

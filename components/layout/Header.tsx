@@ -112,7 +112,10 @@ export default function Header({ content }: { content: HeaderContent }) {
   const { cartCount, isCartOpen, openCart, wishlistCount } = useCommerce();
   const pathname = usePathname();
   const forceDarkText =
-    pathname.startsWith("/products/") || /^\/bundles\/[^/]+/.test(pathname);
+    pathname === "/cart" ||
+    pathname === "/checkout" ||
+    pathname.startsWith("/products/") ||
+    /^\/bundles\/[^/]+/.test(pathname);
   const headerContainerRef = useRef<HTMLElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);

@@ -92,14 +92,19 @@ interface StorefrontProductRow extends RowDataPacket {
 
 interface ProductImageRow extends RowDataPacket { url: string; alt_text: string | null }
 interface ProductVideoRow extends RowDataPacket { url: string; title: string | null }
-interface ProductCodeRow extends RowDataPacket { slug: string; product_code: string }
+interface ProductLabelRow extends RowDataPacket { slug: string; product_code: string | null; inspired_by: string | null }
 
-export async function getStorefrontProductCodes(): Promise<Record<string, string>> {
+export interface StorefrontProductLabels {
+  productCode: string | null;
+  inspiredBy: string | null;
+}
+
+export async function getStorefrontProductLabels(): Promise<Record<string, StorefrontProductLabels>> {
   if (!hasDatabaseConfig()) return {};
-  const rows = await selectRows<ProductCodeRow>(
-    "SELECT slug, product_code FROM products WHERE status = 'ACTIVE' AND product_type = 'STANDARD' AND product_code IS NOT NULL",
+  const rows = await selectRows<ProductLabelRow>(
+    "SELECT slug, product_code, inspired_by FROM products WHERE status = 'ACTIVE' AND product_type = 'STANDARD'",
   );
-  return Object.fromEntries(rows.map((row) => [row.slug, row.product_code]));
+  return Object.fromEntries(rows.map((row) => [row.slug, { productCode: row.product_code, inspiredBy: row.inspired_by }]));
 }
 
 interface RelatedProductRow extends RowDataPacket {

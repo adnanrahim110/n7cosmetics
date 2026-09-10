@@ -1,16 +1,20 @@
 import { z } from "zod";
+import { MAX_CART_ITEM_QUANTITY, MAX_CART_LINES } from "./cart-limits";
 
 export const cartLineSchema = z.object({
   slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(190),
-  quantity: z.number().int().min(1).max(99),
+  quantity: z.number().int().min(1).max(MAX_CART_ITEM_QUANTITY),
 });
 
-export const quoteInputSchema = z.object({
-  items: z.array(cartLineSchema).min(1).max(50).refine((items) => new Set(items.map((item) => item.slug)).size === items.length),
-  countryCode: z.string().regex(/^[A-Z]{2}$/),
-  shippingMethodId: z.string().regex(/^[1-9]\d*$/).optional(),
+export const cartPricingInputSchema = z.object({
+  items: z.array(cartLineSchema).min(1).max(MAX_CART_LINES).refine((items) => new Set(items.map((item) => item.slug)).size === items.length),
   couponCode: z.string().trim().toUpperCase().regex(/^[A-Z0-9_-]+$/).max(80).optional(),
   customerEmail: z.email().max(190).transform((value) => value.toLowerCase()).optional(),
+});
+
+export const quoteInputSchema = cartPricingInputSchema.extend({
+  countryCode: z.string().regex(/^[A-Z]{2}$/),
+  shippingMethodId: z.string().regex(/^[1-9]\d*$/).optional(),
 });
 
 export const checkoutInputSchema = quoteInputSchema.extend({
@@ -36,4 +40,5 @@ export const checkoutInputSchema = quoteInputSchema.extend({
 }).refine((input) => input.countryCode === input.shippingAddress.countryCode, { path: ["countryCode"] });
 
 export type QuoteInput = z.infer<typeof quoteInputSchema>;
+export type CartPricingInput = z.infer<typeof cartPricingInputSchema>;
 export type CheckoutInput = z.infer<typeof checkoutInputSchema>;

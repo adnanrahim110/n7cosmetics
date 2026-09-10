@@ -9,10 +9,11 @@ import type { PublicSiteSettings } from "../../lib/commerce/settings";
 import Footer from "./Footer";
 import Header from "./Header";
 import type { FooterContent, HeaderContent } from "@/lib/homepage/types";
+import type { StorefrontProductLabels } from "@/lib/commerce/catalog";
 
-export default function AppShell({ children, settings, headerContent, footerContent, productCodes }: Readonly<{ children: ReactNode; settings?: PublicSiteSettings; headerContent: HeaderContent; footerContent: FooterContent; productCodes: Record<string, string> }>) {
+export default function AppShell({ children, settings, headerContent, footerContent, productLabels }: Readonly<{ children: ReactNode; settings?: PublicSiteSettings; headerContent: HeaderContent; footerContent: FooterContent; productLabels: Record<string, StorefrontProductLabels> }>) {
   return (
-    <CommerceProvider productCodes={productCodes}>
+    <CommerceProvider productLabels={productLabels}>
       <div className="flex min-h-screen flex-col overflow-x-clip">
         <CustomCursor />
         <CartDrawer />

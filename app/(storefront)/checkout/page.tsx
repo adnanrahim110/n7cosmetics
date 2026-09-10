@@ -1,77 +1,71 @@
 "use client";
 
-import ProductCodeBar from "@/components/ui/ProductCodeBar";
-
 import Link from "next/link";
-import { CheckCircle2, LoaderCircle, LockKeyhole } from "lucide-react";
+import { CheckCircle2, ChevronDown, LoaderCircle, LockKeyhole } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useCommerce } from "@/components/commerce/CommerceProvider";
 import Title from "@/components/ui/Title";
 
-interface Quote {
-  subtotalPence: number; discountPence: number; shippingPence: number; taxPence: number; totalPence: number; currency: string;
-  discount: { name: string; couponCode: string | null } | null;
-  shippingMethod: { id: string; name: string };
-  shippingMethods: { id: string; name: string; pricePence: number; estimatedDaysMin: number | null; estimatedDaysMax: number | null }[];
-}
+import type { CheckoutQuote } from "@/lib/commerce/quote";
+import CartLinePrice from "@/components/commerce/CartLinePrice";
+import CartPriceSummary from "@/components/commerce/CartPriceSummary";
+
 const input = "mt-1.5 w-full rounded-none border border-black/20 bg-white/50 px-3 py-2.5 text-sm outline-none focus:border-[#8d6745]";
 function money(pence: number, currency = "GBP") { return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(pence / 100); }
 
 export default function CheckoutPage() {
-  const { cart, clearCart } = useCommerce();
+  const { cart, cartCount, clearCart, cartPricing, couponCode, setCouponCode } = useCommerce();
+  const [showOrderItems, setShowOrderItems] = useState(false);
   const [countryCode, setCountryCode] = useState("GB");
-  const [couponCode, setCouponCode] = useState("");
+  const [couponDraft, setCouponDraft] = useState(couponCode);
   const [shippingMethodId, setShippingMethodId] = useState<string>();
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteState, setQuoteState] = useState<{ key: string; data?: CheckoutQuote; error?: string } | null>(null);
   const [error, setError] = useState<string>();
-  const [quoting, setQuoting] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [confirmation, setConfirmation] = useState<{ orderNumber: string; totalPence: number; currency: string }>();
   const idempotencyKey = useRef<string | null>(null);
 
-  const cartSignature = cart.map((item) => `${item.slug}:${item.quantity}`).join("|");
+  const quoteRequest = JSON.stringify({
+    items: cart.map(({ slug, quantity }) => ({ slug, quantity })),
+    countryCode, shippingMethodId, couponCode: couponCode || undefined,
+  });
+  const hasCart = cart.length > 0;
+  const currentQuote = quoteState?.key === quoteRequest ? quoteState : null;
+  const quote = currentQuote?.data ?? null;
+  const quoting = hasCart && !currentQuote;
+  const displayError = error ?? currentQuote?.error;
+
   useEffect(() => {
-    if (!cartSignature) return;
-    let cancelled = false;
+    if (!hasCart) return;
+    const controller = new AbortController();
     const load = async () => {
-      setQuoting(true); setError(undefined);
       try {
-        const response = await fetch("/api/commerce/quote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: cart.map((item) => ({ slug: item.slug, quantity: item.quantity })), countryCode }) });
-        const data = await response.json() as Quote & { error?: string };
+        const response = await fetch("/api/commerce/quote", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: quoteRequest, signal: controller.signal,
+        });
+        const data = await response.json() as CheckoutQuote & { error?: string };
         if (!response.ok) throw new Error(data.error ?? "Unable to calculate checkout.");
-        if (!cancelled) { setQuote(data); setShippingMethodId(data.shippingMethod.id); }
-      } catch (reason) { if (!cancelled) { setQuote(null); setError(reason instanceof Error ? reason.message : "Unable to calculate checkout."); } }
-      finally { if (!cancelled) setQuoting(false); }
+        if (!controller.signal.aborted) setQuoteState({ key: quoteRequest, data });
+      } catch (reason) {
+        if (!controller.signal.aborted) setQuoteState({ key: quoteRequest, error: reason instanceof Error ? reason.message : "Unable to calculate checkout." });
+      }
     };
     void load();
-    return () => { cancelled = true; };
-    // cartSignature deliberately represents the serializable cart dependency.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartSignature, countryCode]);
-
-  async function refreshQuote(nextShippingMethodId = shippingMethodId) {
-    if (!cart.length) return;
-    setQuoting(true); setError(undefined);
-    try {
-      const response = await fetch("/api/commerce/quote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: cart.map((item) => ({ slug: item.slug, quantity: item.quantity })), countryCode, shippingMethodId: nextShippingMethodId, couponCode: couponCode.trim().toUpperCase() || undefined }) });
-      const data = await response.json() as Quote & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Unable to calculate checkout.");
-      setQuote(data); setShippingMethodId(data.shippingMethod.id);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to calculate checkout."); }
-    finally { setQuoting(false); }
-  }
+    return () => controller.abort();
+  }, [hasCart, quoteRequest]);
 
   async function submitOrder(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!quote || !shippingMethodId || placing) return;
+    event.preventDefault(); if (!quote || quoting || placing) return;
     const formData = new FormData(event.currentTarget);
     if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID();
     const email = String(formData.get("email") ?? "");
     const phone = String(formData.get("phone") ?? "");
     const name = String(formData.get("name") ?? "");
     const payload = {
-      items: cart.map((item) => ({ slug: item.slug, quantity: item.quantity })), countryCode, shippingMethodId,
-      couponCode: couponCode.trim().toUpperCase() || undefined, customerEmail: email, idempotencyKey: idempotencyKey.current,
+      items: cart.map((item) => ({ slug: item.slug, quantity: item.quantity })), countryCode, shippingMethodId: quote.shippingMethod.id,
+      couponCode: quote.discount?.couponCode ?? undefined, customerEmail: email, idempotencyKey: idempotencyKey.current,
       customer: { name, email, phone, notes: String(formData.get("notes") ?? "") },
       shippingAddress: { fullName: name, company: String(formData.get("company") ?? ""), line1: String(formData.get("line1") ?? ""), line2: String(formData.get("line2") ?? ""), city: String(formData.get("city") ?? ""), region: String(formData.get("region") ?? ""), postalCode: String(formData.get("postalCode") ?? ""), countryCode, phone },
       paymentMethod: formData.get("paymentMethod"),
@@ -118,7 +112,7 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8d6745]">Secure order</p>
         <Title as="h1" className="mt-3" text="Checkout" tone="gold" />
-        {error ? <div role="alert" className="mt-6 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {displayError ? <div role="alert" className="mt-6 border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{displayError}</div> : null}
 
         <form className="mt-8 grid gap-8 sm:mt-10 lg:grid-cols-[1fr_360px]" onSubmit={submitOrder}>
           <div className="space-y-6">
@@ -135,7 +129,7 @@ export default function CheckoutPage() {
               <label className="text-sm">Postcode<input className={input} name="postalCode" required /></label>
               <label className="text-sm">
                 Country
-                <select className={input} onChange={(event) => setCountryCode(event.target.value)} value={countryCode}>
+                <select className={input} onChange={(event) => { setCountryCode(event.target.value); setShippingMethodId(undefined); }} value={countryCode}>
                   <option value="GB">United Kingdom</option>
                   <option value="PK">Pakistan</option>
                   <option value="AE">United Arab Emirates</option>
@@ -161,29 +155,50 @@ export default function CheckoutPage() {
 
           <aside className="h-fit min-w-0 border border-black/10 bg-white/45 p-5 sm:p-6 lg:sticky lg:top-8">
             <Title text="Order summary" tone="gold" variant="small" />
-            <div className="mt-5 space-y-3 border-b border-black/10 pb-5">
-              {cart.map((item) => (
-                <div className="flex items-start justify-between gap-4 text-sm" key={item.slug}>
-                  <span className="min-w-0 break-words">
-                    <ProductCodeBar code={item.productCode} className="mb-2" />
-                    {item.name} × {item.quantity}
-                  </span>
-                  <span className="shrink-0">{money(item.pricePence * item.quantity)}</span>
-                </div>
-              ))}
+            <div className="mt-3 border-b border-black/10 lg:mt-5">
+              <button
+                aria-controls="checkout-order-items"
+                aria-expanded={showOrderItems}
+                className="flex min-h-12 w-full items-center justify-between gap-3 text-sm text-[#1c1814] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8d6745] lg:hidden"
+                onClick={() => setShowOrderItems((show) => !show)}
+                type="button"
+              >
+                <span className="font-medium">{cartCount} {cartCount === 1 ? "item" : "items"}</span>
+                <span className="inline-flex shrink-0 items-center gap-2 text-xs">
+                  {showOrderItems ? "Hide items" : "Show items"}
+                  <ChevronDown aria-hidden="true" className={`size-4 transition-transform motion-reduce:transition-none ${showOrderItems ? "rotate-180" : ""}`} />
+                </span>
+              </button>
+              <ul
+                aria-label="Order items"
+                className={`${showOrderItems ? "block" : "hidden"} space-y-3 pb-5 pt-2 lg:block lg:pt-0`}
+                id="checkout-order-items"
+              >
+                {cart.map((item) => (
+                  <li className="flex items-start justify-between gap-4 text-sm" key={item.slug}>
+                    <span className="min-w-0 break-words">
+                      {item.name} × {item.quantity}
+                    </span>
+                    <CartLinePrice line={(quote?.lines ?? cartPricing?.lines)?.find((line) => line.slug === item.slug)} fallbackPence={item.pricePence * item.quantity} />
+                  </li>
+                ))}
+              </ul>
             </div>
             <div className="mt-4 flex gap-2">
-              <input aria-label="Coupon code" className="min-w-0 flex-1 border border-black/20 bg-white/50 px-3 py-2 text-sm uppercase outline-none" onChange={(event) => setCouponCode(event.target.value)} placeholder="Coupon code" value={couponCode} />
-              <button className="shrink-0 border border-black px-3 text-xs font-semibold uppercase" disabled={quoting} onClick={() => void refreshQuote()} type="button">Apply</button>
+              <input aria-label="Coupon code" className="min-w-0 flex-1 border border-black/20 bg-white/50 px-3 py-2 text-sm uppercase outline-none" onChange={(event) => setCouponDraft(event.target.value)} placeholder="Coupon code" value={couponDraft} />
+              <button className="shrink-0 border border-black px-3 text-xs font-semibold uppercase" disabled={placing} onClick={() => { setError(undefined); setCouponCode(couponDraft.trim().toUpperCase()); }} type="button">Apply</button>
             </div>
+            <p className="mt-2 text-xs text-black/45">Coupons replace automatic sale offers.</p>
+            {couponCode ? <button className="mt-2 text-xs underline underline-offset-4" onClick={() => { setCouponCode(""); setCouponDraft(""); setError(undefined); }} type="button">Remove coupon {couponCode}</button> : null}
             {quote ? (
               <>
                 <label className="mt-5 block text-xs font-medium uppercase tracking-wide text-black/50">
                   Delivery method
-                  <select className="mt-2 w-full border border-black/20 bg-white px-3 py-2 text-sm text-black" onChange={(event) => { setShippingMethodId(event.target.value); void refreshQuote(event.target.value); }} value={shippingMethodId}>
+                  <select className="mt-2 w-full border border-black/20 bg-white px-3 py-2 text-sm text-black" onChange={(event) => setShippingMethodId(event.target.value)} value={shippingMethodId ?? quote.shippingMethod.id}>
                     {quote.shippingMethods.map((method) => <option key={method.id} value={method.id}>{method.name} — {money(method.pricePence)}</option>)}
                   </select>
                 </label>
+                {quote.freeQuantity ? <p className="mt-3 text-sm font-medium text-emerald-800">{quote.freeQuantity} {quote.freeQuantity === 1 ? "bottle" : "bottles"} free in this order.</p> : null}
                 <dl className="mt-5 grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 border-y border-black/10 py-4 text-sm">
                   <dt className="text-black/50">Subtotal</dt><dd className="text-right">{money(quote.subtotalPence, quote.currency)}</dd>
                   {quote.discountPence ? <><dt className="min-w-0 break-words text-black/50">Discount{quote.discount ? ` (${quote.discount.name})` : ""}</dt><dd className="text-right text-emerald-700">−{money(quote.discountPence, quote.currency)}</dd></> : null}
@@ -192,9 +207,12 @@ export default function CheckoutPage() {
                 </dl>
               </>
             ) : (
-              <div className="mt-5 flex items-center gap-2 text-sm text-black/45">
-                {quoting ? <LoaderCircle className="animate-spin" size={16} /> : null}
-                {quoting ? "Calculating prices…" : "Delivery quote unavailable"}
+              <div className="mt-5">
+                <CartPriceSummary showCouponControl={false} />
+                <p className="mt-3 flex items-center gap-2 text-sm text-black/45">
+                  {quoting ? <LoaderCircle className="animate-spin" size={16} /> : null}
+                  {quoting ? "Calculating delivery…" : "Delivery quote unavailable"}
+                </p>
               </div>
             )}
             <button className="mt-6 flex w-full items-center justify-center gap-2 bg-[#1c1814] px-5 py-4 text-xs font-semibold uppercase tracking-[0.17em] text-white disabled:opacity-40" disabled={!quote || placing || quoting} type="submit">

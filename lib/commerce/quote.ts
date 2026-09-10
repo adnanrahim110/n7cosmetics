@@ -1,6 +1,6 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
-import { selectOne, selectRows } from "@/lib/db/query";
-import type { QuoteInput } from "./validation";
+import { selectOne, selectRows } from "../db/query";
+import type { CartPricingInput, QuoteInput } from "./validation";
 import { calculateBuyXGetYPricing } from "./sale-pricing";
 
 export type CommerceErrorCode = "CART_CHANGED" | "OUT_OF_STOCK" | "INVALID_COUPON" | "COUPON_LIMIT" | "DELIVERY_UNAVAILABLE";
@@ -14,8 +14,22 @@ interface ShippingRow extends RowDataPacket { id: string; name: string; method_t
 interface CountRow extends RowDataPacket { redemption_count: number }
 
 export interface BundleStockRequirement { variantId: string; name: string; quantity: number; trackInventory: boolean }
-export interface QuoteLine { productId: string; variantId: string; productType: "STANDARD" | "BUNDLE"; slug: string; name: string; variantTitle: string; sku: string; image: string | null; unitPricePence: number; quantity: number; subtotalPence: number; discountPence: number; totalPence: number; stockOnHand: number; trackInventory: boolean; categoryIds: string[]; collectionIds: string[]; bundleComponents: BundleStockRequirement[] }
-export interface CheckoutQuote { lines: QuoteLine[]; subtotalPence: number; discountPence: number; shippingPence: number; taxPence: number; totalPence: number; currency: "GBP"; discount: { id: string; name: string; couponId: string | null; couponCode: string | null; saleId: string | null; freeShipping: boolean } | null; shippingMethod: { id: string; name: string; estimatedDaysMin: number | null; estimatedDaysMax: number | null }; shippingMethods: { id: string; name: string; pricePence: number; estimatedDaysMin: number | null; estimatedDaysMax: number | null }[] }
+export interface QuoteLine { productId: string; variantId: string; productType: "STANDARD" | "BUNDLE"; slug: string; name: string; variantTitle: string; sku: string; image: string | null; unitPricePence: number; quantity: number; subtotalPence: number; discountPence: number; freeQuantity: number; totalPence: number; stockOnHand: number; trackInventory: boolean; categoryIds: string[]; collectionIds: string[]; bundleComponents: BundleStockRequirement[] }
+export interface CartPricing {
+  lines: QuoteLine[];
+  subtotalPence: number;
+  discountPence: number;
+  freeQuantity: number;
+  totalPence: number;
+  currency: "GBP";
+  discount: { id: string; name: string; couponId: string | null; couponCode: string | null; saleId: string | null; freeShipping: boolean } | null;
+}
+export interface CheckoutQuote extends CartPricing {
+  shippingPence: number;
+  taxPence: number;
+  shippingMethod: { id: string; name: string; estimatedDaysMin: number | null; estimatedDaysMax: number | null };
+  shippingMethods: { id: string; name: string; pricePence: number; estimatedDaysMin: number | null; estimatedDaysMax: number | null }[];
+}
 
 interface PromotionCandidate {
   id: string;
@@ -25,6 +39,7 @@ interface PromotionCandidate {
   eligible: QuoteLine[];
   eligibleSubtotal: number;
   allocations: Map<string, number> | null;
+  freeUnits: Map<string, number> | null;
   couponId: string | null;
   couponCode: string | null;
   saleId: string | null;
@@ -34,7 +49,7 @@ const ids = (value: string | null) => value?.split(",").filter(Boolean) ?? [];
 function lineEligible(line: QuoteLine, discount: DiscountRow) { if (discount.applies_to === "ALL") return true; const targets = discount.applies_to === "PRODUCTS" ? ids(discount.product_ids) : discount.applies_to === "CATEGORIES" ? ids(discount.category_ids) : ids(discount.collection_ids); const lineValues = discount.applies_to === "PRODUCTS" ? [line.productId] : discount.applies_to === "CATEGORIES" ? line.categoryIds : line.collectionIds; return lineValues.some((id) => targets.includes(id)); }
 function discountAmount(discount: DiscountRow, eligibleSubtotal: number) { if (!eligibleSubtotal || discount.discount_type === "FREE_SHIPPING") return 0; let amount = discount.discount_type === "PERCENTAGE" ? Math.floor(eligibleSubtotal * Math.min(discount.value, 100) / 100) : Math.min(discount.value, eligibleSubtotal); if (discount.maximum_discount_pence !== null) amount = Math.min(amount, discount.maximum_discount_pence); return amount; }
 
-export async function calculateQuote(input: QuoteInput, connection?: PoolConnection): Promise<CheckoutQuote> {
+export async function calculateCartPricing(input: CartPricingInput, connection?: PoolConnection): Promise<CartPricing> {
   const placeholders = input.items.map(() => "?").join(",");
   const productRows = await selectRows<ProductRow>(`SELECT CAST(p.id AS CHAR) AS product_id, CAST(v.id AS CHAR) AS variant_id, p.product_type, p.slug, p.name AS product_name, v.title AS variant_title, v.sku, v.price_pence, v.stock_on_hand, p.track_inventory, i.url AS image_url, GROUP_CONCAT(DISTINCT pc.category_id) AS category_ids, GROUP_CONCAT(DISTINCT pcl.collection_id) AS collection_ids FROM products p INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 AND v.status = 'ACTIVE' LEFT JOIN product_images i ON i.id = (SELECT pi.id FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) LEFT JOIN product_categories pc ON pc.product_id = p.id LEFT JOIN product_collections pcl ON pcl.product_id = p.id WHERE p.status = 'ACTIVE' AND p.slug IN (${placeholders}) GROUP BY p.id, v.id, i.url`, input.items.map((item) => item.slug), connection);
   if (productRows.length !== input.items.length) throw new CommerceError("CART_CHANGED", "One or more products are no longer available.");
@@ -65,7 +80,7 @@ export async function calculateQuote(input: QuoteInput, connection?: PoolConnect
       if (Boolean(component.track_inventory) && component.stock_on_hand < component.quantity * item.quantity) throw new CommerceError("OUT_OF_STOCK", `${row.product_name} does not have enough component stock.`);
     }
     const subtotal = row.price_pence * item.quantity;
-    return { productId: row.product_id, variantId: row.variant_id, productType: row.product_type, slug: row.slug, name: row.product_name, variantTitle: row.variant_title, sku: row.sku, image: row.image_url, unitPricePence: row.price_pence, quantity: item.quantity, subtotalPence: subtotal, discountPence: 0, totalPence: subtotal, stockOnHand: row.stock_on_hand, trackInventory: Boolean(row.track_inventory), categoryIds: ids(row.category_ids), collectionIds: ids(row.collection_ids), bundleComponents: components.map((component) => ({ variantId: component.variant_id, name: component.product_name, quantity: component.quantity, trackInventory: Boolean(component.track_inventory) })) };
+    return { productId: row.product_id, variantId: row.variant_id, productType: row.product_type, slug: row.slug, name: row.product_name, variantTitle: row.variant_title, sku: row.sku, image: row.image_url, unitPricePence: row.price_pence, quantity: item.quantity, subtotalPence: subtotal, discountPence: 0, freeQuantity: 0, totalPence: subtotal, stockOnHand: row.stock_on_hand, trackInventory: Boolean(row.track_inventory), categoryIds: ids(row.category_ids), collectionIds: ids(row.collection_ids), bundleComponents: components.map((component) => ({ variantId: component.variant_id, name: component.product_name, quantity: component.quantity, trackInventory: Boolean(component.track_inventory) })) };
   });
   const subtotalPence = lines.reduce((sum, line) => sum + line.subtotalPence, 0);
   const discounts = await selectRows<DiscountRow>(`SELECT CAST(d.id AS CHAR) AS id, d.name, d.method, d.discount_type, d.value, d.applies_to, d.minimum_subtotal_pence, d.maximum_discount_pence, CAST(c.id AS CHAR) AS coupon_id, c.code AS coupon_code, c.usage_limit, c.per_email_limit, COALESCE(c.used_count, 0) AS used_count, (SELECT GROUP_CONCAT(product_id) FROM discount_products WHERE discount_id = d.id) AS product_ids, (SELECT GROUP_CONCAT(category_id) FROM discount_categories WHERE discount_id = d.id) AS category_ids, (SELECT GROUP_CONCAT(collection_id) FROM discount_collections WHERE discount_id = d.id) AS collection_ids FROM discounts d LEFT JOIN coupons c ON c.discount_id = d.id AND c.is_active = 1 WHERE d.is_active = 1 AND (d.starts_at IS NULL OR d.starts_at <= CURRENT_TIMESTAMP(3)) AND (d.ends_at IS NULL OR d.ends_at > CURRENT_TIMESTAMP(3)) AND (d.method = 'AUTOMATIC' OR (d.method = 'COUPON' AND c.code = ?)) ORDER BY d.priority DESC, d.id`, [input.couponCode ?? ""], connection);
@@ -85,6 +100,7 @@ export async function calculateQuote(input: QuoteInput, connection?: PoolConnect
       amount: discountAmount(discount, eligibleSubtotal),
       freeShipping: discount.discount_type === "FREE_SHIPPING" && eligibleSubtotal > 0,
       allocations: null,
+      freeUnits: null,
       couponId: discount.coupon_id,
       couponCode: discount.coupon_code,
       saleId: null,
@@ -106,7 +122,7 @@ export async function calculateQuote(input: QuoteInput, connection?: PoolConnect
         sale.buy_quantity,
         sale.free_quantity,
       );
-      if (!pricing.amountPence) continue;
+      if (!pricing.freeQuantity) continue;
       candidates.push({
         id: sale.id,
         name: sale.name,
@@ -115,6 +131,7 @@ export async function calculateQuote(input: QuoteInput, connection?: PoolConnect
         amount: pricing.amountPence,
         freeShipping: false,
         allocations: pricing.allocations,
+        freeUnits: pricing.freeUnits,
         couponId: null,
         couponCode: null,
         saleId: sale.id,
@@ -123,11 +140,12 @@ export async function calculateQuote(input: QuoteInput, connection?: PoolConnect
   }
   const selected = candidates.sort((a, b) => (Number(b.freeShipping) - Number(a.freeShipping)) || b.amount - a.amount)[0] ?? null;
   if (input.couponCode && (!selected || (!selected.amount && !selected.freeShipping))) throw new CommerceError("INVALID_COUPON", "The coupon does not apply to this cart.");
-  if (selected?.amount) {
+  if (selected && (selected.amount || selected.freeUnits)) {
     if (selected.allocations) {
       for (const line of selected.eligible) {
         const amount = Math.min(line.totalPence, selected.allocations.get(line.variantId) ?? 0);
         line.discountPence = amount;
+        line.freeQuantity = selected.freeUnits?.get(line.variantId) ?? 0;
         line.totalPence -= amount;
       }
     } else {
@@ -140,13 +158,30 @@ export async function calculateQuote(input: QuoteInput, connection?: PoolConnect
       });
     }
   }
+  const discountPence = lines.reduce((sum, line) => sum + line.discountPence, 0);
+  return {
+    lines, subtotalPence, discountPence,
+    freeQuantity: lines.reduce((sum, line) => sum + line.freeQuantity, 0),
+    totalPence: subtotalPence - discountPence,
+    currency: "GBP",
+    discount: selected ? {
+      id: selected.id, name: selected.name, couponId: selected.couponId,
+      couponCode: selected.couponCode, saleId: selected.saleId, freeShipping: selected.freeShipping,
+    } : null,
+  };
+}
+
+export async function calculateQuote(input: QuoteInput, connection?: PoolConnection): Promise<CheckoutQuote> {
+  const pricing = await calculateCartPricing(input, connection);
   const shippingRows = await selectRows<ShippingRow>(`SELECT CAST(m.id AS CHAR) AS id, m.name, m.method_type, m.price_pence, m.free_over_pence, m.estimated_days_min, m.estimated_days_max FROM shipping_methods m INNER JOIN shipping_zones z ON z.id = m.zone_id AND z.is_active = 1 INNER JOIN shipping_zone_countries c ON c.zone_id = z.id WHERE c.country_code = ? AND m.is_active = 1 ORDER BY z.sort_order, m.sort_order, m.id`, [input.countryCode], connection);
   if (!shippingRows.length) throw new CommerceError("DELIVERY_UNAVAILABLE", "Delivery is not configured for this country.");
   const chosen = input.shippingMethodId ? shippingRows.find((method) => method.id === input.shippingMethodId) : shippingRows[0];
   if (!chosen) throw new CommerceError("DELIVERY_UNAVAILABLE", "The selected delivery method is unavailable.");
-  const discountPence = lines.reduce((sum, line) => sum + line.discountPence, 0);
-  const discountedSubtotal = subtotalPence - discountPence;
-  const shippingPence = selected?.freeShipping || chosen.method_type === "FREE_SHIPPING" || (chosen.free_over_pence !== null && discountedSubtotal >= chosen.free_over_pence) ? 0 : chosen.price_pence;
+  const shippingPence = pricing.discount?.freeShipping || chosen.method_type === "FREE_SHIPPING" || (chosen.free_over_pence !== null && pricing.totalPence >= chosen.free_over_pence) ? 0 : chosen.price_pence;
   const taxPence = 0;
-  return { lines, subtotalPence, discountPence, shippingPence, taxPence, totalPence: discountedSubtotal + shippingPence + taxPence, currency: "GBP", discount: selected ? { id: selected.id, name: selected.name, couponId: selected.couponId, couponCode: selected.couponCode, saleId: selected.saleId, freeShipping: selected.freeShipping } : null, shippingMethod: { id: chosen.id, name: chosen.name, estimatedDaysMin: chosen.estimated_days_min, estimatedDaysMax: chosen.estimated_days_max }, shippingMethods: shippingRows.map((method) => ({ id: method.id, name: method.name, pricePence: method.price_pence, estimatedDaysMin: method.estimated_days_min, estimatedDaysMax: method.estimated_days_max })) };
+  return {
+    ...pricing, shippingPence, taxPence, totalPence: pricing.totalPence + shippingPence + taxPence,
+    shippingMethod: { id: chosen.id, name: chosen.name, estimatedDaysMin: chosen.estimated_days_min, estimatedDaysMax: chosen.estimated_days_max },
+    shippingMethods: shippingRows.map((method) => ({ id: method.id, name: method.name, pricePence: method.price_pence, estimatedDaysMin: method.estimated_days_min, estimatedDaysMax: method.estimated_days_max })),
+  };
 }

@@ -2,6 +2,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import type { CollectionProduct } from "@/content/collections";
 import { hasDatabaseConfig } from "@/lib/env";
 import { selectOne, selectRows } from "@/lib/db/query";
+import { MAX_CART_ITEM_QUANTITY } from "./cart-limits";
 import {
   defaultSalePageConfiguration,
   normalizeStorefrontPageDetail,
@@ -33,6 +34,8 @@ interface SaleProductRow extends RowDataPacket {
   compare_at_price_pence: number | null;
   image_url: string;
   average_rating: number | string;
+  stock_on_hand: number;
+  track_inventory: number;
 }
 
 interface PageSectionRow extends RowDataPacket {
@@ -55,7 +58,10 @@ export interface SaleStorefrontContent extends Omit<StorefrontCollectionPageCont
   saleSlug: string;
   buyQuantity: number;
   freeQuantity: number;
+  products: SaleProduct[];
 }
+
+export interface SaleProduct extends CollectionProduct { maxQuantity: number }
 
 function parseContentJson(value: unknown): unknown {
   if (typeof value !== "string") return value;
@@ -66,7 +72,7 @@ function parseContentJson(value: unknown): unknown {
   }
 }
 
-function mapProduct(row: SaleProductRow): CollectionProduct {
+function mapProduct(row: SaleProductRow): SaleProduct {
   return {
     id: row.id,
     slug: row.slug,
@@ -82,6 +88,7 @@ function mapProduct(row: SaleProductRow): CollectionProduct {
     productCode: row.product_code,
     audience: row.audience,
     image: row.image_url,
+    maxQuantity: row.track_inventory ? Math.max(0, Math.min(MAX_CART_ITEM_QUANTITY, row.stock_on_hand)) : MAX_CART_ITEM_QUANTITY,
   };
 }
 
@@ -149,7 +156,7 @@ export async function getActiveSalePage(
        p.slug, p.name, p.inspired_by, p.product_code, p.audience,
        (SELECT c.name FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id
         WHERE pc.product_id = p.id ORDER BY c.sort_order, c.name LIMIT 1) AS category,
-       v.price_pence, v.compare_at_price_pence,
+       v.price_pence, v.compare_at_price_pence, v.stock_on_hand, p.track_inventory,
        (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort_order, i.id LIMIT 1) AS image_url,
        COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating
      FROM sale_products sp

@@ -2,12 +2,16 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import type { CartPricing } from "@/lib/commerce/quote";
+import type { StorefrontProductLabels } from "@/lib/commerce/catalog";
+import { MAX_CART_ITEM_QUANTITY, MAX_CART_LINES } from "@/lib/commerce/cart-limits";
 
 export interface CommerceProduct {
   slug: string;
   href?: string;
   name: string;
   productCode?: string | null;
+  inspiredBy?: string | null;
   image: string;
   pricePence: number;
 }
@@ -21,7 +25,13 @@ interface CommerceContextValue {
   cartSubtotalPence: number;
   wishlistCount: number;
   isCartOpen: boolean;
-  addToCart: (product: CommerceProduct, quantity?: number) => void;
+  hydrated: boolean;
+  cartPricing: CartPricing | null;
+  pricingLoading: boolean;
+  pricingError: string | null;
+  couponCode: string;
+  setCouponCode: (code: string) => void;
+  addToCart: (product: CommerceProduct, quantity?: number, options?: { openCart?: boolean; maxQuantity?: number }) => void;
   addItemsToCart: (items: Array<{ product: CommerceProduct; quantity: number }>) => void;
   updateQuantity: (slug: string, quantity: number) => void;
   removeFromCart: (slug: string) => void;
@@ -36,6 +46,7 @@ interface CommerceContextValue {
 const CommerceContext = createContext<CommerceContextValue | null>(null);
 const CART_KEY = "n7-cart-v1";
 const WISHLIST_KEY = "n7-wishlist-v1";
+const COUPON_KEY = "n7-coupon-v1";
 
 function isProduct(value: unknown): value is CommerceProduct {
   if (!value || typeof value !== "object") return false;
@@ -45,6 +56,7 @@ function isProduct(value: unknown): value is CommerceProduct {
     && typeof item.image === "string"
     && typeof item.pricePence === "number"
     && (item.productCode == null || typeof item.productCode === "string")
+    && (item.inspiredBy == null || typeof item.inspiredBy === "string")
     && (item.href === undefined || (typeof item.href === "string" && /^\/(?:products|bundles)\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.href)));
 }
 
@@ -66,33 +78,65 @@ function loadCart(): CartItem[] {
   });
 }
 
-export default function CommerceProvider({ children, productCodes }: { children: ReactNode; productCodes: Record<string, string> }) {
+export default function CommerceProvider({ children, productLabels }: { children: ReactNode; productLabels: Record<string, StorefrontProductLabels> }) {
   const [storedCart, setCart] = useState<CartItem[]>([]);
   const [storedWishlist, setWishlist] = useState<CommerceProduct[]>([]);
-  // Resolve current codes for items saved before product codes were stored locally.
-  const cart = useMemo(() => storedCart.map((item) => ({ ...item, productCode: Object.hasOwn(productCodes, item.slug) ? productCodes[item.slug] : item.productCode })), [storedCart, productCodes]);
-  const wishlist = useMemo(() => storedWishlist.map((item) => ({ ...item, productCode: Object.hasOwn(productCodes, item.slug) ? productCodes[item.slug] : item.productCode })), [storedWishlist, productCodes]);
+  // Refresh labels for saved items, including carts created before inspiration was stored.
+  const cart = useMemo(() => storedCart.map((item) => Object.hasOwn(productLabels, item.slug) ? { ...item, ...productLabels[item.slug] } : item), [storedCart, productLabels]);
+  const wishlist = useMemo(() => storedWishlist.map((item) => Object.hasOwn(productLabels, item.slug) ? { ...item, ...productLabels[item.slug] } : item), [storedWishlist, productLabels]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [pricingState, setPricingState] = useState<{ key: string; data?: CartPricing; error?: string } | null>(null);
+  const pricingRequest = JSON.stringify({ items: cart.map(({ slug, quantity }) => ({ slug, quantity })), couponCode: couponCode || undefined });
+  const currentPricing = cart.length && pricingState?.key === pricingRequest ? pricingState : null;
+  const cartPricing = currentPricing?.data ?? null;
+  const pricingError = currentPricing?.error ?? null;
+  const pricingLoading = hydrated && cart.length > 0 && !currentPricing;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setCart(loadCart());
       setWishlist(loadProducts(WISHLIST_KEY));
+      setCouponCode(localStorage.getItem(COUPON_KEY) ?? "");
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => { if (hydrated) localStorage.setItem(CART_KEY, JSON.stringify(cart)); }, [cart, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist)); }, [wishlist, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem(COUPON_KEY, couponCode); }, [couponCode, hydrated]);
 
-  const addToCart = useCallback((product: CommerceProduct, quantity = 1) => {
+  const hasCart = cart.length > 0;
+  useEffect(() => {
+    if (!hydrated || !hasCart) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/commerce/cart", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: pricingRequest, signal: controller.signal,
+        });
+        const data = await response.json() as CartPricing & { error?: string };
+        if (!response.ok) throw new Error(data.error ?? "Unable to calculate cart prices.");
+        if (!controller.signal.aborted) setPricingState({ key: pricingRequest, data });
+      } catch (error) {
+        if (!controller.signal.aborted) setPricingState({ key: pricingRequest, error: error instanceof Error ? error.message : "Unable to calculate cart prices." });
+      }
+    }, 150);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [hasCart, hydrated, pricingRequest]);
+
+  const addToCart = useCallback((product: CommerceProduct, quantity = 1, options?: { openCart?: boolean; maxQuantity?: number }) => {
     setCart((current) => {
-      const safeQuantity = Math.max(1, Math.min(99, Math.floor(quantity)));
+      const maximum = Math.min(MAX_CART_ITEM_QUANTITY, options?.maxQuantity ?? MAX_CART_ITEM_QUANTITY);
+      if (maximum <= 0) return current;
+      const safeQuantity = Math.max(1, Math.min(maximum, Math.floor(quantity)));
       const existing = current.find((item) => item.slug === product.slug);
-      return existing ? current.map((item) => item.slug === product.slug ? { ...item, quantity: Math.min(99, item.quantity + safeQuantity) } : item) : [...current, { ...product, quantity: safeQuantity }];
+      if (!existing && current.length >= MAX_CART_LINES) return current;
+      return existing ? current.map((item) => item.slug === product.slug ? { ...item, quantity: Math.min(maximum, item.quantity + safeQuantity) } : item) : [...current, { ...product, quantity: safeQuantity }];
     });
-    setIsCartOpen(true);
+    if (options?.openCart !== false) setIsCartOpen(true);
   }, []);
   const addItemsToCart = useCallback((items: Array<{ product: CommerceProduct; quantity: number }>) => {
     setCart((current) => {
@@ -101,7 +145,7 @@ export default function CommerceProvider({ children, productCodes }: { children:
         const safeQuantity = Math.max(1, Math.min(99, Math.floor(quantity)));
         const index = next.findIndex((item) => item.slug === product.slug);
         if (index >= 0) next[index] = { ...next[index], quantity: Math.min(99, next[index].quantity + safeQuantity) };
-        else next.push({ ...product, quantity: safeQuantity });
+        else if (next.length < MAX_CART_LINES) next.push({ ...product, quantity: safeQuantity });
       }
       return next;
     });
@@ -109,7 +153,7 @@ export default function CommerceProvider({ children, productCodes }: { children:
   }, []);
   const updateQuantity = useCallback((slug: string, quantity: number) => setCart((current) => quantity <= 0 ? current.filter((item) => item.slug !== slug) : current.map((item) => item.slug === slug ? { ...item, quantity: Math.min(99, Math.floor(quantity)) } : item)), []);
   const removeFromCart = useCallback((slug: string) => setCart((current) => current.filter((item) => item.slug !== slug)), []);
-  const clearCart = useCallback(() => setCart([]), []);
+  const clearCart = useCallback(() => { setCart([]); setCouponCode(""); }, []);
   const openCart = useCallback(() => setIsCartOpen(true), []);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
   const isInCart = useCallback((slug: string) => cart.some((item) => item.slug === slug), [cart]);
@@ -122,6 +166,12 @@ export default function CommerceProvider({ children, productCodes }: { children:
     cartSubtotalPence: cart.reduce((sum, item) => sum + item.pricePence * item.quantity, 0),
     wishlistCount: wishlist.length,
     isCartOpen,
+    hydrated,
+    cartPricing,
+    pricingLoading,
+    pricingError,
+    couponCode,
+    setCouponCode,
     addToCart,
     addItemsToCart,
     updateQuantity,
@@ -132,7 +182,7 @@ export default function CommerceProvider({ children, productCodes }: { children:
     isInCart,
     toggleWishlist,
     isWishlisted,
-  }), [addItemsToCart, addToCart, cart, clearCart, closeCart, isCartOpen, isInCart, isWishlisted, openCart, removeFromCart, toggleWishlist, updateQuantity, wishlist]);
+  }), [addItemsToCart, addToCart, cart, clearCart, closeCart, isCartOpen, isInCart, isWishlisted, openCart, removeFromCart, toggleWishlist, updateQuantity, wishlist, hydrated, cartPricing, pricingLoading, pricingError, couponCode]);
   return <CommerceContext.Provider value={value}>{children}</CommerceContext.Provider>;
 }
 

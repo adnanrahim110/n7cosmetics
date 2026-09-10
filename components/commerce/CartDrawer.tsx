@@ -1,7 +1,5 @@
 "use client";
 
-import ProductCodeBar from "@/components/ui/ProductCodeBar";
-
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import Image from "next/image";
@@ -10,6 +8,9 @@ import { useEffect, useRef } from "react";
 
 import { commerceProductHref, useCommerce } from "./CommerceProvider";
 import Title from "@/components/ui/Title";
+import CartPriceSummary from "./CartPriceSummary";
+import CartLinePrice from "./CartLinePrice";
+import CartProductLabels from "./CartProductLabels";
 
 function money(pence: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -22,7 +23,7 @@ export default function CartDrawer() {
   const {
     cart,
     cartCount,
-    cartSubtotalPence,
+    cartPricing,
     closeCart,
     isCartOpen,
     removeFromCart,
@@ -87,7 +88,7 @@ export default function CartDrawer() {
                   className="mt-1"
                   id="cart-drawer-title"
                   text="Shopping bag"
-                  tone="gold"
+                  tone="ink"
                   variant="compact"
                 />
               </div>
@@ -129,9 +130,7 @@ export default function CartDrawer() {
                       <div className="min-w-0">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <ProductCodeBar code={item.productCode} className="mb-2" />
-                            <h3 className="block break-words font-heading text-lg leading-tight transition-colors group-hover:text-[#9a7048]">{item.name}</h3>
-                            <p className="mt-1.5 text-xs text-black/48">{money(item.pricePence)}</p>
+                            <h3 className="block break-words font-heading text-lg leading-tight text-[#1c1814] transition-colors group-hover:text-[#735132]">{item.name}</h3>
                           </div>
                           <button
                             aria-label={`Remove ${item.name} from cart`}
@@ -142,6 +141,8 @@ export default function CartDrawer() {
                             <Trash2 aria-hidden="true" size={15} strokeWidth={1.5} />
                           </button>
                         </div>
+                        <CartProductLabels productCode={item.productCode} inspiredBy={item.inspiredBy} />
+                        <p className="mt-1.5 text-xs text-black/48">{money(cartPricing?.lines.find((line) => line.slug === item.slug)?.unitPricePence ?? item.pricePence)}</p>
                         <div className="mt-4 flex items-center justify-between gap-3">
                           <div className="relative z-20 inline-flex h-9 items-center border border-black/15 bg-white/35">
                             <button
@@ -157,6 +158,7 @@ export default function CartDrawer() {
                             </span>
                             <button
                               aria-label={`Increase ${item.name} quantity`}
+                              disabled={item.quantity >= Math.min(99, cartPricing?.lines.find((line) => line.slug === item.slug && line.trackInventory)?.stockOnHand ?? 99)}
                               className="grid h-full w-9 place-items-center transition-colors hover:bg-black/5"
                               onClick={() => updateQuantity(item.slug, item.quantity + 1)}
                               type="button"
@@ -164,7 +166,7 @@ export default function CartDrawer() {
                               <Plus aria-hidden="true" size={12} />
                             </button>
                           </div>
-                          <strong className="text-sm font-semibold">{money(item.pricePence * item.quantity)}</strong>
+                          <CartLinePrice line={cartPricing?.lines.find((line) => line.slug === item.slug)} fallbackPence={item.pricePence * item.quantity} />
                         </div>
                       </div>
                     </article>
@@ -192,13 +194,7 @@ export default function CartDrawer() {
 
             {cart.length ? (
               <div className="border-t border-black/10 bg-[#efe7db] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:px-7 sm:pt-6">
-                <div className="flex items-end justify-between gap-5">
-                  <div>
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-black/42">Subtotal</p>
-                    <p className="mt-1 text-xs text-black/42">Delivery calculated at checkout</p>
-                  </div>
-                  <strong className="font-heading text-2xl">{money(cartSubtotalPence)}</strong>
-                </div>
+                <CartPriceSummary />
                 <div className="mt-5 grid grid-cols-2 gap-3">
                   <Link
                     className="flex min-h-12 items-center justify-center border border-[#1c1814] px-4 text-[9px] font-semibold uppercase tracking-[0.18em] transition-colors hover:bg-white/45"

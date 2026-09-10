@@ -1,7 +1,8 @@
 "use client";
 
-import { Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { ArrowRight, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import Title from "@/components/ui/Title";
@@ -39,67 +40,32 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
   };
 
   return (
-    <section className="relative isolate min-h-168 overflow-hidden bg-[#080a0b] text-[#f5eee5] sm:min-h-[70svh] md:min-h-[78svh]">
+    <section
+      aria-labelledby="brand-film-title"
+      className="relative isolate overflow-hidden bg-[#080a0b] text-[#f5eee5]"
+    >
       <video
         ref={videoRef}
         src={film.video}
         muted={isMuted}
         loop
         playsInline
-        preload="metadata"
+        preload="auto"
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         className="absolute inset-0 -z-30 size-full object-cover"
         aria-hidden="true"
         tabIndex={-1}
       />
-      <div className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(5,7,8,0.55)_0%,rgba(5,7,8,0.08)_38%,rgba(5,7,8,0.78)_100%)]" />
+      <div className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,rgba(5,7,8,0.68)_0%,rgba(5,7,8,0.08)_40%,rgba(5,7,8,0.84)_100%)]" />
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,7,8,0.42),transparent_42%,rgba(5,7,8,0.18))]" />
 
-      <div className="mx-auto flex min-h-168 max-w-360 flex-col justify-between px-5 py-7 sm:min-h-[70svh] sm:px-8 md:min-h-[78svh] md:py-10 lg:px-12">
-        <div className="flex items-start justify-between gap-6 border-t border-white/28 pt-5">
-          <motion.span
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 14 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.7, ease }}
-            className="pt-3 text-[9px] font-semibold uppercase tracking-[0.3em] text-white/70 sm:text-[10px]"
-          >
-            {film.eyebrow}
-          </motion.span>
-          <div className="flex items-center gap-3 sm:gap-5">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={togglePlayback}
-                aria-label={isPlaying ? "Pause brand film" : "Play brand film"}
-                className="flex size-11 items-center justify-center rounded-full border border-white/30 bg-black/10 text-white backdrop-blur-md transition-colors duration-300 hover:border-white/70 hover:bg-black/35 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-              >
-                {isPlaying ? (
-                  <Pause className="size-4" fill="currentColor" />
-                ) : (
-                  <Play className="ml-0.5 size-4" fill="currentColor" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsMuted((muted) => !muted)}
-                aria-label={isMuted ? "Unmute brand film" : "Mute brand film"}
-                className="flex size-11 items-center justify-center rounded-full border border-white/30 bg-black/10 text-white backdrop-blur-md transition-colors duration-300 hover:border-white/70 hover:bg-black/35 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-              >
-                {isMuted ? (
-                  <VolumeX className="size-4" />
-                ) : (
-                  <Volume2 className="size-4" />
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid items-end gap-8 pb-2 md:grid-cols-[1.35fr_0.65fr] md:pb-4">
+      <div className="mx-auto flex min-h-[max(44rem,92svh)] max-w-360 flex-col justify-end gap-16 px-5 pb-9 pt-40 sm:px-8 sm:pb-12 sm:pt-44 lg:px-12 lg:pb-14 lg:pt-48">
+        <div className="grid items-end gap-7 md:grid-cols-[1.35fr_0.65fr] md:gap-10">
           <Title
-            className="max-w-7xl uppercase text-[#f4eadf]"
+            as="h1"
+            id="brand-film-title"
+            className="max-w-4xl text-balance uppercase text-[#f4eadf]"
             highlight={film.titleAccent}
             highlightClassName="text-[#d6ad7c]"
             text={`${film.titleLead} ${film.titleAccent}`}
@@ -117,9 +83,19 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
             }}
             className="border-l border-white/30 pl-5 md:justify-self-end md:pl-7"
           >
-            <p className="max-w-sm text-sm font-light leading-7 text-white/72 sm:text-base">
+            <p className="max-w-sm text-sm font-light leading-7 text-white/80 sm:text-base">
               {film.description}
             </p>
+            <Link
+              href="/yusuf-bhai-originals"
+              className="group mt-6 inline-flex min-h-13 items-center justify-center gap-8 border border-[#d6ad7c] bg-[#d6ad7c] px-7 py-3.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#1c1814] transition-colors duration-300 hover:border-[#f4eadf] hover:bg-[#f4eadf] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:mt-7 sm:text-[11px]"
+            >
+              Shop now
+              <ArrowRight
+                aria-hidden="true"
+                className="size-4 motion-safe:transition-transform motion-safe:group-hover:translate-x-1"
+              />
+            </Link>
           </motion.div>
         </div>
       </div>

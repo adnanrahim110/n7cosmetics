@@ -42,7 +42,7 @@
   h4,
   h5,
   h6 {
-    @apply font-heading text-primary-300 tracking-wide;
+    @apply font-heading text-primary-700 tracking-wide;
   }
 }
 
@@ -78,30 +78,24 @@
 
   @media (min-width: 64rem) {
     .recreations-slider-mask {
-      -webkit-mask-image: linear-gradient(
-        to right,
-        transparent 0%,
-        black 15%,
-        black 100%
-      );
-      mask-image: linear-gradient(
-        to right,
-        transparent 0%,
-        black 15%,
-        black 100%
-      );
+      -webkit-mask-image: linear-gradient(to right,
+          transparent 0%,
+          black 15%,
+          black 100%);
+      mask-image: linear-gradient(to right,
+          transparent 0%,
+          black 15%,
+          black 100%);
     }
   }
 
   .announcement-marquee {
     overflow: hidden;
-    mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 12%,
-      black 88%,
-      transparent
-    );
+    mask-image: linear-gradient(to right,
+        transparent,
+        black 12%,
+        black 88%,
+        transparent);
   }
 
   .announcement-marquee-track {

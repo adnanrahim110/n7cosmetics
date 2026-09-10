@@ -37,8 +37,9 @@ function SaleFields({ item, products }: { item?: SaleListRow; products: CustomSe
         searchable={false}
       />
       <label className={label}>
-        Qualifying quantity
+        Buy quantity (paid bottles)
         <input className={`${input} mt-1`} defaultValue={item?.buy_quantity ?? 5} max={99} min={2} name="buyQuantity" required type="number" />
+        <span className="mt-1 block text-xs font-normal text-zinc-500">Paid bottles per offer. Set 5 and 1 free for six bottles in total.</span>
       </label>
       <label className={label}>
         Free quantity
@@ -102,7 +103,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             <summary className="flex cursor-pointer list-none items-center gap-4 px-5 py-4">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-zinc-950">{sale.name}</p>
-                <p className="mt-0.5 text-xs text-zinc-400">{sale.buy_quantity} qualifying · {sale.free_quantity} free · {Number(sale.product_count)} products</p>
+                <p className="mt-0.5 text-xs text-zinc-400">{sale.buy_quantity} paid + {sale.free_quantity} free · repeats every {sale.buy_quantity + sale.free_quantity} bottles · {Number(sale.product_count)} products</p>
               </div>
               <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${sale.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : sale.status === "ARCHIVED" ? "bg-zinc-100 text-zinc-500" : "bg-amber-50 text-amber-700"}`}>{sale.status.toLowerCase()}</span>
             </summary>

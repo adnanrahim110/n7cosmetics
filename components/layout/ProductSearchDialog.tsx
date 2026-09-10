@@ -8,8 +8,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import Title from "@/components/ui/Title";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
+import { MAX_SEARCH_QUERY_LENGTH, MIN_SEARCH_QUERY_LENGTH, normalizeSearchQuery } from "@/lib/commerce/product-search";
 
-const MIN_QUERY_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 300;
 
 interface ProductSearchResult {
@@ -58,8 +58,8 @@ export default function ProductSearchDialog({
   const listboxId = useId();
   const titleId = useId();
   const router = useRouter();
-  const normalizedQuery = query.trim().replace(/\s+/g, " ");
-  const canSearch = normalizedQuery.length >= MIN_QUERY_LENGTH;
+  const normalizedQuery = normalizeSearchQuery(query);
+  const canSearch = normalizedQuery.length >= MIN_SEARCH_QUERY_LENGTH;
 
   useEffect(() => {
     if (!open) return;
@@ -121,17 +121,14 @@ export default function ProductSearchDialog({
           { signal: controller.signal },
         );
         const payload = (await response.json()) as ProductSearchResponse;
+        if (controller.signal.aborted) return;
         if (!response.ok) {
           throw new Error(payload.error ?? "Products could not be searched.");
         }
         setResults(Array.isArray(payload.results) ? payload.results : []);
+        setError("");
       } catch (requestError) {
-        if (
-          requestError instanceof DOMException &&
-          requestError.name === "AbortError"
-        ) {
-          return;
-        }
+        if (controller.signal.aborted) return;
         setError(
           requestError instanceof Error
             ? requestError.message
@@ -229,14 +226,15 @@ export default function ProductSearchDialog({
                   autoComplete="off"
                   className="min-w-0 flex-1 bg-transparent font-heading text-2xl text-[#1c1814] outline-none placeholder:text-black/28 sm:text-4xl"
                   inputMode="search"
-                  maxLength={80}
+                  maxLength={MAX_SEARCH_QUERY_LENGTH}
                   onChange={(event) => {
                     const nextQuery = event.target.value;
                     setQuery(nextQuery);
+                    // Whitespace-only edits keep the same request and results.
+                    if (normalizeSearchQuery(nextQuery) === normalizedQuery) return;
                     setResults([]);
                     setLoading(
-                      nextQuery.trim().replace(/\s+/g, " ").length >=
-                        MIN_QUERY_LENGTH,
+                      normalizeSearchQuery(nextQuery).length >= MIN_SEARCH_QUERY_LENGTH,
                     );
                     setError("");
                     setActiveIndex(-1);
@@ -254,9 +252,9 @@ export default function ProductSearchDialog({
                         current <= 0 ? results.length - 1 : current - 1,
                       );
                     }
-                    if (event.key === "Enter" && results[activeIndex]) {
+                    if (event.key === "Enter" && !event.nativeEvent.isComposing && results.length) {
                       event.preventDefault();
-                      chooseResult(results[activeIndex]);
+                      chooseResult(results[activeIndex >= 0 ? activeIndex : 0]);
                     }
                   }}
                   placeholder="Name, brand or inspiration…"
@@ -316,8 +314,8 @@ export default function ProductSearchDialog({
                       Discover something memorable
                     </p>
                     <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-black/48">
-                      Search by fragrance name, house, inspiration, category or
-                      SKU.
+                      Search by name, brand, inspiration, fragrance notes or product
+                      code. Partial names and small spelling mistakes work too.
                     </p>
                   </div>
                 </div>
@@ -412,7 +410,7 @@ export default function ProductSearchDialog({
                     No fragrances found
                   </p>
                   <p className="mt-2 text-sm text-black/45">
-                    Try a product name, fragrance house or a shorter term.
+                    Try a name, brand, inspiration, scent note or product code.
                   </p>
                 </div>
               )}

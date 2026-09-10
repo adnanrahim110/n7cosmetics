@@ -2,9 +2,8 @@ import type { RowDataPacket } from "mysql2/promise";
 import { NextResponse } from "next/server";
 import { selectRows } from "@/lib/db/query";
 import { hasDatabaseConfig } from "@/lib/env";
+import { MIN_SEARCH_QUERY_LENGTH, normalizeSearchQuery, rankProductSearchResults } from "@/lib/commerce/product-search";
 
-const MAX_QUERY_LENGTH = 80;
-const MAX_QUERY_TERMS = 5;
 const MAX_RESULTS = 8;
 
 interface ProductSearchRow extends RowDataPacket {
@@ -16,14 +15,18 @@ interface ProductSearchRow extends RowDataPacket {
   inspired_by: string | null;
   product_code: string | null;
   category: string | null;
+  categories: string | null;
+  collections: string | null;
+  sku: string;
+  audience: string;
+  fragrance_notes_json: unknown;
+  short_description: string | null;
+  description: string | null;
+  featured: number;
   price_pence: number;
   compare_at_price_pence: number | null;
   image_url: string;
   image_alt: string | null;
-}
-
-function escapeLikePattern(value: string): string {
-  return value.replaceAll("=", "==").replaceAll("%", "=%").replaceAll("_", "=_");
 }
 
 export async function GET(request: Request) {
@@ -34,54 +37,33 @@ export async function GET(request: Request) {
     );
   }
 
-  const query = new URL(request.url).searchParams
-    .get("q")
-    ?.trim()
-    .replace(/\s+/g, " ")
-    .slice(0, MAX_QUERY_LENGTH) ?? "";
+  const query = normalizeSearchQuery(new URL(request.url).searchParams.get("q") ?? "");
 
-  if (query.length < 2) {
+  if (query.length < MIN_SEARCH_QUERY_LENGTH) {
     return NextResponse.json(
       { results: [] },
       { headers: { "Cache-Control": "private, max-age=30" } },
     );
   }
 
-  const terms = query.split(" ").slice(0, MAX_QUERY_TERMS);
-  const filters = terms.map(
-    () => `(
-      p.name LIKE ? ESCAPE '='
-      OR p.slug LIKE ? ESCAPE '='
-      OR COALESCE(p.brand, '') LIKE ? ESCAPE '='
-      OR COALESCE(p.inspired_by, '') LIKE ? ESCAPE '='
-      OR v.sku LIKE ? ESCAPE '='
-      OR COALESCE(p.short_description, '') LIKE ? ESCAPE '='
-      OR EXISTS (
-        SELECT 1
-        FROM product_categories search_pc
-        INNER JOIN categories search_category ON search_category.id = search_pc.category_id
-        WHERE search_pc.product_id = p.id
-          AND search_category.name LIKE ? ESCAPE '='
-      )
-    )`,
-  );
-  const filterValues = terms.flatMap((term) => {
-    const pattern = `%${escapeLikePattern(term)}%`;
-    return [pattern, pattern, pattern, pattern, pattern, pattern, pattern];
-  });
-  const escapedQuery = escapeLikePattern(query);
-  const startsWithQuery = `${escapedQuery}%`;
-  const containsQuery = `%${escapedQuery}%`;
-
   try {
     const rows = await selectRows<ProductSearchRow>(
       `SELECT CAST(p.id AS CHAR) AS id, p.product_type, p.slug, p.name, p.brand, p.inspired_by, p.product_code,
+         p.audience, p.fragrance_notes_json, p.short_description, p.description, p.featured, v.sku,
          (SELECT category.name
           FROM product_categories pc
           INNER JOIN categories category ON category.id = pc.category_id
-          WHERE pc.product_id = p.id
+          WHERE pc.product_id = p.id AND category.status = 'ACTIVE'
           ORDER BY category.sort_order, category.name
           LIMIT 1) AS category,
+         (SELECT GROUP_CONCAT(category.name SEPARATOR ' ')
+          FROM product_categories pc
+          INNER JOIN categories category ON category.id = pc.category_id AND category.status = 'ACTIVE'
+          WHERE pc.product_id = p.id) AS categories,
+         (SELECT GROUP_CONCAT(collection.name SEPARATOR ' ')
+          FROM product_collections pc
+          INNER JOIN collections collection ON collection.id = pc.collection_id AND collection.status = 'ACTIVE'
+          WHERE pc.product_id = p.id) AS collections,
          v.price_pence, v.compare_at_price_pence,
          image.url AS image_url, image.alt_text AS image_alt
        FROM products p
@@ -94,31 +76,22 @@ export async function GET(request: Request) {
          ORDER BY pi.sort_order, pi.id
          LIMIT 1
        )
-       WHERE p.status = 'ACTIVE'
-         AND ${filters.join(" AND ")}
-       ORDER BY
-         CASE
-           WHEN p.name = ? THEN 0
-           WHEN p.name LIKE ? ESCAPE '=' THEN 1
-           WHEN p.name LIKE ? ESCAPE '=' THEN 2
-           WHEN COALESCE(p.inspired_by, '') LIKE ? ESCAPE '=' THEN 3
-           WHEN COALESCE(p.brand, '') LIKE ? ESCAPE '=' THEN 4
-           ELSE 5
-         END,
-         p.featured DESC,
-         p.name
-       LIMIT ${MAX_RESULTS}`,
-      [
-        ...filterValues,
-        query,
-        startsWithQuery,
-        containsQuery,
-        containsQuery,
-        containsQuery,
-      ],
+       WHERE p.status = 'ACTIVE'`,
     );
 
-    const results = rows.map((row) => ({
+    // Rank the complete visible catalog before limiting, so typo-only matches
+    // are not discarded by a literal SQL filter or an arbitrary candidate cap.
+    const matches = rankProductSearchResults(rows.map((row) => ({
+      ...row,
+      inspiredBy: row.inspired_by,
+      productCode: row.product_code,
+      productType: row.product_type,
+      notes: row.fragrance_notes_json,
+      shortDescription: row.short_description,
+      featured: Boolean(row.featured),
+    })), query, MAX_RESULTS);
+
+    const results = matches.map((row) => ({
       id: row.id,
       productType: row.product_type,
       slug: row.slug,

@@ -15,7 +15,7 @@
     "start": "node server.js",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:unit": "tsc -p tsconfig.tests.json && node --test .tests-dist/tests/admin-form.test.js .tests-dist/tests/destination.test.js .tests-dist/tests/commerce-validation.test.js .tests-dist/tests/review-validation.test.js .tests-dist/tests/auth-password.test.js .tests-dist/tests/contact-email.test.js .tests-dist/tests/image-zoom.test.js",
+    "test:unit": "tsc -p tsconfig.tests.json && node --test .tests-dist/tests/admin-form.test.js .tests-dist/tests/destination.test.js .tests-dist/tests/commerce-validation.test.js .tests-dist/tests/review-validation.test.js .tests-dist/tests/auth-password.test.js .tests-dist/tests/contact-email.test.js .tests-dist/tests/image-zoom.test.js .tests-dist/tests/product-search.test.js .tests-dist/tests/cart-pricing.test.js",
     "db:migrate": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/migrate.js",
     "db:create-admin": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/create-admin.js",
     "db:seed": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/seed.js",

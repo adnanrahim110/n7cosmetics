@@ -101,11 +101,11 @@ export function defaultSalePageConfiguration(
     hero: {
       eyebrow: "Limited offer / Selected fragrances",
       title: { lead: saleName, accent: "Sale" },
-      intro: `Choose ${buyQuantity} fragrances from this limited edit and enjoy ${freeQuantity} on us.`,
+      intro: `Choose ${buyQuantity + freeQuantity} eligible fragrances and pay for ${buyQuantity}. The ${freeQuantity === 1 ? "lowest-priced bottle is" : `${freeQuantity} lowest-priced bottles are`} free. Keep shopping to repeat the offer.`,
       statement: "A considered selection. An exceptional opportunity.",
       highlights: [
-        `${buyQuantity} qualifying products`,
-        `${freeQuantity} included free`,
+        `${buyQuantity} paid + ${freeQuantity} free`,
+        `Repeats every ${buyQuantity + freeQuantity} bottles`,
         "While availability lasts",
       ],
       productIds: [],
