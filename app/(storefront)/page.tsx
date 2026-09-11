@@ -2,6 +2,7 @@ import AudienceCollections from "@/components/sections/AudienceCollections";
 import BrandFilmSection from "@/components/sections/BrandFilmSection";
 import FeaturesStrip from "@/components/sections/FeaturesStrip";
 import FragranceOfWeek from "@/components/sections/FragranceOfWeek";
+import HeroSection from "@/components/sections/HeroSection";
 import RecreationsSlider from "@/components/sections/RecreationsSlider";
 import ReviewsSection from "@/components/sections/ReviewsSection";
 import ScentStorySection from "@/components/sections/ScentStorySection";
@@ -13,22 +14,22 @@ export default async function Home() {
   const { configuration } = content;
   return (
     <>
-      {/* <HeroSection
-        content={configuration.hero}
-        products={content.heroProducts}
-      /> */}
       <BrandFilmSection film={configuration.brandFilm} />
       <SignatureFragrances
         content={configuration.signature}
         products={content.signatureProducts}
       />
-      <FragranceOfWeek
-        content={configuration.weekly}
-        product={content.weeklyProduct}
+      <HeroSection
+        content={configuration.hero}
+        products={content.heroProducts}
       />
       <RecreationsSlider
         content={configuration.recreations}
         products={content.recreationProducts}
+      />
+      <FragranceOfWeek
+        content={configuration.weekly}
+        product={content.weeklyProduct}
       />
       <ScentStorySection story={configuration.scentStory} />
       <AudienceCollections content={configuration.audience} />
