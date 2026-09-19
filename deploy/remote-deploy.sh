@@ -20,6 +20,8 @@ actual_sha="$(docker image inspect --format '{{index .Config.Labels "org.opencon
 bash "$APP_DIR/backup.sh"
 cp release.env release.previous.env
 changed=0
+worker_was_running="$(compose ps -q email-worker)"
+payment_worker_was_running="$(compose ps -q payment-worker)"
 rollback() {
   status=$?
   if [[ "$status" -ne 0 && "$changed" -eq 1 ]]; then
@@ -27,8 +29,18 @@ rollback() {
     cp release.previous.env release.env
     if [[ -s .has-successful-release ]]; then
       compose up -d --no-deps --wait --wait-timeout 180 app || true
+      if [[ -n "$worker_was_running" ]]; then
+        compose up -d --no-deps --wait email-worker || true
+      else
+        compose stop email-worker || true
+      fi
+      if [[ -n "$payment_worker_was_running" ]]; then
+        compose up -d --no-deps --wait payment-worker || true
+      else
+        compose stop payment-worker || true
+      fi
     else
-      compose stop app || true
+      compose stop app email-worker payment-worker || true
     fi
   fi
   exit "$status"
@@ -43,6 +55,8 @@ docker exec -e EXPECTED_SHA="$EXPECTED_SHA" n7-app node -e '
 fetch("http://127.0.0.1:3000/api/health",{signal:AbortSignal.timeout(10000)})
  .then(async r=>{const body=await r.json();if(!r.ok||body.release!==process.env.EXPECTED_SHA)throw Error("Release health check failed");console.log(JSON.stringify(body));})
  .catch(e=>{console.error(e.message);process.exitCode=1;});'
+compose up -d --no-deps --wait --wait-timeout 90 email-worker
+compose up -d --no-deps --wait --wait-timeout 90 payment-worker
 printf '%s\n' "$EXPECTED_SHA" > .has-successful-release
 changed=0
 compose ps

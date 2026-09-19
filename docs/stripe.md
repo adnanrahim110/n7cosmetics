@@ -1,0 +1,15 @@
+# Stripe checkout
+
+In **Admin → Settings → Stripe payments**, the owner selects Test/Live mode and enters the publishable key, secret key and webhook signing secret. Blank secret fields preserve existing values. Secrets use the same AES-256-GCM encryption as SMTP and are never returned to the browser. No Stripe environment variables are used. Placeholder hints are provided; checkout remains disabled until all matching keys are saved and enabled.
+
+Register `https://<storefront-domain>/api/payments/stripe/webhook` in Stripe for `payment_intent.succeeded`, `payment_intent.payment_failed`, and `payment_intent.canceled`. Use the corresponding endpoint signing secret. For local testing, forward events with the Stripe CLI and enter its `whsec_…` value in admin. Use test credentials first. Register each HTTPS storefront domain in Stripe payment method domains for Apple Pay and Google Pay; wallet visibility depends on device/browser eligibility. Local wallets also require HTTPS. API keys and domain registration need access to the merchant's Stripe account.
+
+Cards use the Payment Element; wallets use Express Checkout on cart and checkout. The Payment Intents API preserves this storefront's existing custom form, delivery options, coupons and authoritative pricing. All amounts are calculated server-side; an unexpected total requires the shopper to refresh. Only `card` is enabled, covering cards and these two wallets. Link, PayPal, Klarna and Amazon Pay are disabled. Card details go directly to Stripe.
+
+The server creates a pending order and reserves stock/coupon usage for 30 minutes. Retries with the same checkout key reuse the order and Stripe intent. Changed details cancel the previous unpaid attempt first. Signature-verified webhooks mark successful payments paid and enqueue order emails transactionally and once. The confirmation page checks the database; visiting a return URL never marks an order paid. An authenticated Stripe API response can also reconcile a succeeded intent during a retry or worker run.
+
+Run `pnpm payments:worker` alongside local development. Production Compose includes `payment-worker`, which checks expired orders every 30 seconds. It cancels unpaid intents before restoring reserved stock/coupon usage; a processing payment retains its stock until Stripe resolves it. Keep existing keys while checkouts are pending. To change Stripe accounts/mode, disable new payments and let pending orders settle/expire first. Do not remove the worker from a live deployment.
+
+The checkout remains a guest checkout. Saving a card to a customer account is not offered because this storefront has no customer account/sign-in system. Wallets retain their own saved cards.
+
+Non-browser checks: `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, `pnpm payments:verify-flow`, `pnpm build:deploy`. The payment integration check uses an isolated local database and mocked Stripe data; it never charges a card or sends email. Real Stripe end-to-end verification still requires merchant test keys and a registered webhook/domain.

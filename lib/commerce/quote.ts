@@ -3,7 +3,7 @@ import { selectOne, selectRows } from "../db/query";
 import type { CartPricingInput, QuoteInput } from "./validation";
 import { calculateBuyXGetYPricing } from "./sale-pricing";
 
-export type CommerceErrorCode = "CART_CHANGED" | "OUT_OF_STOCK" | "INVALID_COUPON" | "COUPON_LIMIT" | "DELIVERY_UNAVAILABLE";
+export type CommerceErrorCode = "CART_CHANGED" | "OUT_OF_STOCK" | "INVALID_COUPON" | "COUPON_LIMIT" | "DELIVERY_UNAVAILABLE" | "CHECKOUT_CHANGED" | "CHECKOUT_EXPIRED";
 export class CommerceError extends Error { constructor(public readonly code: CommerceErrorCode, message: string) { super(message); this.name = "CommerceError"; } }
 
 interface ProductRow extends RowDataPacket { product_id: string; variant_id: string; product_type: "STANDARD" | "BUNDLE"; slug: string; product_name: string; variant_title: string; sku: string; price_pence: number; stock_on_hand: number; track_inventory: number; image_url: string | null; category_ids: string | null; collection_ids: string | null }
@@ -174,9 +174,9 @@ export async function calculateCartPricing(input: CartPricingInput, connection?:
 export async function calculateQuote(input: QuoteInput, connection?: PoolConnection): Promise<CheckoutQuote> {
   const pricing = await calculateCartPricing(input, connection);
   const shippingRows = await selectRows<ShippingRow>(`SELECT CAST(m.id AS CHAR) AS id, m.name, m.method_type, m.price_pence, m.free_over_pence, m.estimated_days_min, m.estimated_days_max FROM shipping_methods m INNER JOIN shipping_zones z ON z.id = m.zone_id AND z.is_active = 1 INNER JOIN shipping_zone_countries c ON c.zone_id = z.id WHERE c.country_code = ? AND m.is_active = 1 ORDER BY z.sort_order, m.sort_order, m.id`, [input.countryCode], connection);
-  if (!shippingRows.length) throw new CommerceError("DELIVERY_UNAVAILABLE", "Delivery is not configured for this country.");
+  if (!shippingRows.length) throw new CommerceError("DELIVERY_UNAVAILABLE", "Shipment is not configured for this country.");
   const chosen = input.shippingMethodId ? shippingRows.find((method) => method.id === input.shippingMethodId) : shippingRows[0];
-  if (!chosen) throw new CommerceError("DELIVERY_UNAVAILABLE", "The selected delivery method is unavailable.");
+  if (!chosen) throw new CommerceError("DELIVERY_UNAVAILABLE", "The shipment option is unavailable.");
   const shippingPence = pricing.discount?.freeShipping || chosen.method_type === "FREE_SHIPPING" || (chosen.free_over_pence !== null && pricing.totalPence >= chosen.free_over_pence) ? 0 : chosen.price_pence;
   const taxPence = 0;
   return {

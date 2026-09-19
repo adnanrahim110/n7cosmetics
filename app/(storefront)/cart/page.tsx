@@ -8,6 +8,7 @@ import Title from "@/components/ui/Title";
 import CartProductLabels from "@/components/commerce/CartProductLabels";
 import CartPriceSummary from "@/components/commerce/CartPriceSummary";
 import CartLinePrice from "@/components/commerce/CartLinePrice";
+import CartExpressPayment from "@/components/commerce/CartExpressPayment";
 
 function money(pence: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -100,6 +101,7 @@ export default function CartPage() {
               >
                 Checkout <ArrowRight size={16} />
               </Link>
+              <CartExpressPayment />
             </aside>
           </div>
         ) : (

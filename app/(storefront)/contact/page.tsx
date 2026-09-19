@@ -179,7 +179,7 @@ export default async function ContactPage() {
                   the contact email configured by the N7 Cosmetics team.
                 </p>
               </div>
-              <ContactForm enabled={Boolean(settings.email)} />
+              <ContactForm enabled />
             </div>
           </div>
         </section>

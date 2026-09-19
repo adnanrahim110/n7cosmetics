@@ -1,16 +1,16 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 
-import { commerceProductHref, useCommerce } from "./CommerceProvider";
 import Title from "@/components/ui/Title";
-import CartPriceSummary from "./CartPriceSummary";
 import CartLinePrice from "./CartLinePrice";
+import CartPriceSummary from "./CartPriceSummary";
 import CartProductLabels from "./CartProductLabels";
+import { commerceProductHref, useCommerce } from "./CommerceProvider";
 
 function money(pence: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -38,7 +38,10 @@ export default function CartDrawer() {
     previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+    const focusTimer = window.setTimeout(
+      () => closeButtonRef.current?.focus(),
+      0,
+    );
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeCart();
     };
@@ -57,7 +60,7 @@ export default function CartDrawer() {
       {isCartOpen ? (
         <motion.div
           animate={{ opacity: 1 }}
-          className="fixed inset-0 z-[100]"
+          className="fixed inset-0 z-100"
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
@@ -103,7 +106,10 @@ export default function CartDrawer() {
               </button>
             </div>
 
-            <p className="border-b border-black/8 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-black/45 sm:px-7" aria-live="polite">
+            <p
+              className="border-b border-black/8 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-black/45 sm:px-7"
+              aria-live="polite"
+            >
               {cartCount} {cartCount === 1 ? "item" : "items"} in your bag
             </p>
 
@@ -111,26 +117,41 @@ export default function CartDrawer() {
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 sm:px-7">
                 <div className="divide-y divide-black/10">
                   {cart.map((item) => (
-                    <article className="group relative grid cursor-pointer grid-cols-[88px_minmax(0,1fr)] gap-4 py-5" key={item.slug}>
+                    <article
+                      className="group relative grid cursor-pointer grid-cols-[72px_minmax(0,1fr)] items-start gap-3 py-3"
+                      key={item.slug}
+                    >
                       <Link
                         aria-label={`View ${item.name}`}
                         className="absolute inset-0 z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9a7048]"
                         href={commerceProductHref(item)}
                         onClick={closeCart}
                       />
-                      <div className="pointer-events-none relative aspect-square bg-[#ebe2d5]">
-                        <Image
-                          alt={item.name}
-                          className="object-contain p-2.5"
-                          fill
-                          sizes="88px"
-                          src={item.image}
-                        />
+                      <div className="pointer-events-none min-w-0">
+                        <div className="relative aspect-square bg-[#ebe2d5]">
+                          <Image
+                            alt={item.name}
+                            className="object-contain p-2"
+                            fill
+                            sizes="72px"
+                            src={item.image}
+                          />
+                        </div>
+                        <p className="mt-1.5 text-center text-[11px] text-black/48">
+                          {money(
+                            cartPricing?.lines.find(
+                              (line) => line.slug === item.slug,
+                            )?.unitPricePence ?? item.pricePence,
+                          )}{" "}
+                          each
+                        </p>
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <h3 className="block break-words font-heading text-lg leading-tight text-[#1c1814] transition-colors group-hover:text-[#735132]">{item.name}</h3>
+                            <h3 className="block wrap-break-word font-heading text-base leading-tight text-[#1c1814] transition-colors group-hover:text-[#735132]">
+                              {item.name}
+                            </h3>
                           </div>
                           <button
                             aria-label={`Remove ${item.name} from cart`}
@@ -138,35 +159,63 @@ export default function CartDrawer() {
                             onClick={() => removeFromCart(item.slug)}
                             type="button"
                           >
-                            <Trash2 aria-hidden="true" size={15} strokeWidth={1.5} />
+                            <Trash2
+                              aria-hidden="true"
+                              size={15}
+                              strokeWidth={1.5}
+                            />
                           </button>
                         </div>
-                        <CartProductLabels productCode={item.productCode} inspiredBy={item.inspiredBy} />
-                        <p className="mt-1.5 text-xs text-black/48">{money(cartPricing?.lines.find((line) => line.slug === item.slug)?.unitPricePence ?? item.pricePence)}</p>
-                        <div className="mt-4 flex items-center justify-between gap-3">
+                        <CartProductLabels
+                          productCode={item.productCode}
+                          inspiredBy={item.inspiredBy}
+                        />
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                           <div className="relative z-20 inline-flex h-9 items-center border border-black/15 bg-white/35">
                             <button
                               aria-label={`Decrease ${item.name} quantity`}
                               className="grid h-full w-9 place-items-center transition-colors hover:bg-black/5"
-                              onClick={() => updateQuantity(item.slug, item.quantity - 1)}
+                              onClick={() =>
+                                updateQuantity(item.slug, item.quantity - 1)
+                              }
                               type="button"
                             >
                               <Minus aria-hidden="true" size={12} />
                             </button>
-                            <span className="w-7 text-center text-xs" aria-label={`Quantity ${item.quantity}`}>
+                            <span
+                              className="w-7 text-center text-xs"
+                              aria-label={`Quantity ${item.quantity}`}
+                            >
                               {item.quantity}
                             </span>
                             <button
                               aria-label={`Increase ${item.name} quantity`}
-                              disabled={item.quantity >= Math.min(99, cartPricing?.lines.find((line) => line.slug === item.slug && line.trackInventory)?.stockOnHand ?? 99)}
+                              disabled={
+                                item.quantity >=
+                                Math.min(
+                                  99,
+                                  cartPricing?.lines.find(
+                                    (line) =>
+                                      line.slug === item.slug &&
+                                      line.trackInventory,
+                                  )?.stockOnHand ?? 99,
+                                )
+                              }
                               className="grid h-full w-9 place-items-center transition-colors hover:bg-black/5"
-                              onClick={() => updateQuantity(item.slug, item.quantity + 1)}
+                              onClick={() =>
+                                updateQuantity(item.slug, item.quantity + 1)
+                              }
                               type="button"
                             >
                               <Plus aria-hidden="true" size={12} />
                             </button>
                           </div>
-                          <CartLinePrice line={cartPricing?.lines.find((line) => line.slug === item.slug)} fallbackPence={item.pricePence * item.quantity} />
+                          <CartLinePrice
+                            line={cartPricing?.lines.find(
+                              (line) => line.slug === item.slug,
+                            )}
+                            fallbackPence={item.pricePence * item.quantity}
+                          />
                         </div>
                       </div>
                     </article>

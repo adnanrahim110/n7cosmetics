@@ -12,7 +12,9 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Copy `.env.example` to `.env.local` and configure a local database, an application encryption key, and `MEDIA_STORAGE_DIR=media`. The development server uses port 3003. `.env.local` takes precedence over `.env`; never commit either real environment file.
+Copy `.env.example` to `.env.local` and configure an application encryption key and `MEDIA_STORAGE_DIR=media`. Run `pnpm db:local:setup` to start the dedicated Docker MariaDB 11.4 database on `127.0.0.1:13308` and import `n7cosmetics.sql` into an empty database. Existing data is never replaced. The setup generates local database passwords, updates `.env.local`, and keeps a private backup under `reports/`. Run `pnpm db:migrate` after setup. Use `pnpm db:local:up` / `pnpm db:local:stop` subsequently; do not remove the Docker volume.
+
+The development server uses port 3003. `.env.local` takes precedence over `.env`; never commit either real environment file. Keep `pnpm payments:worker` running alongside development to reconcile expired card checkouts.
 
 ```sh
 pnpm lint
@@ -44,4 +46,6 @@ For this migration, **the user-supplied `n7cosmetics.sql` export is authoritativ
 
 `pnpm db:create-admin` is only for a new database without an administrator. The imported database retains existing accounts and passwords. Remove bootstrap administrator passwords from production configuration.
 
-SMTP settings are stored in the database, and SMTP passwords depend on the existing encryption key. Configure delivery zones and methods in admin before accepting delivery orders. Checkout supports cash on delivery and bank transfer; card payments require a separate gateway integration.
+SMTP and Stripe settings are managed in the admin panel and stored in the database; secrets depend on the existing encryption key. Checkout uses Stripe cards, Apple Pay and Google Pay, UK billing/delivery addresses and GBP totals. Configure delivery methods and Stripe in admin before accepting orders. See [Stripe setup](docs/stripe.md). Older COD/bank-transfer orders retain their history.
+
+Gmail setup, email templates, the delivery queue, saved enquiries and confirmed newsletter subscriptions are described in [the email guide](docs/email.md). Run `pnpm email:worker` alongside local development for retries; production uses the `email-worker` Compose service. SMTP credentials are managed in admin only.

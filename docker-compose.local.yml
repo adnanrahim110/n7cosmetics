@@ -1,0 +1,26 @@
+name: n7cosmetics-local
+
+services:
+  database:
+    image: mariadb:11.4
+    container_name: n7-local-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-n7cosmetics}
+      MARIADB_USER: ${DB_USER:-n7cosmetics}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Run pnpm db:local:setup first}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Run pnpm db:local:setup first}
+    ports:
+      - "127.0.0.1:${DB_PORT:-13308}:3306"
+    volumes:
+      - database_data:/var/lib/mysql
+    command: [--character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+
+volumes:
+  database_data:

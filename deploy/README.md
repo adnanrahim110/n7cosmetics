@@ -74,7 +74,7 @@ systemctl status n7-backup.timer
 sudo -u deploy bash /srv/apps/n7cosmetics/backup.sh
 ```
 
-To restore, stop the application, back up its current state, restore the SQL dump into a clean database, restore matching media and configuration, restore the desired release image, and run the health and media checks. SQL migrations are not automatically reversed.
+To restore, stop both the application and email-worker services, back up its current state, restore the SQL dump into a clean database, restore matching media and configuration, restore the desired release image, and run the health and media checks. SQL migrations are not automatically reversed.
 
 ## Common commands
 
@@ -84,15 +84,20 @@ Run these on the VPS as the deploy user (or root):
 cd /srv/apps/n7cosmetics
 docker compose --env-file stack.env --env-file release.env -f docker-compose.prod.yml ps
 docker logs --tail 100 n7-app
+docker logs --tail 100 n7-email-worker
 docker logs --tail 100 n7-proxy
 curl --fail https://n7.eluvaire.com/api/health
 docker compose --env-file stack.env --env-file release.env -f docker-compose.prod.yml run --rm --no-deps app node scripts/verify-media.cjs
 ```
 
-For an application-only rollback, first confirm that any applied migrations are backward compatible, copy `release.previous.env` to `release.env`, then run Compose `up -d --no-deps --wait app`. The SQL export and private media remain unchanged by routine application releases.
+For an application-only rollback, first confirm that any applied migrations are backward compatible, copy `release.previous.env` to `release.env`, then run Compose `up -d --no-deps --wait app email-worker`. When rolling back to an image from before email-worker support, stop the worker and start only `app`. The SQL export and private media remain unchanged by routine application releases.
 
 ## Reference setup
 
 This follows payment-portal's GitHub Actions → GHCR → SSH → Docker deployment pattern and its use of Traefik and MariaDB. Hostinger-vps was inspected read-only. N7 has its own database, networks, uploads, keys and backups on n7-vps.
 
 Infrastructure references: [Docker on Ubuntu](https://docs.docker.com/engine/install/ubuntu/), [Traefik Docker and ACME setup](https://doc.traefik.io/traefik/setup/docker/). Next.js configuration follows the documentation bundled with this project's installed version.
+
+The `email-worker` service processes saved messages and retries without web requests. It shares the application image, database and encryption secret. Gmail credentials are configured only in the admin panel; see [email setup](../docs/email.md).
+
+The `payment-worker` service reconciles expired Stripe checkouts and releases inventory only after Stripe confirms cancellation. It uses the same database/encryption secret and image. Stripe credentials are configured in **Admin → Settings → Stripe payments**, not in environment files. Register the production webhook and wallet domain before enabling checkout; see [Stripe setup](../docs/stripe.md). Stop both workers during database restores. Include `payment-worker` when rolling back to an image that supports Stripe; otherwise stop it.

@@ -12,10 +12,10 @@ export default function CartProductLabels({
   if (!code && !inspiration) return null;
 
   return (
-    <div className="mt-2 flex min-w-0 items-start gap-2">
+    <div className="flex min-w-0 items-start gap-2">
       <ProductCodeBar code={code} className="shrink-0" compact />
       {inspiration ? (
-        <p className="min-w-0 break-words text-[10px] leading-4 text-[#6b4d2c]">
+        <p className="min-w-0 wrap-break-word text-[10px] leading-4 text-[#6b4d2c]">
           Inspired by <span className="font-semibold">{inspiration}</span>
         </p>
       ) : null}

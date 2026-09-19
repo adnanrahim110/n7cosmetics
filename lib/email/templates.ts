@@ -1,0 +1,56 @@
+import { details, emailButton, emailLayout, paragraph, escapeEmailHtml, type EmailBrand, type EmailContent } from "./layout";
+
+export interface OrderEmailData {
+  number: string; name: string; email: string; currency: string; status: string; paymentStatus: string; fulfillmentStatus: string;
+  paymentMethod: string; subtotal: number; discount: number; shipping: number; tax: number; total: number;
+  address: string; shippingMethod?: string; trackingReference?: string; trackingUrl?: string; bankInstructions?: string;
+  items: Array<{ name: string; variant: string; quantity: number; unitPrice: number; total: number }>;
+}
+const money = (pence: number, currency: string) => new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(pence / 100);
+const readable = (value: string) => value.toLowerCase().replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+const cleanSubject = (value: string) => value.replace(/[\r\n]+/g, " ").slice(0, 255);
+
+export function orderEmail(brand: EmailBrand, order: OrderEmailData, kind: "confirmation" | "update" | "team"): EmailContent {
+  const titles: Record<string, string> = { NEW: "Your order is with N7.", CONFIRMED: "Your order is confirmed.", PROCESSING: "Your fragrances are being prepared.", SHIPPED: "Your order has been dispatched.", DELIVERED: "Your order is marked delivered.", CANCELLED: "Your order has been cancelled.", REFUNDED: "An update to your order." };
+  const title = kind === "team" ? "A new N7 order." : kind === "confirmation" ? "Your order is with N7." : titles[order.status] ?? "An update to your order.";
+  const intro = kind === "team" ? `${order.name} has placed order ${order.number}. Review the payment status and delivery details below before preparing the order.` : kind === "confirmation" ? `${order.name}, we have received your selection. Keep order reference ${order.number} for any questions about these fragrances.` : `${order.name}, the details for order ${order.number} have been updated. Your current order, payment and fulfilment status are shown below.`;
+  const paymentNote = ["CANCELLED", "REFUNDED"].includes(order.status) ? `Do not make a new payment against this order. The recorded payment status is ${readable(order.paymentStatus).toLowerCase()}. Contact N7 with reference ${order.number} if you need payment details clarified.` : order.paymentStatus === "PAID" ? `Payment of ${money(order.total, order.currency)} is recorded as paid.` : order.paymentMethod === "BANK_TRANSFER" && ["UNPAID", "PENDING"].includes(order.paymentStatus) ? (order.bankInstructions ? `${order.bankInstructions}\nUse ${order.number} as your payment reference.` : `Bank transfer was selected for this order. Contact N7 with reference ${order.number} to request the transfer details before making payment.`) : order.paymentMethod === "CASH_ON_DELIVERY" && ["UNPAID", "PENDING"].includes(order.paymentStatus) ? `${money(order.total, order.currency)} is payable on delivery.` : `Payment status: ${readable(order.paymentStatus)}.`;
+  const facts: Array<[string, string]> = [["Order reference", order.number], ["Order status", readable(order.status)], ["Payment", readable(order.paymentStatus)], ["Fulfilment", readable(order.fulfillmentStatus)], ["Delivery service", order.shippingMethod || ""], ["Tracking reference", order.trackingReference || ""]];
+  const totals: Array<[string, string]> = [["Subtotal", money(order.subtotal, order.currency)], ["Savings", `−${money(order.discount, order.currency)}`], ["Delivery", money(order.shipping, order.currency)], ["Tax", money(order.tax, order.currency)], ["Order total", money(order.total, order.currency)]];
+  const selection = `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:24px 0;font:14px/1.6 Arial,sans-serif"><caption style="text-align:left;padding-bottom:12px;color:#8d6745;font-size:10px;letter-spacing:2px">${kind === "team" ? "ORDERED FRAGRANCES" : "YOUR SELECTION"}</caption><thead><tr><th scope="col" style="text-align:left;padding:10px 0;border-bottom:1px solid #967c55;font-weight:normal;color:#786f64">Fragrance</th><th scope="col" style="text-align:right;padding:10px 0;border-bottom:1px solid #967c55;font-weight:normal;color:#786f64">Amount</th></tr></thead><tbody>${order.items.map((item) => `<tr><td style="padding:16px 10px 16px 0;border-bottom:1px solid #ded6c9;vertical-align:top"><strong style="font-weight:normal;color:#1c1814">${escapeEmailHtml(item.name)}</strong><br /><span style="font-size:12px;color:#786f64">${escapeEmailHtml(item.variant)} · ${item.quantity} × ${money(item.unitPrice, order.currency)}</span></td><td style="padding:16px 0;border-bottom:1px solid #ded6c9;text-align:right;vertical-align:top;white-space:nowrap">${money(item.total, order.currency)}</td></tr>`).join("")}</tbody></table>`;
+  const body = paragraph(intro) + details(facts) + selection + details(totals) + `<h2 style="margin:28px 0 12px;font:normal 23px Georgia,serif">Delivery address</h2>` + paragraph(order.address) + `<h2 style="margin:28px 0 12px;font:normal 23px Georgia,serif">Payment details</h2>` + paragraph(paymentNote) + (order.trackingUrl ? emailButton("Track your delivery", order.trackingUrl) : "") + (kind === "team" ? emailButton("Open orders in admin", `${brand.appUrl}/admin/orders`) : paragraph(brand.contactEmail ? `For help with this order, reply to this email and quote ${order.number}.` : `For help with this order, contact N7 through the website and quote ${order.number}.`));
+  const subject = cleanSubject(kind === "team" ? `New N7 order ${order.number} · ${money(order.total, order.currency)}` : kind === "confirmation" ? `N7 order ${order.number} · Your selection received` : `N7 order ${order.number} · Order update`);
+  return { subject, text: [intro, ...facts.filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`), "", ...order.items.map((item) => `${item.name} (${item.variant}) · ${item.quantity} × ${money(item.unitPrice, order.currency)} = ${money(item.total, order.currency)}`), "", ...totals.map(([label, value]) => `${label}: ${value}`), `\nDelivery address\n${order.address}`, `\nPayment details\n${paymentNote}`, order.trackingUrl ? `Track delivery: ${order.trackingUrl}` : "", `Contact N7: ${brand.contactEmail || `${brand.appUrl}/contact`}`].join("\n"), html: emailLayout(brand, { eyebrow: kind === "team" ? "N7 · Order desk" : "N7 · Your order", title, preview: `${order.number} · ${money(order.total, order.currency)} · ${readable(order.status)}`, body }) };
+}
+
+export function passwordResetEmail(brand: EmailBrand, name: string, resetUrl: string): EmailContent {
+  const intro = `${name}, a password reset was requested for your N7 administrator account. Use the link below to choose a new password.`;
+  const expiry = "This link can be used once and expires 30 minutes after the request. If you did not request it, leave your password unchanged and disregard this message.";
+  return { subject: "N7 administrator · Reset your password", text: `${intro}\n\n${resetUrl}\n\n${expiry}`, html: emailLayout(brand, { eyebrow: "N7 · Administrator access", title: "Restore your access.", preview: "Your one-time N7 administrator reset link. Valid for 30 minutes.", body: paragraph(intro) + emailButton("Choose a new password", resetUrl) + paragraph(expiry) }) };
+}
+
+export interface ContactEmailInput { name: string; email: string; phone?: string; topic: string; message: string }
+export function contactEmail(brand: EmailBrand, input: ContactEmailInput): EmailContent {
+  const topic = cleanSubject(input.topic).slice(0, 120);
+  const facts: Array<[string, string]> = [["Name", input.name], ["Email", input.email], ["Phone", input.phone || "Not provided"], ["Topic", topic]];
+  return { subject: cleanSubject(`N7 enquiry · ${topic}`), text: ["A customer has written to N7.", ...facts.map(([label, value]) => `${label}: ${value}`), "", input.message, "", "Reply to this email to respond directly to the customer."].join("\n"), html: emailLayout(brand, { eyebrow: "N7 · Customer care", title: "A note for the N7 team.", preview: `${input.name} · ${topic}`, body: details(facts) + `<div style="padding:24px;background:#eee8de;border-left:2px solid #967c55">${paragraph(input.message)}</div>` + paragraph("Reply to this email to respond directly to the customer. The enquiry is also saved in your admin inbox.") }) };
+}
+
+export function contactReceiptEmail(brand: EmailBrand, name: string, topic: string, reference: string): EmailContent {
+  const text = `${name}, your message about ${topic.toLowerCase()} is saved with N7 under enquiry ${reference}. Our team can now review it. If you need to add anything, reply to this email and include that reference.`;
+  return { subject: cleanSubject(`N7 enquiry ${reference} · Your message is saved`), text, html: emailLayout(brand, { eyebrow: "N7 · Customer care", title: "Your note is with us.", preview: `Enquiry ${reference} · ${topic}`, body: paragraph(text) + details([["Enquiry reference", reference], ["Regarding", topic]]) }) };
+}
+
+export function newsletterEmail(brand: EmailBrand, kind: "confirm" | "welcome", link: string): EmailContent {
+  if (kind === "confirm") {
+    const text = "You asked to receive N7 fragrance updates. Confirm your address to hear about new fragrances, collection releases and N7 offers. This link expires in 48 hours. If you did not sign up, you can ignore this message; your address will stay off the mailing list.";
+    return { subject: "N7 fragrance updates · Confirm your address", text: `${text}\n\nConfirm: ${link}`, html: emailLayout(brand, { eyebrow: "N7 · Fragrance notes", title: "A place on the N7 list.", preview: "Confirm your address before N7 sends fragrance updates.", body: paragraph(text) + emailButton("Confirm my subscription", link) }) };
+  }
+  const text = "Your address is now confirmed for N7 fragrance updates. We’ll share new additions to the collection and selected offers. Explore Yusuf Bhai Originals, find a familiar inspiration in Recreations, or take a closer look at the N7 Collection.";
+  return { subject: "You’re on the N7 fragrance list", text: `${text}\n\nExplore N7: ${brand.appUrl}\n\nLeave the list: ${link}`, html: emailLayout(brand, { eyebrow: "N7 · Fragrance notes", title: "Good fragrance. Worth a note.", preview: "Your N7 subscription is confirmed.", body: paragraph(text) + emailButton("Explore the collections", brand.appUrl) + paragraph("You can leave the list at any time using the link below."), unsubscribeUrl: link }) };
+}
+
+export function smtpTestEmail(brand: EmailBrand, recipient: string): EmailContent {
+  const text = `This delivery check was requested from N7 admin settings for ${recipient}. Receiving this message confirms delivery to this mailbox through the saved SMTP connection. Check the sender name, reply address and layout before using the same connection for customer emails.`;
+  return { subject: "N7 email delivery · Connection check", text, html: emailLayout(brand, { eyebrow: "N7 · Delivery check", title: "N7, in your inbox.", preview: "A delivery check from the SMTP connection saved in N7 admin.", body: paragraph(text) + details([["Destination", recipient], ["Website", brand.appUrl]]) }) };
+}

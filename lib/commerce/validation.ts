@@ -13,30 +13,35 @@ export const cartPricingInputSchema = z.object({
 });
 
 export const quoteInputSchema = cartPricingInputSchema.extend({
-  countryCode: z.string().regex(/^[A-Z]{2}$/),
+  countryCode: z.literal("GB"),
   shippingMethodId: z.string().regex(/^[1-9]\d*$/).optional(),
+});
+
+const phoneSchema = z.string().trim().min(5).max(50).regex(/^[+\d\s().-]+$/);
+export const checkoutAddressSchema = z.object({
+  fullName: z.string().trim().min(2).max(190),
+  company: z.string().trim().max(190).optional(),
+  line1: z.string().trim().min(2).max(190),
+  line2: z.string().trim().max(190).optional(),
+  city: z.string().trim().min(2).max(120),
+  region: z.string().trim().max(120).optional(),
+  postalCode: z.string().trim().min(2).max(30),
+  countryCode: z.literal("GB"),
+  phone: phoneSchema,
 });
 
 export const checkoutInputSchema = quoteInputSchema.extend({
   idempotencyKey: z.uuid(),
+  expectedTotalPence: z.number().int().min(30).max(99999999),
   customer: z.object({
     name: z.string().trim().min(2).max(190),
     email: z.email().max(190).transform((value) => value.toLowerCase()),
-    phone: z.string().trim().max(50).optional(),
+    phone: phoneSchema,
     notes: z.string().trim().max(2000).optional(),
   }),
-  shippingAddress: z.object({
-    fullName: z.string().trim().min(2).max(190),
-    company: z.string().trim().max(190).optional(),
-    line1: z.string().trim().min(2).max(190),
-    line2: z.string().trim().max(190).optional(),
-    city: z.string().trim().min(2).max(120),
-    region: z.string().trim().max(120).optional(),
-    postalCode: z.string().trim().min(2).max(30),
-    countryCode: z.string().regex(/^[A-Z]{2}$/),
-    phone: z.string().trim().max(50).optional(),
-  }),
-  paymentMethod: z.enum(["CASH_ON_DELIVERY", "BANK_TRANSFER"]),
+  billingAddress: checkoutAddressSchema,
+  shippingAddress: checkoutAddressSchema,
+  paymentMethod: z.literal("STRIPE"),
 }).refine((input) => input.countryCode === input.shippingAddress.countryCode, { path: ["countryCode"] });
 
 export type QuoteInput = z.infer<typeof quoteInputSchema>;

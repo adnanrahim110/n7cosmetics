@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { getApplicationConfig } from "@/lib/env";
+import { getApplicationConfig } from "../env";
 
 const algorithm = "aes-256-gcm";
 

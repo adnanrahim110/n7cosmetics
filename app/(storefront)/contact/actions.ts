@@ -8,10 +8,12 @@ import {
   type ContactTopic,
 } from "@/content/contact";
 import { getRequestMetadata } from "@/lib/auth/request";
-import { getPublicSiteSettings } from "@/lib/commerce/settings";
-import { buildContactEmail } from "@/lib/contact/email";
 import { executeMutation, selectOne } from "@/lib/db/query";
-import { sendProjectEmail } from "@/lib/email/service";
+import { withTransaction } from "@/lib/db/transaction";
+import { getEmailPreferences } from "@/lib/email/brand";
+import { enqueueEmail } from "@/lib/email/queue";
+import { kickEmailQueue } from "@/lib/email/kick";
+import { contactEmail, contactReceiptEmail } from "@/lib/email/templates";
 import { hasDatabaseConfig } from "@/lib/env";
 
 interface AttemptCountRow extends RowDataPacket {
@@ -120,45 +122,23 @@ export async function submitContactAction(
       };
     }
 
-    const settings = await getPublicSiteSettings();
-    const recipient = z.email().max(190).safeParse(settings.email);
-    if (!recipient.success) {
-      await recordAttempt(metadata.ipAddress, false);
-      return {
-        status: "error",
-        message: "The contact email has not been configured. Please try again later.",
-      };
-    }
-
     const topic = contactTopicLabel(parsed.data.topic);
-    const email = buildContactEmail({
-      name: parsed.data.name,
-      email: parsed.data.email,
-      phone: parsed.data.phone,
-      topic,
-      message: parsed.data.message,
+    const id = await withTransaction(async (connection) => {
+      const enquiry = await executeMutation("INSERT INTO contact_enquiries (name, email, phone, topic, message) VALUES (?, ?, ?, ?, ?)", [parsed.data.name, parsed.data.email, parsed.data.phone ?? null, topic, parsed.data.message], connection);
+      const brand = await getEmailPreferences(connection);
+      const id = String(enquiry.insertId);
+      if (brand.contactEmail) {
+        await enqueueEmail({ ...contactEmail(brand, { ...parsed.data, topic }), to: brand.contactEmail, replyTo: parsed.data.email, templateKey: "storefront-contact" }, { dedupeKey: `enquiry:${id}:team` }, connection);
+        await enqueueEmail({ ...contactReceiptEmail(brand, parsed.data.name, topic, `N7-${id}`), to: parsed.data.email, replyTo: brand.contactEmail, templateKey: "contact-receipt" }, { dedupeKey: `enquiry:${id}:receipt` }, connection);
+      }
+      await executeMutation("INSERT INTO contact_form_attempts (ip_address, succeeded) VALUES (?, 1)", [metadata.ipAddress], connection);
+      return id;
     });
-    const result = await sendProjectEmail({
-      to: recipient.data,
-      replyTo: parsed.data.email,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
-      templateKey: "storefront-contact",
-    });
-
-    await recordAttempt(metadata.ipAddress, result.status === "SENT");
-
-    if (result.status !== "SENT") {
-      return {
-        status: "error",
-        message: "We could not send your message right now. Please try again later.",
-      };
-    }
+    kickEmailQueue();
 
     return {
       status: "success",
-      message: "Thank you. Your message has been sent to the N7 Cosmetics team.",
+      message: `Your message is saved with the N7 team. Your enquiry reference is N7-${id}.`,
     };
   } catch (error) {
     console.error("Contact form submission failed", error);

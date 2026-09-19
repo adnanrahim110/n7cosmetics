@@ -47,6 +47,35 @@ services:
       traefik.http.middlewares.n7-headers.headers.contentTypeNosniff: "true"
       traefik.http.middlewares.n7-headers.headers.referrerPolicy: strict-origin-when-cross-origin
 
+  email-worker:
+    image: ${APP_IMAGE:-ghcr.io/adnanrahim110/n7cosmetics:latest}
+    container_name: n7-email-worker
+    init: true
+    restart: unless-stopped
+    env_file: ./app.env
+    environment:
+      NODE_ENV: production
+      DB_HOST: database
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      APP_ENCRYPTION_KEY_FILE: /run/secrets/app_encryption_key
+      MEDIA_STORAGE_DIR: /app/media
+    secrets: [db_password, app_encryption_key]
+    command: [node, .scripts-dist/scripts/email-worker.js]
+    depends_on:
+      database:
+        condition: service_healthy
+    networks: [proxy, database]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    mem_limit: 256m
+    stop_grace_period: 90s
+
+  payment-worker:
+    extends:
+      service: email-worker
+    container_name: n7-payment-worker
+    command: [node, .scripts-dist/scripts/payment-worker.js]
+
   database:
     image: mariadb:11.4
     container_name: n7-db

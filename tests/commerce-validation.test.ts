@@ -12,12 +12,18 @@ test("quote input rejects duplicate lines and excessive quantities", () => {
 test("checkout requires matching delivery country and valid idempotency", () => {
   const base = {
     items: [{ slug: "amber", quantity: 1 }], countryCode: "GB", idempotencyKey: "1e7e8efe-9f52-4c1c-a2a0-f2dc38ecabb8",
-    customer: { name: "N7 Customer", email: "customer@example.com" },
-    shippingAddress: { fullName: "N7 Customer", line1: "1 Test Street", city: "London", postalCode: "SW1A 1AA", countryCode: "GB" },
-    paymentMethod: "CASH_ON_DELIVERY",
+    expectedTotalPence: 4799,
+    customer: { name: "N7 Customer", email: "customer@example.com", phone: "02079460000" },
+    billingAddress: { fullName: "N7 Customer", line1: "1 Test Street", city: "London", postalCode: "SW1A 1AA", countryCode: "GB", phone: "02079460000" },
+    shippingAddress: { fullName: "N7 Recipient", line1: "2 Test Street", city: "London", postalCode: "SW1A 1AA", countryCode: "GB", phone: "02079460001" },
+    paymentMethod: "STRIPE",
   };
   assert.equal(checkoutInputSchema.safeParse(base).success, true);
   assert.equal(checkoutInputSchema.safeParse({ ...base, shippingAddress: { ...base.shippingAddress, countryCode: "US" } }).success, false);
+  assert.equal(checkoutInputSchema.safeParse({ ...base, billingAddress: undefined }).success, false);
+  assert.equal(checkoutInputSchema.safeParse({ ...base, customer: { ...base.customer, phone: "" } }).success, false);
+  assert.equal(checkoutInputSchema.safeParse({ ...base, paymentMethod: "CASH_ON_DELIVERY" }).success, false);
+  assert.equal(checkoutInputSchema.safeParse({ ...base, paymentMethod: "BANK_TRANSFER" }).success, false);
 });
 
 test("buy X get Y pricing discounts qualifying units without customer selection", () => {

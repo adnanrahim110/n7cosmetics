@@ -182,8 +182,8 @@ export default function AboutExperience() {
           >
             <div className="relative mx-auto aspect-4/3 w-full overflow-hidden bg-[#d8c4ad] shadow-[0_30px_80px_rgba(61,44,28,0.16)]">
               <Image
-                src="/imgs/about/our-story.webp"
-                alt="A curated display of warm amber perfume bottles in a fragrance atelier"
+                src="/imgs/about/n7-arabella-our-story.webp"
+                alt="N7 Arabella perfume beside an N7 Cosmetics presentation box and oud wood"
                 fill
                 sizes="(max-width: 1024px) calc(100vw - 2.5rem), 32vw"
                 className="object-cover object-center"

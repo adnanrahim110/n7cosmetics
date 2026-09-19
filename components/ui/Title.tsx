@@ -51,7 +51,7 @@ const titleVariants: Record<TitleVariant, string> = {
 const titleTones: Record<TitleTone, { title: string; highlight: string }> = {
   ink: { title: "text-[#1c1814]", highlight: "text-[#8d6745]" },
   charcoal: { title: "text-[#1a1a1a]", highlight: "text-[#967C55]" },
-  gold: { title: "text-primary-300", highlight: "text-[#967C55]" },
+  gold: { title: "text-primary-500", highlight: "text-[#967C55]" },
   ivory: { title: "text-[#f7f0e8]", highlight: "text-[#b99a6c]" },
   cream: { title: "text-[#f4eadf]", highlight: "text-[#c99b69]" },
   cocoa: { title: "text-[#211a15]", highlight: "text-[#9b6a35]" },
@@ -161,7 +161,8 @@ function parseTitleMarkup(value: string): RichTextNode[] {
   const stack: Array<{ tag: InlineTag | "root"; children: RichTextNode[] }> = [
     { tag: "root", children: root },
   ];
-  const tokenPattern = /<!--[\s\S]*?-->|<\s*\/?\s*[a-z][\w:-]*(?:\s[^<>]*?)?\/?\s*>/gi;
+  const tokenPattern =
+    /<!--[\s\S]*?-->|<\s*\/?\s*[a-z][\w:-]*(?:\s[^<>]*?)?\/?\s*>/gi;
   let cursor = 0;
 
   const appendText = (text: string) => {
@@ -333,9 +334,7 @@ export default function Title({
       }}
       viewport={{ once: true, margin: "-60px" }}
       whileInView={
-        shouldReduceMotion
-          ? undefined
-          : { opacity: [0, 1], y: [24, 0] }
+        shouldReduceMotion ? undefined : { opacity: [0, 1], y: [24, 0] }
       }
     >
       {renderTitleNodes(

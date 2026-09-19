@@ -17,13 +17,13 @@ export default function CartPriceSummary({ showCouponControl = true }: { showCou
             <dt className="text-emerald-800">{cartPricing.discount?.name ?? "Discount"}{cartPricing.freeQuantity ? ` · ${cartPricing.freeQuantity} free` : ""}</dt>
             <dd className="text-emerald-800">−{formatCartPrice(cartPricing.discountPence)}</dd>
           </> : null}
-          {cartPricing.discount?.freeShipping ? <><dt className="text-emerald-800">{cartPricing.discount.name}</dt><dd className="text-emerald-800">Free delivery</dd></> : null}
-          <dt className="border-t border-black/10 pt-2 font-semibold">Total before delivery</dt>
+          {cartPricing.discount?.freeShipping ? <><dt className="text-emerald-800">{cartPricing.discount.name}</dt><dd className="text-emerald-800">Free shipment</dd></> : null}
+          <dt className="border-t border-black/10 pt-2 font-semibold">Total before shipment</dt>
           <dd className="border-t border-black/10 pt-2 font-semibold">{formatCartPrice(cartPricing.totalPence)}</dd>
         </dl>
       ) : <p className={pricingError ? "text-red-700" : "text-black/50"}>{pricingLoading ? "Updating prices and offers…" : pricingError ?? "Loading cart prices…"}</p>}
       {showCouponControl && couponCode ? <button className="mt-2 text-xs underline underline-offset-4" onClick={() => setCouponCode("")} type="button">Remove coupon {couponCode}</button> : null}
-      <p className="mt-2 text-xs text-black/45">Delivery calculated at checkout.</p>
+      <p className="mt-2 text-xs text-black/45">Shipment calculated at checkout.</p>
     </div>
   );
 }

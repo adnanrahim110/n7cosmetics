@@ -1,5 +1,6 @@
 "use client";
 
+import NewsletterForm from "./NewsletterForm";
 import SocialMediaLinks from "@/components/ui/SocialMediaLinks";
 import Title from "@/components/ui/Title";
 import type { NavigationItem } from "@/content/global";
@@ -85,24 +86,7 @@ export default function Footer({
             <p className="text-white/50 text-sm font-light mb-8 max-w-lg">
               {content.newsletterDescription}
             </p>
-            <form
-              className="flex w-full max-w-md border-b border-white/20 pb-3 relative group"
-              onSubmit={(e) => e.preventDefault()}
-            >
-              <input
-                type="email"
-                placeholder={content.newsletterPlaceholder}
-                className="w-full bg-transparent pr-24 text-xs uppercase tracking-[0.16em] text-white placeholder-white/30 focus:outline-none sm:tracking-[0.2em]"
-                required
-              />
-              <button
-                type="submit"
-                className="text-[#967C55] text-xs font-medium tracking-widest uppercase hover:text-white transition-colors absolute right-0 bottom-3"
-              >
-                {content.newsletterButtonLabel}
-              </button>
-              <div className="absolute -bottom-px left-0 w-0 h-px bg-[#967C55] transition-all duration-500 group-focus-within:w-full" />
-            </form>
+            <NewsletterForm placeholder={content.newsletterPlaceholder} buttonLabel={content.newsletterButtonLabel} />
             {settings.address || settings.phone || settings.email ? (
               <div className="mt-8 w-full max-w-md">
                 <div className="flex items-center gap-4">
