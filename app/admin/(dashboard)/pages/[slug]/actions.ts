@@ -54,14 +54,15 @@ function invalid(slug: string, section: "hero" | "detail"): never {
   redirect(`/admin/pages/${slug}?error=${section}#${section}`);
 }
 
-async function validateActiveProductIds(ids: string[], saleId: string | null): Promise<boolean> {
+async function validateActiveProductIds(ids: string[], target: StorefrontPageEditorTarget): Promise<boolean> {
   if (!ids.length) return true;
   const placeholders = ids.map(() => "?").join(", ");
   const rows = await selectRows<ActiveProductRow>(
     `SELECT CAST(p.id AS CHAR) AS id FROM products p
      WHERE p.status = 'ACTIVE' AND p.id IN (${placeholders})
-       ${saleId ? "AND EXISTS (SELECT 1 FROM sale_products sp WHERE sp.product_id = p.id AND sp.sale_id = ?)" : ""}`,
-    saleId ? [...ids, saleId] : ids,
+       ${target.saleId ? "AND EXISTS (SELECT 1 FROM sale_products sp WHERE sp.product_id = p.id AND sp.sale_id = ?)" : ""}
+       ${target.categoryId ? "AND EXISTS (SELECT 1 FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id INNER JOIN product_collections pcl ON pcl.product_id = pc.product_id AND pcl.collection_id = c.collection_id WHERE pc.product_id = p.id AND c.id = ?)" : ""}`,
+    target.saleId ? [...ids, target.saleId] : target.categoryId ? [...ids, target.categoryId] : ids,
   );
   const found = new Set(rows.map((row) => row.id));
   return ids.every((id) => found.has(id));
@@ -137,7 +138,7 @@ export async function saveStorefrontPageHeroAction(slugValue: string, formData: 
     highlights: formStringList(formData, "highlights"),
     productIds: formStringList(formData, "productIds"),
   });
-  if (!parsed.success || !(await validateActiveProductIds(parsed.data.productIds, target.saleId))) invalid(slugValue, "hero");
+  if (!parsed.success || !(await validateActiveProductIds(parsed.data.productIds, target))) invalid(slugValue, "hero");
   await saveSection(target, "hero", "Hero section", {
     eyebrow: parsed.data.eyebrow,
     title: { lead: parsed.data.titleLead, accent: parsed.data.titleAccent },
@@ -157,7 +158,7 @@ export async function saveStorefrontPageDetailAction(slugValue: string, formData
     title: formString(formData, "title"),
     description: formString(formData, "description"),
     credit: formString(formData, "credit"),
-    showComingSoon: target.kind === "collection" && formCheckbox(formData, "showComingSoon"),
+    showComingSoon: target.kind !== "sale" && formCheckbox(formData, "showComingSoon"),
     comingSoonEyebrow: formString(formData, "comingSoonEyebrow"),
     comingSoonTitle: formString(formData, "comingSoonTitle"),
     comingSoonDescription: formString(formData, "comingSoonDescription"),

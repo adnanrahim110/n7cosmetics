@@ -26,6 +26,14 @@
 # runtime media storage
 /media/
 
+# Private migration data and local audit artifacts
+/n7cosmetics.sql
+/reports/
+/deploy/secrets/
+/deploy/*.env
+/deploy/backups/
+*.tar.gz
+
 # misc
 .DS_Store
 *.pem

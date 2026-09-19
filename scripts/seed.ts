@@ -410,22 +410,6 @@ async function prepareMedia(products: PreparedProduct[]): Promise<Map<string, Pr
   }
 }
 
-function categoryDepth(category: StoreCategory, byId: ReadonlyMap<number, StoreCategory>): number {
-  return categoryAncestors(category.id, byId).length;
-}
-
-function categoryDescription(category: StoreCategory, byId: ReadonlyMap<number, StoreCategory>): string {
-  const ancestors = categoryAncestors(category.id, byId).map((item) => item.slug);
-  if (category.slug === "n7") return collectionPages.n7.intro;
-  if (category.slug === "recreations") return collectionPages.recreations.intro;
-  if (category.slug === "yusuf-bhai-originals") return collectionPages.originals.intro;
-  if (category.slug === "premium-collection") return collectionPages.premium.intro;
-  if (category.slug === "bundles") return collectionPages.bundles.intro;
-  if (ancestors.includes("recreations")) return `${decodeHtml(category.name)} fragrances in the Yusuf Bhai recreation collection.`;
-  if (ancestors.includes("yusuf-bhai-originals")) return `${decodeHtml(category.name)} fragrances from the Yusuf Bhai Originals collection.`;
-  return `${decodeHtml(category.name)} fragrances available from N7 Cosmetics.`;
-}
-
 function globalLowStockThreshold(value: unknown): number {
   const parsed = typeof value === "string" ? Number(value) : Number(value ?? Number.NaN);
   return Number.isInteger(parsed) && parsed >= 0 && parsed <= 1_000_000 ? parsed : DEFAULT_LOW_STOCK_THRESHOLD;
@@ -446,7 +430,6 @@ async function oldCatalogMedia(): Promise<ExistingMediaRow[]> {
 
 async function insertCatalog(
   connection: PoolConnection,
-  categories: StoreCategory[],
   products: PreparedProduct[],
   media: ReadonlyMap<string, PreparedMedia>,
   lowStockThreshold: number,
@@ -458,8 +441,10 @@ async function insertCatalog(
   await executeMutation("DELETE FROM product_categories", [], connection);
   await executeMutation("DELETE FROM product_variants", [], connection);
   await executeMutation("DELETE FROM products", [], connection);
-  await executeMutation("DELETE FROM collections", [], connection);
+  await executeMutation("UPDATE discounts SET is_active = 0 WHERE applies_to = 'CATEGORIES'", [], connection);
   await executeMutation("DELETE FROM categories", [], connection);
+  await executeMutation("DELETE FROM collections", [], connection);
+  await executeMutation("DELETE FROM page_sections WHERE page_key LIKE 'category-page:%'", [], connection);
 
   for (const asset of media.values()) {
     await executeMutation(
@@ -468,21 +453,6 @@ async function insertCatalog(
       [asset.storageKey, asset.publicUrl, asset.originalName, asset.mimeType, asset.sizeBytes, asset.altText],
       connection,
     );
-  }
-
-  const categoryByExternalId = new Map(categories.map((category) => [category.id, category]));
-  const localCategoryIds = new Map<number, string>();
-  const orderedCategories = categories.filter((category) => category.slug !== "bundles").sort((left, right) => categoryDepth(left, categoryByExternalId) - categoryDepth(right, categoryByExternalId) || left.name.localeCompare(right.name));
-  for (const [index, category] of orderedCategories.entries()) {
-    const parentId = category.parent ? localCategoryIds.get(category.parent) : null;
-    if (category.parent && !parentId) throw new Error(`Missing parent category for ${category.name}.`);
-    const inserted = await executeMutation(
-      `INSERT INTO categories (parent_id, name, slug, description, status, sort_order)
-       VALUES (?, ?, ?, ?, 'ACTIVE', ?)`,
-      [parentId ?? null, truncate(decodeHtml(category.name), 150), category.slug, categoryDescription(category, categoryByExternalId), index],
-      connection,
-    );
-    localCategoryIds.set(category.id, String(inserted.insertId));
   }
 
   const localCollectionIds = new Map<string, string>();
@@ -540,12 +510,6 @@ async function insertCatalog(
       );
     }
 
-    for (const category of product.categories) {
-      if (category.slug === "bundles") continue;
-      const categoryId = localCategoryIds.get(category.id);
-      if (!categoryId) throw new Error(`Missing category ${category.name} for ${product.cleanName}.`);
-      await executeMutation("INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)", [productId, categoryId], connection);
-    }
     for (const collectionSlug of product.collectionSlugs) {
       if (collectionSlug === "bundles") continue;
       const collectionId = localCollectionIds.get(collectionSlug);
@@ -560,14 +524,6 @@ async function insertCatalog(
     }
   }
 
-  await executeMutation(
-    `UPDATE categories c SET c.image_url = (
-       SELECT pi.url FROM product_categories pc
-       INNER JOIN product_images pi ON pi.product_id = pc.product_id
-       WHERE pc.category_id = c.id ORDER BY pi.sort_order, pi.id LIMIT 1
-     )`,
-    [], connection,
-  );
   await executeMutation(
     `UPDATE collections c SET c.image_url = (
        SELECT pi.url FROM product_collections pc
@@ -610,7 +566,7 @@ async function seedCatalog(): Promise<void> {
   const products = await prepareProducts(sourceProducts, categories);
   const media = await prepareMedia(products);
   try {
-    await withTransaction((connection) => insertCatalog(connection, categories, products, media, globalLowStockThreshold(thresholdSetting?.value_json)));
+    await withTransaction((connection) => insertCatalog(connection, products, media, globalLowStockThreshold(thresholdSetting?.value_json)));
   } catch (error) {
     await Promise.all([...media.values()].map((asset) => unlink(asset.absolutePath).catch(() => undefined)));
     throw error;
@@ -619,7 +575,7 @@ async function seedCatalog(): Promise<void> {
   const soldOut = products.filter((product) => !product.is_in_stock).length;
   const recreationCount = products.filter((product) => product.isRecreation).length;
   process.stdout.write(`Seeded ${products.length} products (${soldOut} out of stock, ${products.length - soldOut} with stock 20).\n`);
-  process.stdout.write(`Seeded ${categories.filter((category) => category.slug !== "bundles").length} categories and ${collectionDefinitions.length} collections; ${recreationCount} recreation products use the shared private 5.png asset.\n`);
+  process.stdout.write(`Seeded ${collectionDefinitions.length} collections with no categories; create collection categories in admin. ${recreationCount} recreation products use the shared private 5.png asset.\n`);
 }
 
 seedCatalog().catch((error: unknown) => {

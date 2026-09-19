@@ -3,12 +3,11 @@
 import { formatCollectionPrice } from "@/components/collections/collection-config";
 import { useCommerce } from "@/components/commerce/CommerceProvider";
 import Button from "@/components/ui/Button";
-import ProductCodeBar from "@/components/ui/ProductCodeBar";
+import ProductCard from "@/components/ui/ProductCard";
 import Title from "@/components/ui/Title";
 import type { SaleProduct, SaleStorefrontContent } from "@/lib/commerce/sales";
 import { ArrowRight, Minus, Plus, ShoppingBag } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -145,7 +144,6 @@ export default function SaleCatalog({ sale }: { sale: SaleStorefrontContent }) {
         <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-7 sm:gap-y-14 lg:grid-cols-3 xl:grid-cols-4">
           {sale.products.map((product) => {
             const slug = product.slug ?? "";
-            const inspiredBy = product.inspiredBy?.trim();
             const quantity = quantities[slug] ?? 0;
             const pricedLine = cartPricing?.lines.find(
               (line) => line.slug === slug,
@@ -158,100 +156,85 @@ export default function SaleCatalog({ sale }: { sale: SaleStorefrontContent }) {
               quantity < maximum &&
               (quantity > 0 || cart.length < MAX_CART_LINES);
             return (
-              <article
-                className={`group flex min-w-0 flex-col transition-opacity ${!canAdd && !quantity ? "opacity-55" : "opacity-100"}`}
-                key={slug}
-              >
-                <Link
-                  className="relative aspect-4/5 overflow-hidden border border-black/8 bg-[linear-gradient(145deg,#f8f3eb_0%,#e9ddce_100%)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#9d4d3d]"
-                  href={`/products/${slug}`}
-                >
-                  <span className="absolute inset-x-[15%] bottom-[8%] h-[10%] rounded-full bg-black/10 blur-xl" />
-                  <Image
-                    alt={product.name}
-                    className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.035]"
-                    fill
-                    sizes="(max-width: 640px) 48vw, (max-width: 1024px) 31vw, 23vw"
-                    src={product.image}
-                  />
-                  {inspiredBy || product.productCode?.trim() ? (
-                    <div className="absolute inset-x-0 bottom-0 flex items-stretch gap-1">
-                      {inspiredBy ? (
-                        <span
-                          className="min-w-0 flex-1 content-center border-y border-[#967C55]/40 bg-[#eee3d3] px-1.5 py-0.5 text-[7px] font-semibold uppercase leading-3 tracking-[0.04em] text-[#6b4d2c] sm:text-[8px]"
-                          title={`Inspired by ${inspiredBy}`}
+              <div className="min-w-0" key={slug}>
+                <ProductCard
+                  soldOut={maximum <= 0}
+                  product={{
+                    slug,
+                    name: product.name,
+                    image: product.image,
+                    price: formatCollectionPrice(product.price),
+                    pricePence: Math.round(product.price * 100),
+                    rating: product.rating ?? 0,
+                    inspiredBy: product.inspiredBy,
+                    productCode: product.productCode,
+                    audience: product.audience,
+                  }}
+                  cartAction={
+                    <>
+                      <div className="flex w-full items-stretch gap-1 sm:gap-2 lg:justify-center">
+                        <button
+                          aria-label={`Add ${product.name} to cart`}
+                          className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 bg-[#967C55] px-1 py-2 text-[9px] font-semibold uppercase tracking-[0.08em] text-white transition-colors enabled:hover:bg-[#1A1A1A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#967C55] disabled:cursor-not-allowed disabled:opacity-50 sm:px-2 sm:text-[10px] lg:w-36 lg:flex-none"
+                          disabled={!canAdd}
+                          onClick={() => change(product, 1)}
+                          type="button"
                         >
-                          <span className="line-clamp-2">Inspired by {inspiredBy}</span>
-                        </span>
+                          <ShoppingBag
+                            aria-hidden="true"
+                            className="hidden shrink-0 sm:block"
+                            size={14}
+                            strokeWidth={2}
+                          />
+                          <span>{maximum === 0 ? "Sold out" : "Add to Cart"}</span>
+                        </button>
+                        <div
+                          aria-label={`Quantity of ${product.name} in cart`}
+                          className="flex shrink-0 items-center border border-[#967C55]/35 bg-[#f5efe5] text-[#6f5738]"
+                          role="group"
+                        >
+                          <button
+                            aria-label={`Remove one ${product.name}`}
+                            className="grid min-h-11 w-6 place-items-center transition-colors hover:bg-[#967C55]/10 focus-visible:outline-2 focus-visible:outline-[#967C55] disabled:cursor-not-allowed disabled:text-black/20 disabled:hover:bg-transparent sm:w-8"
+                            disabled={!hydrated || !quantity}
+                            onClick={() => change(product, -1)}
+                            type="button"
+                          >
+                            <Minus aria-hidden="true" size={12} />
+                          </button>
+                          <output
+                            aria-label={`${product.name} quantity in cart`}
+                            aria-live="polite"
+                            className="w-5 text-center text-xs font-semibold tabular-nums sm:w-6"
+                          >
+                            {quantity}
+                          </output>
+                          <button
+                            aria-label={`Add one ${product.name}`}
+                            className="grid min-h-11 w-6 place-items-center transition-colors hover:bg-[#967C55]/10 focus-visible:outline-2 focus-visible:outline-[#967C55] disabled:cursor-not-allowed disabled:text-black/20 disabled:hover:bg-transparent sm:w-8"
+                            disabled={!canAdd}
+                            onClick={() => change(product, 1)}
+                            type="button"
+                          >
+                            <Plus aria-hidden="true" size={12} />
+                          </button>
+                        </div>
+                      </div>
+                      {pricedLine?.freeQuantity ? (
+                        <p className="mt-2 text-xs font-medium text-emerald-800">
+                          {pricedLine.freeQuantity} free · Save{" "}
+                          {formatCartPrice(pricedLine.discountPence)}
+                        </p>
                       ) : null}
-                      <ProductCodeBar
-                        code={product.productCode}
-                        className="shrink-0"
-                        compact={Boolean(inspiredBy)}
-                      />
-                    </div>
-                  ) : null}
-                </Link>
-                <div className="flex flex-1 flex-col pt-3">
-                  <Link
-                    className="line-clamp-1 font-heading text-base tracking-wide hover:text-[#9d4d3d] sm:text-lg"
-                    href={`/products/${slug}`}
-                  >
-                    {product.name}
-                  </Link>
-                  <p className="mt-1 text-sm font-semibold">
-                    {formatCollectionPrice(product.price)}
-                  </p>
-                  <div className="mt-3 grid grid-cols-[32px_minmax(0,1fr)_32px] border border-black/12 bg-white/35 sm:grid-cols-[42px_minmax(0,1fr)_42px]">
-                    <button
-                      aria-label={`Remove one ${product.name}`}
-                      className="grid min-h-11 place-items-center border-r border-black/10 transition hover:bg-white/55 disabled:cursor-not-allowed disabled:text-black/20 disabled:hover:bg-transparent"
-                      disabled={!hydrated || !quantity}
-                      onClick={() => change(product, -1)}
-                      type="button"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <Button
-                      ariaLabel={
-                        quantity
-                          ? `Add another ${product.name} to bag`
-                          : `Add ${product.name} to bag`
-                      }
-                      className={`min-h-11 w-full px-1! py-0! text-[8px]! tracking-widest! sm:text-[9px]! sm:tracking-[0.14em]! ${quantity ? "border-[#9d4d3d]! bg-[#9d4d3d]! text-white! hover:bg-[#8d4939]!" : "border-0! bg-[#1c1814]! text-white! hover:bg-[#8d4939]!"}`}
-                      disabled={!canAdd}
-                      onClick={() => change(product, 1)}
-                      variant={quantity ? "outline" : "primary"}
-                    >
-                      {quantity
-                        ? `${quantity} in bag`
-                        : maximum === 0
-                          ? "Sold out"
-                          : "Add to Bag"}
-                    </Button>
-                    <button
-                      aria-label={`Select one ${product.name}`}
-                      className="grid min-h-11 place-items-center border-l border-black/10 transition hover:bg-white/55 disabled:cursor-not-allowed disabled:text-black/20 disabled:hover:bg-transparent"
-                      disabled={!canAdd}
-                      onClick={() => change(product, 1)}
-                      type="button"
-                    >
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                  {pricedLine?.freeQuantity ? (
-                    <p className="mt-2 text-xs font-medium text-emerald-800">
-                      {pricedLine.freeQuantity} free · Save{" "}
-                      {formatCartPrice(pricedLine.discountPence)}
-                    </p>
-                  ) : null}
-                  {quantity >= maximum && maximum > 0 ? (
-                    <p className="mt-2 text-xs text-black/50">
-                      Maximum available in your bag
-                    </p>
-                  ) : null}
-                </div>
-              </article>
+                      {quantity >= maximum && maximum > 0 ? (
+                        <p className="mt-2 text-xs text-black/50">
+                          Maximum available in your bag
+                        </p>
+                      ) : null}
+                    </>
+                  }
+                />
+              </div>
             );
           })}
         </div>

@@ -4,8 +4,10 @@ import Link from "next/link";
 import PageHeader from "@/components/admin/PageHeader";
 import { selectRows } from "@/lib/db/query";
 import { editableStorefrontPageSlugs, storefrontPageDefinitions } from "@/lib/storefront-pages/config";
+import { categoryCollectionSlugs, categoryHref } from "@/lib/commerce/category-config";
 
 interface SalePageRow extends RowDataPacket { id: string; name: string; slug: string; status: "DRAFT" | "ACTIVE" }
+interface CategoryPageRow extends RowDataPacket { id: string; name: string; slug: string; status: string; collection_name: string; collection_slug: string; collection_status: string }
 
 const iconBySlug = {
   n7: Gem,
@@ -35,12 +37,26 @@ const fixedPages = [
 ];
 
 export default async function PagesPage() {
-  const sales = await selectRows<SalePageRow>(
+  const [sales, categories] = await Promise.all([selectRows<SalePageRow>(
     `SELECT CAST(id AS CHAR) AS id, name, slug, status
      FROM sales WHERE status != 'ARCHIVED' ORDER BY (status = 'ACTIVE') DESC, sort_order, created_at`,
-  );
+  ), selectRows<CategoryPageRow>(
+    `SELECT CAST(c.id AS CHAR) AS id, c.name, c.slug, c.status, col.name AS collection_name,
+       col.slug AS collection_slug, col.status AS collection_status
+     FROM categories c INNER JOIN collections col ON col.id = c.collection_id
+     WHERE col.status != 'ARCHIVED' AND col.slug IN (${categoryCollectionSlugs.map(() => "?").join(", ")})
+     ORDER BY col.sort_order, col.name, c.sort_order, c.name`, categoryCollectionSlugs,
+  )]);
   const pages = [
     ...fixedPages,
+    ...categories.map((category) => ({
+      name: `${category.collection_name} / ${category.name}`,
+      description: "Manage this category’s hero, featured products, detail section, and coming-soon content.",
+      editorPath: `/admin/pages/category-${category.id}`,
+      storefrontPath: categoryHref(category.collection_slug, category.slug),
+      Icon: Layers3,
+      note: category.status === "ACTIVE" && category.collection_status === "ACTIVE" ? "Category · Live" : "Category · Hidden",
+    })),
     ...sales.map((sale) => ({
       name: sale.name,
       description: "Manage the editorial presentation and qualifying product curation for this sale on the shared Sale page.",

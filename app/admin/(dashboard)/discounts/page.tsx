@@ -38,7 +38,7 @@ export default async function DiscountsPage({ searchParams }: { searchParams: Pr
   const [items, products, categories, collections, query] = await Promise.all([
     selectRows<DiscountRow>(`SELECT CAST(d.id AS CHAR) AS id, d.*, (SELECT GROUP_CONCAT(product_id) FROM discount_products WHERE discount_id = d.id) AS product_ids, (SELECT GROUP_CONCAT(category_id) FROM discount_categories WHERE discount_id = d.id) AS category_ids, (SELECT GROUP_CONCAT(collection_id) FROM discount_collections WHERE discount_id = d.id) AS collection_ids FROM discounts d ORDER BY d.priority DESC, d.created_at DESC`),
     selectRows<OptionRow>(`SELECT CAST(p.id AS CHAR) AS id, p.name, (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) AS image_url FROM products p WHERE p.status != 'ARCHIVED' ORDER BY p.name`),
-    selectRows<OptionRow>("SELECT CAST(id AS CHAR) AS id, name, image_url FROM categories ORDER BY name"),
+    selectRows<OptionRow>("SELECT CAST(c.id AS CHAR) AS id, CONCAT(col.name, ' / ', c.name) AS name, c.image_url FROM categories c INNER JOIN collections col ON col.id = c.collection_id ORDER BY col.name, c.name"),
     selectRows<OptionRow>("SELECT CAST(id AS CHAR) AS id, name, image_url FROM collections WHERE status != 'ARCHIVED' ORDER BY name"),
     searchParams,
   ]);

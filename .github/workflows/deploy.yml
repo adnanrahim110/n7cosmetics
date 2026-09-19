@@ -1,0 +1,137 @@
+name: Build and deploy N7
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: n7-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/adnanrahim110/n7cosmetics
+  APP_URL: https://n7.eluvaire.com
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Check that private deployment data is not tracked
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -E '(^|/)\.env($|\.(local|production|development|test)(\.|$))|^n7cosmetics\.sql$|^media/|^deploy/secrets/'; then
+            echo 'Private runtime data must not be committed.' >&2
+            exit 1
+          fi
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:unit
+
+  build:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          push: true
+          build-args: |
+            APP_URL=${{ env.APP_URL }}
+            APP_BUILD_SHA=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_SSH_USER }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject stale releases
+        shell: bash
+        run: |
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+      - name: Configure SSH with the verified server host key
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Transfer deployment scripts
+        run: |
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes deploy/docker-compose.prod.yml deploy/remote-deploy.sh deploy/backup.sh "$VPS_USER@$VPS_HOST:/srv/apps/n7cosmetics/"
+      - name: Authenticate the VPS with GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" "docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin"
+      - name: Deploy and verify the exact release
+        env:
+          IMAGE_DIGEST: ${{ needs.build.outputs.digest }}
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" "bash /srv/apps/n7cosmetics/remote-deploy.sh '$IMAGE@$IMAGE_DIGEST' '$GITHUB_SHA'"
+      - name: Check HTTPS, database readiness and release
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          for (let attempt = 1; attempt <= 18; attempt++) {
+            try {
+              const response = await fetch(`${process.env.APP_URL}/api/health`, {signal: AbortSignal.timeout(10000)});
+              assert.equal(response.status, 200);
+              const health = await response.json();
+              assert.equal(health.status, 'ok');
+              assert.equal(health.release, process.env.GITHUB_SHA);
+              console.log('HTTPS and deployed release verified.');
+              break;
+            } catch (error) {
+              if (attempt === 18) throw error;
+              console.log(`Waiting for HTTPS readiness (${attempt}/18).`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+          }
+          JS
+      - name: Remove temporary registry credentials
+        if: always()
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" 'docker logout ghcr.io' || true

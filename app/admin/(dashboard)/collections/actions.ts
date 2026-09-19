@@ -115,6 +115,7 @@ export async function updateCollectionAction(id: string, formData: FormData): Pr
   if (errorCode) redirect(`/admin/collections?error=${errorCode}`);
   if (removedUrl) await cleanupUnreferencedMediaUrls([removedUrl]).catch((error) => console.error("Unable to remove replaced collection media", error));
   await audit(id, "COLLECTION_UPDATE", `Updated collection ${item.name}`);
+  revalidatePath("/", "layout");
   revalidatePath("/admin/collections");
   revalidatePath(`/collections/${item.slug}`);
   redirect("/admin/collections?saved=1");
@@ -125,5 +126,6 @@ export async function setCollectionStatusAction(id: string, nextStatus: "DRAFT" 
   if (!isDatabaseId(id) || !collectionSchema.shape.status.safeParse(nextStatus).success) return;
   await executeMutation("UPDATE collections SET status = ? WHERE id = ?", [nextStatus, id]);
   await audit(id, "COLLECTION_STATUS_UPDATE", `${nextStatus === "ARCHIVED" ? "Archived" : "Restored"} collection`);
+  revalidatePath("/", "layout");
   revalidatePath("/admin/collections");
 }

@@ -23,6 +23,7 @@ interface CollectionControlsProps {
   collection: CollectionPageContent;
   design: CollectionDesign;
   categories: string[];
+  showCategoryFilter?: boolean;
   selectedCategories: string[];
   setSelectedCategories: (categories: string[]) => void;
   selectedPriceBands: PriceBand[];
@@ -62,6 +63,7 @@ export default function CollectionControls({
   collection,
   design,
   categories,
+  showCategoryFilter = true,
   selectedCategories,
   setSelectedCategories,
   selectedPriceBands,
@@ -77,7 +79,7 @@ export default function CollectionControls({
       categories.map((category) => ({
         value: category,
         label: category,
-        description: `${collection.products.filter((product) => product.category === category).length} compositions`,
+        description: `${collection.products.filter((product) => (product.categoryNames ?? [product.category]).includes(category)).length} compositions`,
       })),
     [categories, collection.products],
   );
@@ -103,7 +105,7 @@ export default function CollectionControls({
 
   return (
     <div className="relative z-40 mb-10 border-y border-[#80664d]/18 bg-[#d9cdbd]/32 p-1.5 shadow-[0_14px_38px_rgba(54,39,26,0.07)] sm:mb-12 lg:mb-16">
-      <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-[minmax(17rem,1.35fr)_minmax(12rem,1fr)_minmax(11rem,0.82fr)_minmax(12rem,0.95fr)_3.5rem]">
+      <div className={`grid gap-1 sm:grid-cols-2 ${showCategoryFilter ? "xl:grid-cols-[minmax(17rem,1.35fr)_minmax(12rem,1fr)_minmax(11rem,0.82fr)_minmax(12rem,0.95fr)_3.5rem]" : "xl:grid-cols-[minmax(17rem,1.35fr)_minmax(11rem,0.82fr)_minmax(12rem,0.95fr)_3.5rem]"}`}>
         <div className="group/search relative flex min-h-14 min-w-0 items-center gap-2.5 overflow-hidden border border-[#8d755c]/18 bg-[#faf6ef]/88 px-3.5 py-2 transition-all duration-400 hover:border-[#9d7d5a]/48 hover:bg-[#fffaf4] focus-within:border-[#9d7d5a]/58 focus-within:bg-[#fffaf4] focus-within:shadow-[0_14px_34px_rgba(44,31,20,0.11)] sm:col-span-2 xl:col-span-1">
           <span
             className={`absolute inset-y-0 left-0 w-0.75 origin-bottom transition-transform duration-400 ${query ? "scale-y-100" : "scale-y-0 group-hover/search:scale-y-100 group-focus-within/search:scale-y-100"}`}
@@ -140,19 +142,19 @@ export default function CollectionControls({
           ) : null}
         </div>
 
-        <CustomSelect
-          label="Scent family"
+        {showCategoryFilter ? <CustomSelect
+          label="Category"
           options={categoryOptions}
           selectedValues={selectedCategories}
           onChange={setSelectedCategories}
-          placeholder="All families"
+          placeholder="All categories"
           multiple
           searchable={categoryOptions.length > 6}
-          searchPlaceholder="Search scent families"
+          searchPlaceholder="Search categories"
           accentColor={design.accent}
           icon={Tags}
           compact
-        />
+        /> : null}
 
         <CustomSelect
           label="Price"

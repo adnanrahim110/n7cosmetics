@@ -1,9 +1,13 @@
 import type { MetadataRoute } from "next";
 import { getAvailableSaleNavigationItems } from "@/lib/commerce/sales";
+import { getAvailableCategoryLinks } from "@/lib/commerce/categories";
+
+export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = (process.env.APP_URL || "https://n7cosmetics.co.uk").replace(/\/$/, "");
   let sales: Awaited<ReturnType<typeof getAvailableSaleNavigationItems>> = [];
+  let categories: Awaited<ReturnType<typeof getAvailableCategoryLinks>> = [];
 
   try {
     sales = await getAvailableSaleNavigationItems();
@@ -15,6 +19,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       "Unable to load sale routes for sitemap; continuing with core routes.",
       error instanceof Error ? error.message : error,
     );
+  }
+
+  try {
+    categories = await getAvailableCategoryLinks();
+  } catch (error) {
+    console.warn("Unable to load category routes for sitemap; continuing with core routes.", error instanceof Error ? error.message : error);
   }
 
   const routes = [
@@ -29,6 +39,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/shipping-returns", priority: 0.4 },
     { path: "/privacy", priority: 0.3 },
     ...sales.map((sale) => ({ path: sale.href, priority: 0.8 })),
+    ...categories.map((category) => ({ path: category.href, priority: 0.7 })),
   ];
 
   return routes.map(({ path, priority }) => ({

@@ -3,6 +3,7 @@
 import ProductCard from "@/components/ui/ProductCard";
 import Title from "@/components/ui/Title";
 import { slugify } from "@/lib/admin/form";
+import Link from "next/link";
 import type { StorefrontCollectionPageContent } from "@/lib/storefront-pages/config";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -52,8 +53,8 @@ export default function CollectionCatalog({
   const detail = collection.pageConfiguration.detail;
 
   const categories = useMemo(
-    () => [...new Set(collection.products.map((product) => product.category))],
-    [collection.products],
+    () => [...new Set(collection.categories?.map((category) => category.name) ?? [])],
+    [collection.categories],
   );
 
   const filteredProducts = useMemo(() => {
@@ -61,7 +62,7 @@ export default function CollectionCatalog({
     const products = collection.products.filter((product) => {
       const categoryMatches =
         !selectedCategories.length ||
-        selectedCategories.includes(product.category);
+        (product.categoryNames ?? [product.category]).some((category) => selectedCategories.includes(category));
       const priceMatches =
         !selectedPriceBands.length ||
         selectedPriceBands.some((priceBand) =>
@@ -70,7 +71,8 @@ export default function CollectionCatalog({
       const queryMatches =
         !normalizedQuery ||
         product.name.toLowerCase().includes(normalizedQuery) ||
-        product.category.toLowerCase().includes(normalizedQuery);
+        product.category.toLowerCase().includes(normalizedQuery) ||
+        product.categoryNames?.some((category) => category.toLowerCase().includes(normalizedQuery));
       return categoryMatches && priceMatches && queryMatches;
     });
 
@@ -181,11 +183,22 @@ export default function CollectionCatalog({
           </motion.div>
         </div>
 
+        {collection.categories?.length ? (
+          <nav aria-label="Browse collection categories" className="mb-8 flex flex-wrap gap-2 sm:mb-10">
+            {collection.categories.map((category) => (
+              <Link key={category.id} href={category.href} className="border border-[#967C55]/30 bg-[#faf6ef] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#6f5738] transition-colors hover:bg-[#967C55] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#967C55]">
+                {category.name}
+              </Link>
+            ))}
+          </nav>
+        ) : null}
+
         {showCollectionControls ? (
           <CollectionControls
             collection={collection}
             design={design}
             categories={categories}
+            showCategoryFilter={!collection.categoryId && categories.length > 0}
             selectedCategories={selectedCategories}
             setSelectedCategories={setSelectedCategories}
             selectedPriceBands={selectedPriceBands}

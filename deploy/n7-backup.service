@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up N7 Cosmetics database, media and configuration
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+WorkingDirectory=/srv/apps/n7cosmetics
+ExecStart=/usr/bin/bash /srv/apps/n7cosmetics/backup.sh
+UMask=0077

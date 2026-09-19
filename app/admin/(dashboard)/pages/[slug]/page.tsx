@@ -83,8 +83,9 @@ export default async function StorefrontPageEditor({
        LEFT JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1
        WHERE p.status = 'ACTIVE'
          ${target.saleId ? "AND EXISTS (SELECT 1 FROM sale_products sp WHERE sp.product_id = p.id AND sp.sale_id = ?)" : ""}
+         ${target.categoryId ? "AND EXISTS (SELECT 1 FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id INNER JOIN product_collections pcl ON pcl.product_id = pc.product_id AND pcl.collection_id = c.collection_id WHERE pc.product_id = p.id AND c.id = ?)" : ""}
        ORDER BY p.name`,
-      target.saleId ? [target.saleId] : [],
+      target.saleId ? [target.saleId] : target.categoryId ? [target.categoryId] : [],
     ),
   ]);
   const productOptions: CustomSelectOption[] = products.map((product) => ({
@@ -138,7 +139,7 @@ export default async function StorefrontPageEditor({
           <label className={label}>Section title<input className={input} defaultValue={configuration.detail.title} maxLength={190} name="title" required /></label>
           <label className={`${label} sm:col-span-2`}>Header statement<textarea className={input} defaultValue={configuration.detail.description} maxLength={1000} name="description" required rows={3} /></label>
           <label className={`${label} sm:col-span-2`}>Credit line<input className={input} defaultValue={configuration.detail.credit} maxLength={190} name="credit" required /></label>
-          {target.kind === "collection" ? <StorefrontComingSoonEditor content={configuration.detail.comingSoon} /> : null}
+          {target.kind !== "sale" ? <StorefrontComingSoonEditor content={configuration.detail.comingSoon} /> : null}
         </Block>
       </div>
     </div>

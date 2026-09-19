@@ -93,6 +93,13 @@ export default function ProductForm({ product, categories, collections, action, 
   const selectedCategories = product?.category_ids?.split(",").filter(Boolean) ?? [];
   const selectedCollections = product?.collection_ids?.split(",").filter(Boolean) ?? [];
   const [selectedCollectionIds, setSelectedCollectionIds] = useState(selectedCollections);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState(selectedCategories);
+  const availableCategories = categories.filter((category) => category.collection_id && selectedCollectionIds.includes(category.collection_id));
+  function changeCollections(ids: string[]) {
+    setSelectedCollectionIds(ids);
+    const allowedCategories = new Set(categories.filter((category) => category.collection_id && ids.includes(category.collection_id)).map((category) => category.id));
+    setSelectedCategoryIds((current) => current.filter((id) => allowedCategories.has(id)));
+  }
   const recreationCollectionIds = useMemo(() => new Set(collections.filter((collection) => collection.slug === "recreations").map((collection) => collection.id)), [collections]);
   const isRecreationsProduct = selectedCollectionIds.some((collectionId) => recreationCollectionIds.has(collectionId));
   const notes = useMemo(() => structuredNotes(product), [product]);
@@ -117,8 +124,11 @@ export default function ProductForm({ product, categories, collections, action, 
               <input name="productType" type="hidden" value="STANDARD" />
               <CustomSelect defaultValue={product?.audience ?? "UNSPECIFIED"} label="Audience" name="audience" options={[{ value: "UNSPECIFIED", label: "Unspecified" }, { value: "MEN", label: "Men" }, { value: "WOMEN", label: "Women" }, { value: "UNISEX", label: "Unisex" }]} required searchable={false} />
               <label className={labelClass}>Brand<input className={inputClass} defaultValue={product?.brand ?? "N7 Cosmetics"} maxLength={150} name="brand" placeholder="N7 Cosmetics" /><FieldError name="brand" state={state} /></label>
-              <CustomSelect className="lg:col-span-2" defaultValue={selectedCategories} emptyMessage="Create categories first." label="Categories" multiple name="categoryIds" options={categories.map((category) => ({ value: category.id, label: category.name, mediaUrl: category.image_url, mediaType: "image" }))} placeholder="Select one or more categories" />
-              <CustomSelect className="lg:col-span-2" defaultValue={selectedCollections} emptyMessage="Create collections first." label="Collections" multiple name="collectionIds" onChange={setSelectedCollectionIds} options={collections.map((collection) => ({ value: collection.id, label: collection.name, mediaUrl: collection.image_url, mediaType: "image" }))} placeholder="Select one or more collections" />
+              <CustomSelect className="lg:col-span-2" value={selectedCollectionIds} emptyMessage="Create collections first." label="Collections" multiple name="collectionIds" onChange={changeCollections} options={collections.map((collection) => ({ value: collection.id, label: collection.name, mediaUrl: collection.image_url, mediaType: "image" }))} placeholder="Select one or more collections" />
+              <div className="lg:col-span-2">
+                <CustomSelect value={selectedCategoryIds} onChange={setSelectedCategoryIds} emptyMessage={selectedCollectionIds.length ? "Create categories in the selected collections first." : "Select a collection first."} label="Categories" multiple name="categoryIds" options={availableCategories.map((category) => ({ value: category.id, label: category.name, description: category.collection_name, mediaUrl: category.image_url, mediaType: "image" }))} placeholder="Select categories from these collections" />
+                <FieldError name="categoryIds" state={state} />
+              </div>
               {isRecreationsProduct ? (
                 <div className="grid gap-5 lg:col-span-2 lg:grid-cols-2">
                   <label className={labelClass}>Inspired by<span className="ml-1 text-red-600">*</span><input className={inputClass} maxLength={190} name="inspiredBy" onChange={(event) => setInspiredBy(event.target.value)} placeholder="Original fragrance or scent inspiration" required value={inspiredBy} /><FieldError name="inspiredBy" state={state} /></label>

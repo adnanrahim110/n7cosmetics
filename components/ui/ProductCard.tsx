@@ -4,6 +4,7 @@ import { Check, Heart, ShoppingBag } from "lucide-react";
 import { motion, useMotionValue, useTransform } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import CartAction from "../commerce/CartAction";
 import { useCommerce } from "../commerce/CommerceProvider";
 import RatingStars from "../commerce/RatingStars";
@@ -101,10 +102,24 @@ function GenderBadge({
   );
 }
 
+function SoldOutOverlay() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center">
+      <span className="border border-white/30 bg-[#1A1A1A]/80 px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-white shadow-lg backdrop-blur-md sm:px-5 sm:text-xs">
+        Sold Out
+      </span>
+    </div>
+  );
+}
+
 export default function ProductCard({
   product,
+  cartAction,
+  soldOut = false,
 }: {
   product: ProductCardProduct;
+  cartAction?: ReactNode;
+  soldOut?: boolean;
 }) {
   const { isWishlisted, toggleWishlist } = useCommerce();
   const x = useMotionValue(0);
@@ -158,8 +173,9 @@ export default function ProductCard({
             alt={product.name}
             fill
             sizes="(max-width: 640px) 80vw, 25vw"
-            className={`pointer-events-none object-contain drop-shadow-[0_18px_18px_rgba(48,33,19,0.2)] ${productCode ? "px-3 pt-3 pb-12" : "p-3"}`}
+            className={`pointer-events-none object-contain drop-shadow-[0_18px_18px_rgba(48,33,19,0.2)] ${soldOut ? "opacity-55" : ""} ${productCode ? "px-3 pt-3 pb-12" : "p-3"}`}
           />
+          {soldOut ? <SoldOutOverlay /> : null}
           {productCode || inspiredBy ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
               <ProductCardLabels code={productCode} inspiredBy={inspiredBy} />
@@ -199,27 +215,38 @@ export default function ProductCard({
             {product.price}
           </span>
 
-          <CartAction
-            ariaLabel={`Add ${product.name} to cart`}
-            className="mt-2 flex min-h-11 w-full items-center justify-center bg-[#967C55] px-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-white transition-colors active:bg-[#1A1A1A]"
-            inCartClassName="mt-3 flex min-h-11 w-full items-center justify-center border border-[#967C55]/55 bg-[#f5efe5] px-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#6f5738] transition-colors active:border-[#1A1A1A] active:bg-[#1A1A1A] active:text-white"
-            product={commerceProduct}
-            inCartChildren={
+          {cartAction ? (
+            <div className="mt-2">{cartAction}</div>
+          ) : (
+            <CartAction
+              ariaLabel={
+                soldOut
+                  ? `${product.name} is sold out`
+                  : `Add ${product.name} to cart`
+              }
+              className="mt-2 flex min-h-11 w-full items-center justify-center bg-[#967C55] px-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-white transition-colors enabled:active:bg-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={soldOut}
+              inCartClassName="mt-3 flex min-h-11 w-full items-center justify-center border border-[#967C55]/55 bg-[#f5efe5] px-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#6f5738] transition-colors active:border-[#1A1A1A] active:bg-[#1A1A1A] active:text-white"
+              product={commerceProduct}
+              inCartChildren={
+                <span className="flex items-center justify-center gap-1.5">
+                  <Check aria-hidden="true" size={13} strokeWidth={1.7} />
+                  View in cart
+                </span>
+              }
+            >
               <span className="flex items-center justify-center gap-1.5">
-                <Check aria-hidden="true" size={13} strokeWidth={1.7} />
-                View in cart
+                <ShoppingBag aria-hidden="true" size={14} strokeWidth={2} />
+                {soldOut ? "Sold Out" : "Add to Cart"}
               </span>
-            }
-          >
-            <span className="flex items-center justify-center gap-1.5">
-              <ShoppingBag aria-hidden="true" size={14} strokeWidth={2} />
-              Add to Cart
-            </span>
-          </CartAction>
+            </CartAction>
+          )}
         </div>
       </article>
 
-      <div className="group relative mx-auto hidden w-full max-w-sm cursor-pointer flex-col sm:flex sm:max-w-none [@media(hover:none)]:hidden pointer-coarse:hidden">
+      <div
+        className={`${soldOut ? "" : "group"} relative mx-auto hidden w-full max-w-sm cursor-pointer flex-col sm:flex sm:max-w-none [@media(hover:none)]:hidden pointer-coarse:hidden`}
+      >
         <Link
           aria-label={`View ${product.name}`}
           className="absolute inset-0 z-20 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#967C55]"
@@ -227,12 +254,16 @@ export default function ProductCard({
         />
         <motion.div
           style={{ perspective: 1200 }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
+          onMouseMove={soldOut ? undefined : handleMouseMove}
+          onMouseLeave={soldOut ? undefined : handleMouseLeave}
           className="pointer-events-none relative z-30 aspect-3/4 w-full"
         >
           <motion.div
-            style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+            style={{
+              rotateX: soldOut ? 0 : rotateX,
+              rotateY: soldOut ? 0 : rotateY,
+              transformStyle: "preserve-3d",
+            }}
             transition={{
               type: "spring",
               stiffness: 400,
@@ -241,25 +272,27 @@ export default function ProductCard({
             }}
             className="w-full h-full relative"
           >
-            <div className="absolute inset-10 transition-all duration-700 ease-out bg-white/40 blur-2xl rounded-full">
-              <div className="absolute inset-[-10%] bg-linear-to-tr from-[#967C55]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-[0.65,0,0.35,1]" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] aspect-square bg-[radial-gradient(circle,rgba(150,124,85,0.08)_0%,transparent_60%)] rounded-full scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-1000 ease-[0.65,0,0.35,1]" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] aspect-square bg-[radial-gradient(circle,rgba(150,124,85,0.15)_0%,transparent_70%)] rounded-full scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-700 ease-[0.65,0,0.35,1] delay-75" />
-            </div>
+            {!soldOut ? (
+              <div className="absolute inset-10 transition-all duration-700 ease-out bg-white/40 blur-2xl rounded-full">
+                <div className="absolute inset-[-10%] bg-linear-to-tr from-[#967C55]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-[0.65,0,0.35,1]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] aspect-square bg-[radial-gradient(circle,rgba(150,124,85,0.08)_0%,transparent_60%)] rounded-full scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-1000 ease-[0.65,0,0.35,1]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] aspect-square bg-[radial-gradient(circle,rgba(150,124,85,0.15)_0%,transparent_70%)] rounded-full scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-700 ease-[0.65,0,0.35,1] delay-75" />
+              </div>
+            ) : null}
 
             <div
               className={`absolute inset-x-0 top-0 z-20 flex items-center justify-center pointer-events-none ${productCode ? "bottom-14" : "bottom-0"}`}
               style={{ transform: "translateZ(80px)" }}
             >
               <div
-                className={`relative w-[80%] transition-transform duration-700 ease-[0.65,0,0.35,1] group-hover:scale-110 group-hover:-translate-y-4 ${productCode ? "h-[90%]" : "h-[80%]"}`}
+                className={`relative w-[80%] ${soldOut ? "" : "transition-transform duration-700 ease-[0.65,0,0.35,1] group-hover:scale-110 group-hover:-translate-y-4"} ${productCode ? "h-[90%]" : "h-[80%]"}`}
               >
                 <Image
                   src={product.image}
                   alt={product.name}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                  className="object-contain transition-transform duration-700"
+                  className={`object-contain transition-transform duration-700 ${soldOut ? "opacity-55" : ""}`}
                 />
               </div>
             </div>
@@ -278,6 +311,7 @@ export default function ProductCard({
               </div>
             ) : null}
           </motion.div>
+          {soldOut ? <SoldOutOverlay /> : null}
         </motion.div>
 
         <div className="pointer-events-none absolute inset-x-0 top-0 z-40 aspect-3/4">
@@ -287,7 +321,7 @@ export default function ProductCard({
                 type="button"
                 onClick={() => toggleWishlist(commerceProduct)}
                 aria-pressed={wishlisted}
-                className="signature-card-action flex size-10 translate-x-0 items-center justify-center rounded-full border border-black/5 bg-white/90 text-[#1A1A1A] opacity-100 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-[#1A1A1A] hover:text-white"
+                className={`flex size-10 translate-x-0 items-center justify-center rounded-full border border-black/5 bg-white/90 text-[#1A1A1A] opacity-100 shadow-lg backdrop-blur-sm ${soldOut ? "" : "signature-card-action transition-all duration-300 hover:bg-[#1A1A1A] hover:text-white"}`}
                 style={{
                   transitionDuration: "500ms",
                   transitionTimingFunction: "cubic-bezier(0.65, 0, 0.35, 1)",
@@ -305,7 +339,7 @@ export default function ProductCard({
 
               <GenderBadge
                 audience={product.audience}
-                className="signature-card-action translate-x-0 opacity-100 transition-all duration-300"
+                className={`translate-x-0 opacity-100 ${soldOut ? "" : "signature-card-action transition-all duration-300"}`}
                 vertical
                 style={{
                   transitionDuration: "500ms",
@@ -326,26 +360,40 @@ export default function ProductCard({
             {product.price}
           </span>
 
-          <CartAction
-            className="group/btn pointer-events-auto relative overflow-hidden bg-[#967C55] px-6 py-3 text-xs uppercase tracking-widest text-white transition-colors"
-            inCartClassName="group/btn pointer-events-auto relative overflow-hidden border border-[#967C55]/60 bg-[#f5efe5] px-6 py-3 text-xs uppercase tracking-widest text-[#6f5738] hover:text-white transition-colors hover:border-[#6f5738]"
-            product={commerceProduct}
-            inCartChildren={
-              <>
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  <Check aria-hidden="true" size={14} strokeWidth={1.7} />
-                  View in cart
-                </span>
+          {cartAction ? (
+            <div className="pointer-events-auto w-full">{cartAction}</div>
+          ) : (
+            <CartAction
+              ariaLabel={
+                soldOut
+                  ? `${product.name} is sold out`
+                  : `Add ${product.name} to cart`
+              }
+              className="group/btn pointer-events-auto relative overflow-hidden bg-[#967C55] px-6 py-3 text-xs uppercase tracking-widest text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              inCartClassName={`group/btn pointer-events-auto relative overflow-hidden border border-[#967C55]/60 bg-[#f5efe5] px-6 py-3 text-xs uppercase tracking-widest text-[#6f5738] ${soldOut ? "" : "hover:text-white transition-colors hover:border-[#6f5738]"}`}
+              disabled={soldOut}
+              product={commerceProduct}
+              inCartChildren={
+                <>
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    <Check aria-hidden="true" size={14} strokeWidth={1.7} />
+                    View in cart
+                  </span>
+                  {!soldOut ? (
+                    <div className="absolute inset-0 bg-[#1A1A1A] translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-[0.65,0,0.35,1]" />
+                  ) : null}
+                </>
+              }
+            >
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <ShoppingBag aria-hidden="true" size={14} strokeWidth={2} />
+                {soldOut ? "Sold Out" : "Add to Cart"}
+              </span>
+              {!soldOut ? (
                 <div className="absolute inset-0 bg-[#1A1A1A] translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-[0.65,0,0.35,1]" />
-              </>
-            }
-          >
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              <ShoppingBag aria-hidden="true" size={14} strokeWidth={2} />
-              Add to Cart
-            </span>
-            <div className="absolute inset-0 bg-[#1A1A1A] translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-[0.65,0,0.35,1]" />
-          </CartAction>
+              ) : null}
+            </CartAction>
+          )}
         </div>
       </div>
     </>

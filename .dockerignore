@@ -1,0 +1,15 @@
+.git
+.next
+.scripts-dist
+.tests-dist
+node_modules
+.env*
+media
+reports
+deploy
+*.sql
+!database/migrations/*.sql
+*.zip
+*.tar.gz
+*.tsbuildinfo
+*.md

@@ -25,6 +25,8 @@ export interface CatalogOption extends RowDataPacket {
   name: string;
   slug: string;
   image_url: string | null;
+  collection_id?: string;
+  collection_name?: string;
 }
 
 export interface ProductFilterOption extends RowDataPacket {
@@ -202,7 +204,7 @@ export async function listProducts(filters: ProductListFilters, requestedPage: n
 
 export async function getProductListFilterOptions(): Promise<{ categories: ProductFilterOption[]; collections: ProductFilterOption[] }> {
   const [categories, collections] = await Promise.all([
-    selectRows<ProductFilterOption>("SELECT CAST(id AS CHAR) AS id, name, status FROM categories WHERE slug != 'bundles' ORDER BY name"),
+    selectRows<ProductFilterOption>("SELECT CAST(c.id AS CHAR) AS id, CONCAT(col.name, ' / ', c.name) AS name, c.status FROM categories c INNER JOIN collections col ON col.id = c.collection_id ORDER BY col.name, c.name"),
     selectRows<ProductFilterOption>("SELECT CAST(id AS CHAR) AS id, name, status FROM collections WHERE slug != 'bundles' ORDER BY name"),
   ]);
   return { categories, collections };
@@ -210,7 +212,7 @@ export async function getProductListFilterOptions(): Promise<{ categories: Produ
 
 export async function getCatalogOptions(): Promise<{ categories: CatalogOption[]; collections: CatalogOption[] }> {
   const [categories, collections] = await Promise.all([
-    selectRows<CatalogOption>("SELECT CAST(id AS CHAR) AS id, name, slug, image_url FROM categories WHERE status != 'HIDDEN' AND slug != 'bundles' ORDER BY name"),
+    selectRows<CatalogOption>("SELECT CAST(c.id AS CHAR) AS id, c.name, c.slug, c.image_url, CAST(c.collection_id AS CHAR) AS collection_id, col.name AS collection_name FROM categories c INNER JOIN collections col ON col.id = c.collection_id WHERE col.status != 'ARCHIVED' ORDER BY col.name, c.sort_order, c.name"),
     selectRows<CatalogOption>("SELECT CAST(id AS CHAR) AS id, name, slug, image_url FROM collections WHERE status != 'ARCHIVED' AND slug != 'bundles' ORDER BY name"),
   ]);
   return { categories, collections };

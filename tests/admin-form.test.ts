@@ -8,11 +8,49 @@ import { parseProductListFilters, productListFilterQuery } from "../lib/admin/pr
 import { applyHeroProductPresentations, normalizeHeroProductPresentations } from "../lib/homepage/hero";
 import type { HomepageProduct } from "../lib/homepage/types";
 import { normalizeSocialMediaLinks } from "../lib/social-media";
+import { categoriesMatchCollections, categoryHref, isCategoryCollectionSlug } from "../lib/commerce/category-config";
+import { CategoryAssignmentError, validateCategoryAssignments } from "../lib/admin/category-assignment";
+import type { PoolConnection } from "mysql2/promise";
 import {
   emptyStorefrontPageConfiguration,
   normalizeStorefrontPageDetail,
   normalizeStorefrontPageHero,
+  defaultCategoryPageConfiguration,
+  storefrontCategoryDatabaseKey,
 } from "../lib/storefront-pages/config";
+
+test("categories require their own parent collection even when a product spans collections", () => {
+  const categories = [{ id: "11", collection_id: "1" }, { id: "12", collection_id: "2" }];
+  assert.equal(categoriesMatchCollections(["11", "12"], ["1", "2"], categories), true);
+  assert.equal(categoriesMatchCollections(["12"], ["1"], categories), false);
+  assert.equal(categoriesMatchCollections(["11"], [], categories), false);
+  assert.equal(categoriesMatchCollections(["99"], ["1", "2"], categories), false);
+  assert.equal(categoriesMatchCollections([], [], categories), true);
+});
+
+test("product saves reject category assignments outside the chosen collections", async () => {
+  const connection = { execute: async () => [[{ id: "11", collection_id: "1" }]] } as unknown as PoolConnection;
+  await validateCategoryAssignments(["11"], ["1"], connection);
+  await assert.rejects(validateCategoryAssignments(["11"], ["2"], connection), CategoryAssignmentError);
+  await assert.rejects(validateCategoryAssignments(["11", "12"], ["1", "2"], connection), CategoryAssignmentError);
+});
+
+test("category pages use collection-scoped URLs and independent editor content", () => {
+  assert.equal(categoryHref("recreations", "floral"), "/recreations/floral");
+  assert.notEqual(categoryHref("n7", "floral"), categoryHref("recreations", "floral"));
+  assert.equal(isCategoryCollectionSlug("recreations"), true);
+  assert.equal(isCategoryCollectionSlug("products"), false);
+  assert.equal(isCategoryCollectionSlug("bundles"), false);
+  assert.equal(storefrontCategoryDatabaseKey("11"), "category-page:11");
+  const config = defaultCategoryPageConfiguration("Floral", "Recreations", "Floral fragrances");
+  assert.equal(config.hero.title.lead, "Floral");
+  assert.equal(config.hero.eyebrow, "Recreations");
+  assert.equal(config.detail.description, "Floral fragrances");
+  assert.equal(config.detail.comingSoon.enabled, false);
+  const other = defaultCategoryPageConfiguration("Woody", "N7", null);
+  config.detail.comingSoon.enabled = true;
+  assert.equal(other.detail.comingSoon.enabled, false);
+});
 
 test("money conversion uses integer pence", () => {
   assert.equal(poundsToPence("29.99"), 2999);
@@ -74,7 +112,7 @@ test("admin feedback turns technical query states into user-friendly toast copy"
     id: "/admin/categories:error:duplicate",
     type: "error",
     title: "That category already exists",
-    description: "Use a different name or web address, then try again.",
+    description: "Choose a web address that is unique within this collection.",
     consume: ["error"],
   }]);
   assert.equal(resolveAdminToastFeedback("/admin/settings", new URLSearchParams("smtp-test=skipped"))[0]?.type, "warning");

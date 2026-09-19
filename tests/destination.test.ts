@@ -22,4 +22,7 @@ test("saved destinations resolve to readable selector values", () => {
   });
   assert.equal(destinationFromHref("/products/devoir-elixer").label, "Devoir Elixer");
   assert.equal(destinationFromHref("/products/devoir-elixer").kind, "product");
+  assert.equal(destinationFromHref("/recreations/floral").kind, "page");
+  assert.equal(destinationFromHref("/recreations/floral").description, "Category page");
+  assert.equal(destinationFromHref("/bundles/fragrance-trio").kind, "product");
 });

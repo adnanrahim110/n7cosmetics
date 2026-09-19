@@ -4,6 +4,7 @@ import { storefrontDestinations, type DestinationValue } from "@/lib/admin/desti
 import { getCurrentAdministrator } from "@/lib/auth/session";
 import { selectRows } from "@/lib/db/query";
 import { getAvailableSaleNavigationItems } from "@/lib/commerce/sales";
+import { getAvailableCategoryLinks } from "@/lib/commerce/categories";
 
 interface ProductDestinationRow extends RowDataPacket {
   name: string;
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
 
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 100).toLowerCase() ?? "";
   const pattern = `%${query}%`;
-  const [products, sales] = await Promise.all([selectRows<ProductDestinationRow>(
+  const [products, sales, categories] = await Promise.all([selectRows<ProductDestinationRow>(
     `SELECT p.name, p.slug, p.product_type, v.sku,
        (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) AS image_url
      FROM products p
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
      ORDER BY p.featured DESC, p.name
      LIMIT 12`,
     [query, pattern, pattern, pattern],
-  ), getAvailableSaleNavigationItems()]);
+  ), getAvailableSaleNavigationItems(), getAvailableCategoryLinks()]);
 
   const saleDestination: DestinationValue | null = sales.length ? {
     label: "Sale",
@@ -51,6 +52,10 @@ export async function GET(request: Request) {
   const destinations: DestinationValue[] = [
     ...storefrontDestinations.filter((destination) => matchesStatic(destination, query)),
     ...(saleMatchesQuery && saleDestination ? [saleDestination] : []),
+    ...categories.filter((category) => !query || `${category.name} ${category.collectionName} ${category.href}`.toLowerCase().includes(query)).map((category) => ({
+      label: `${category.collectionName} / ${category.name}`,
+      href: category.href, kind: "page" as const, description: "Category page", mediaUrl: category.image,
+    })),
     ...products.map((product) => ({
       label: product.name,
       href: product.product_type === "BUNDLE" ? `/bundles/${product.slug}` : `/products/${product.slug}`,

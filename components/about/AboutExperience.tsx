@@ -399,7 +399,7 @@ export default function AboutExperience() {
 
       <section className="relative isolate overflow-hidden bg-[#080a0a] py-24 text-[#f6efe6] sm:py-32 lg:py-40">
         <Image
-          src="/imgs/about/atelier-hero.webp"
+          src="/imgs/about/hero.jpg"
           alt=""
           fill
           sizes="100vw"

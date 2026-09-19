@@ -2,12 +2,16 @@ import type { RowDataPacket } from "mysql2/promise";
 import type { CollectionProduct, CollectionSlug } from "@/content/collections";
 import { selectRows } from "@/lib/db/query";
 import { hasDatabaseConfig } from "@/lib/env";
+import { getAvailableCategoryLinks, getCategoryBySlug } from "./categories";
+import { isCategoryCollectionSlug } from "./category-config";
 import {
+  defaultCategoryPageConfiguration,
   emptyStorefrontPageConfiguration,
   isEditableStorefrontPageSlug,
   normalizeStorefrontPageDetail,
   normalizeStorefrontPageHero,
   storefrontPageDatabaseKey,
+  storefrontCategoryDatabaseKey,
   type EditableStorefrontPageSlug,
   type StorefrontCollectionPageContent,
   type StorefrontPageConfiguration,
@@ -156,7 +160,7 @@ async function getProductsByIds(productIds: string[]): Promise<CollectionProduct
   });
 }
 
-async function getCollectionProducts(slug: CollectionSlug): Promise<CollectionProduct[]> {
+async function getCollectionProducts(slug: CollectionSlug, categoryId?: string): Promise<CollectionProduct[]> {
   const rows = slug === "bundles"
     ? await selectRows<CollectionProductRow>(
         `SELECT CAST(p.id AS CHAR) AS id, p.product_type, p.slug, p.name, p.inspired_by, p.product_code, p.audience,
@@ -198,7 +202,7 @@ async function getCollectionProducts(slug: CollectionSlug): Promise<CollectionPr
       )
     : await selectRows<CollectionProductRow>(
         `SELECT CAST(p.id AS CHAR) AS id, p.product_type, p.slug, p.name, p.inspired_by, p.product_code, p.audience,
-          (SELECT c.name FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id WHERE pc.product_id = p.id ORDER BY c.sort_order, c.name LIMIT 1) AS category,
+          NULL AS category,
           v.price_pence, v.compare_at_price_pence,
           (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort_order, i.id LIMIT 1) AS image_url,
           COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating
@@ -207,11 +211,30 @@ async function getCollectionProducts(slug: CollectionSlug): Promise<CollectionPr
         INNER JOIN products p ON p.id = pcl.product_id AND p.status = 'ACTIVE' AND p.product_type = 'STANDARD'
         INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 AND v.status = 'ACTIVE'
         WHERE col.slug = ?
+          ${categoryId ? "AND EXISTS (SELECT 1 FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id WHERE pc.product_id = p.id AND c.id = ? AND c.collection_id = col.id AND c.status = 'ACTIVE')" : ""}
           AND EXISTS (SELECT 1 FROM product_images required_image WHERE required_image.product_id = p.id)
         ORDER BY pcl.sort_order, p.name`,
-        [slug],
+        categoryId ? [slug, categoryId] : [slug],
       );
-  return rows.map(mapCollectionProduct);
+  const products = rows.map(mapCollectionProduct);
+  if (!isCategoryCollectionSlug(slug) || !products.length) return products;
+  const assignments = await selectRows<RowDataPacket & { product_id: string; name: string }>(
+    `SELECT CAST(pc.product_id AS CHAR) AS product_id, c.name
+     FROM categories c INNER JOIN collections col ON col.id = c.collection_id
+     INNER JOIN product_categories pc ON pc.category_id = c.id
+     INNER JOIN product_collections pcl ON pcl.product_id = pc.product_id AND pcl.collection_id = c.collection_id
+     WHERE col.slug = ? AND c.status = 'ACTIVE' ORDER BY c.sort_order, c.name`, [slug],
+  );
+  const categoryNames = new Map<string, string[]>();
+  for (const assignment of assignments) {
+    const names = categoryNames.get(assignment.product_id) ?? [];
+    names.push(assignment.name);
+    categoryNames.set(assignment.product_id, names);
+  }
+  return products.map((product) => {
+    const names = categoryNames.get(product.id ?? "") ?? [];
+    return { ...product, category: names[0] ?? "Fragrance", categoryNames: names };
+  });
 }
 
 export async function getCollectionPage(key: CollectionPageKey): Promise<StorefrontCollectionPageContent> {
@@ -221,7 +244,7 @@ export async function getCollectionPage(key: CollectionPageKey): Promise<Storefr
     ? getStorefrontPageConfiguration(editableSlug)
     : Promise.resolve(salePageConfiguration);
   const productsPromise = hasDatabaseConfig() ? getCollectionProducts(slug) : Promise.resolve([]);
-  const [products, pageConfiguration] = await Promise.all([productsPromise, configurationPromise]);
+  const [products, pageConfiguration, categories] = await Promise.all([productsPromise, configurationPromise, getAvailableCategoryLinks(slug)]);
   const heroProducts = hasDatabaseConfig()
     ? await getProductsByIds(pageConfiguration.hero.productIds)
     : [];
@@ -237,5 +260,36 @@ export async function getCollectionPage(key: CollectionPageKey): Promise<Storefr
     products,
     pageConfiguration,
     heroProducts,
+    categories,
   };
+}
+
+export async function getCategoryPage(collectionSlug: string, categorySlug: string) {
+  if (!isCategoryCollectionSlug(collectionSlug)) return null;
+  const category = await getCategoryBySlug(collectionSlug, categorySlug);
+  if (!category) return null;
+  const [products, pageConfiguration] = await Promise.all([
+    getCollectionProducts(collectionSlug, category.id),
+    getStorefrontPageConfigurationByKey(
+      storefrontCategoryDatabaseKey(category.id),
+      defaultCategoryPageConfiguration(category.name, category.collection_name, category.description),
+    ),
+  ]);
+  const byId = new Map(products.map((product) => [product.id, product]));
+  const collection: StorefrontCollectionPageContent = {
+    slug: collectionSlug, categoryId: category.id,
+    eyebrow: pageConfiguration.hero.eyebrow,
+    title: pageConfiguration.hero.title,
+    intro: pageConfiguration.hero.intro,
+    statement: pageConfiguration.hero.statement,
+    highlights: pageConfiguration.hero.highlights,
+    credit: pageConfiguration.detail.credit,
+    products: products.map((product) => ({ ...product, category: category.name, categoryNames: [category.name] })),
+    pageConfiguration,
+    heroProducts: pageConfiguration.hero.productIds.flatMap((id) => {
+      const product = byId.get(id);
+      return product ? [product] : [];
+    }),
+  };
+  return { category, collection };
 }

@@ -73,7 +73,8 @@ export function resolveAdminToastFeedback(pathname: string, query: URLSearchPara
     add("saved", { type: "success", title: "Category saved", description: "Your category changes are now available in admin." });
     const error = query.get("error");
     const errors: Record<string, ToastCopy> = {
-      duplicate: { type: "error", title: "That category already exists", description: "Use a different name or web address, then try again." },
+      duplicate: { type: "error", title: "That category already exists", description: "Choose a web address that is unique within this collection." },
+      collection: { type: "error", title: "Check the parent collection", description: "Choose a storefront collection containing every product assigned to this category." },
       media: { type: "error", title: "The category image couldn’t be saved", description: "Choose a supported image under 10 MB. No changes were made." },
       save: { type: "error", title: "The category couldn’t be saved", description: "Nothing was changed. Please try again." },
       invalid: { type: "error", title: "Some category details need attention", description: "Review the required fields and try again." },

@@ -12,6 +12,7 @@ export interface CollectionProduct {
   productType?: "STANDARD" | "BUNDLE";
   name: string;
   category: string;
+  categoryNames?: string[];
   price: number;
   compareAtPrice?: number;
   rating?: number;

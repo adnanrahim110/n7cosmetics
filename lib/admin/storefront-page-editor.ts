@@ -1,10 +1,14 @@
 import { getSale } from "@/lib/admin/sales";
+import { getCategoryById } from "@/lib/commerce/categories";
+import { categoryHref } from "@/lib/commerce/category-config";
 import {
+  defaultCategoryPageConfiguration,
   defaultSalePageConfiguration,
   isEditableStorefrontPageSlug,
   storefrontPageDatabaseKey,
   storefrontPageDefinitions,
   storefrontSaleDatabaseKey,
+  storefrontCategoryDatabaseKey,
   type StorefrontPageConfiguration,
 } from "@/lib/storefront-pages/config";
 
@@ -16,6 +20,7 @@ export type StorefrontPageEditorTarget =
       name: string;
       path: string;
       saleId: null;
+      categoryId: null;
       defaultConfiguration: null;
     }
   | {
@@ -25,6 +30,17 @@ export type StorefrontPageEditorTarget =
       name: string;
       path: string;
       saleId: string;
+      categoryId: null;
+      defaultConfiguration: StorefrontPageConfiguration;
+    }
+  | {
+      kind: "category";
+      editorSlug: string;
+      databaseKey: string;
+      name: string;
+      path: string;
+      saleId: null;
+      categoryId: string;
       defaultConfiguration: StorefrontPageConfiguration;
     };
 
@@ -44,7 +60,22 @@ export async function resolveStorefrontPageEditorTarget(
       name: definition.name,
       path: definition.path,
       saleId: null,
+      categoryId: null,
       defaultConfiguration: null,
+    };
+  }
+
+  const categoryId = value.match(/^category-([1-9]\d*)$/)?.[1];
+  if (categoryId) {
+    const category = await getCategoryById(categoryId);
+    if (!category || category.collection_status === "ARCHIVED") return null;
+    return {
+      kind: "category", editorSlug: value,
+      databaseKey: storefrontCategoryDatabaseKey(category.id),
+      name: `${category.collection_name} / ${category.name}`,
+      path: categoryHref(category.collection_slug, category.slug),
+      saleId: null, categoryId: category.id,
+      defaultConfiguration: defaultCategoryPageConfiguration(category.name, category.collection_name, category.description),
     };
   }
 
@@ -59,6 +90,7 @@ export async function resolveStorefrontPageEditorTarget(
     name: sale.name,
     path: `/sale/${sale.slug}`,
     saleId,
+    categoryId: null,
     defaultConfiguration: defaultSalePageConfiguration(
       sale.name,
       sale.buy_quantity,

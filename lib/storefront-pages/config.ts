@@ -92,6 +92,28 @@ export function storefrontSaleDatabaseKey(saleId: string): string {
   return `sale:${saleId}`;
 }
 
+export function storefrontCategoryDatabaseKey(categoryId: string): string {
+  return `category-page:${categoryId}`;
+}
+
+export function defaultCategoryPageConfiguration(name: string, collectionName: string, description: string | null): StorefrontPageConfiguration {
+  const configuration = emptyStorefrontPageConfiguration();
+  return {
+    hero: {
+      ...configuration.hero,
+      eyebrow: collectionName,
+      title: { lead: name, accent: "" },
+      intro: description ?? "",
+    },
+    detail: {
+      ...configuration.detail,
+      eyebrow: collectionName,
+      title: name,
+      description: description ?? "",
+    },
+  };
+}
+
 export function defaultSalePageConfiguration(
   saleName: string,
   buyQuantity: number,
@@ -215,4 +237,6 @@ export interface StorefrontCollectionPageContent extends CollectionPageContent {
   slug: CollectionSlug;
   pageConfiguration: StorefrontPageConfiguration;
   heroProducts?: CollectionPageContent["products"];
+  categories?: Array<{ id: string; name: string; href: string }>;
+  categoryId?: string;
 }

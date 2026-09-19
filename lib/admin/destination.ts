@@ -1,3 +1,5 @@
+import { isCategoryCollectionSlug } from "../commerce/category-config";
+
 export type DestinationKind = "page" | "product" | "custom";
 
 export interface DestinationValue {
@@ -49,6 +51,8 @@ export function destinationFromHref(href: string, fallbackLabel?: string): Desti
   if (productMatch) return { label: fallbackLabel || humanizeSlug(productMatch[1]), href, kind: "product", description: "Product page" };
   const bundleMatch = href.match(/^\/bundles\/([^/?#]+)$/);
   if (bundleMatch) return { label: fallbackLabel || humanizeSlug(bundleMatch[1]), href, kind: "product", description: "Bundle page" };
+  const categoryMatch = href.match(/^\/([^/?#]+)\/([^/?#]+)$/);
+  if (categoryMatch && isCategoryCollectionSlug(categoryMatch[1])) return { label: fallbackLabel || humanizeSlug(categoryMatch[2]), href, kind: "page", description: "Category page" };
   const segment = href.split(/[/?#]/).filter(Boolean).at(-1);
   return { label: fallbackLabel || (segment ? humanizeSlug(segment) : href), href, kind: "custom", description: "Saved destination" };
 }

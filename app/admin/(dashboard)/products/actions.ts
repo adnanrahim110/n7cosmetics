@@ -9,6 +9,7 @@ import { cleanupUnreferencedMediaUrls, MediaUploadError, mergeMediaSubmission, r
 import { productListReturnToWithToast } from "@/lib/admin/product-navigation";
 import { getGlobalLowStockThreshold } from "@/lib/admin/product-defaults";
 import { automatedProductSku } from "@/lib/admin/product-identifiers";
+import { CategoryAssignmentError, validateCategoryAssignments } from "@/lib/admin/category-assignment";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { getRequestMetadata } from "@/lib/auth/request";
 import { requireAdministrator } from "@/lib/auth/session";
@@ -144,6 +145,7 @@ function validationState(error: z.ZodError): ProductActionState {
 }
 
 function databaseErrorState(error: unknown): ProductActionState {
+  if (error instanceof CategoryAssignmentError) return { error: error.message, fieldErrors: { categoryIds: [error.message] } };
   if (error instanceof MediaUploadError) return { error: error.message };
   if (typeof error === "object" && error && "code" in error && error.code === "ER_DUP_ENTRY") {
     return { error: "A product with the same details already exists. Change the product name and try again." };
@@ -196,6 +198,7 @@ export async function createProductAction(returnTo: string, _previousState: Prod
 
   try {
     productId = await withTransaction(async (connection) => {
+      await validateCategoryAssignments(product.categoryIds, product.collectionIds, connection);
       const slug = await uniqueProductSlug(product.name, connection);
       const lowStockThreshold = await getGlobalLowStockThreshold(connection);
       const primaryStored = await storeMediaFiles(submittedMediaFiles(formData, "primaryMedia"), { uploadedBy: administrator.id, connection, expectedType: "image", folder: "products/images", altTexts: [`${product.name} product image`], maximumFiles: 1 });
@@ -250,6 +253,7 @@ export async function createProductAction(returnTo: string, _previousState: Prod
   }
 
   await auditProduct(administrator.id, "PRODUCT_CREATE", productId, `Created product ${product.name}`);
+  revalidatePath("/", "layout");
   revalidatePath("/admin/products");
   revalidatePath("/products");
   redirect(productListReturnToWithToast(returnTo, "product-created"));
@@ -273,6 +277,7 @@ export async function updateProductAction(productId: string, returnTo: string, _
     await withTransaction(async (connection) => {
       const existing = await selectOne<ExistingProductRow>("SELECT CAST(id AS CHAR) AS id, name, slug FROM products WHERE id = ? FOR UPDATE", [productId], connection);
       if (!existing) throw new Error("Product not found.");
+      await validateCategoryAssignments(product.categoryIds, product.collectionIds, connection);
       savedSlug = existing.name === product.name ? existing.slug : await uniqueProductSlug(product.name, connection, productId);
       const sku = automatedProductSku(productId);
       const lowStockThreshold = await getGlobalLowStockThreshold(connection);
@@ -353,6 +358,7 @@ export async function updateProductAction(productId: string, returnTo: string, _
 
   await cleanupUnreferencedMediaUrls(removedUrls).catch((error) => console.error("Unable to remove replaced product media", error));
   await auditProduct(administrator.id, "PRODUCT_UPDATE", productId, `Updated product ${product.name}`);
+  revalidatePath("/", "layout");
   revalidatePath("/admin/products");
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath(`/products/${savedSlug}`);

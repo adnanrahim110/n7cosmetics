@@ -17,6 +17,7 @@ interface CustomSelectProps {
   name: string;
   options: CustomSelectOption[];
   defaultValue?: string | string[];
+  value?: string | string[];
   label?: string;
   placeholder?: string;
   multiple?: boolean;
@@ -40,6 +41,7 @@ export default function CustomSelect({
   name,
   options,
   defaultValue,
+  value,
   label,
   placeholder = "Select an option",
   multiple = false,
@@ -51,7 +53,8 @@ export default function CustomSelect({
   maximumSelected,
 }: CustomSelectProps) {
   const initial = Array.isArray(defaultValue) ? defaultValue : defaultValue ? [defaultValue] : [];
-  const [selected, setSelected] = useState<string[]>(initial);
+  const [storedSelected, setSelected] = useState<string[]>(initial);
+  const selected = value === undefined ? storedSelected : Array.isArray(value) ? value : value ? [value] : [];
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
