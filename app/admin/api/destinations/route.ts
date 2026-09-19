@@ -53,8 +53,8 @@ export async function GET(request: Request) {
     ...storefrontDestinations.filter((destination) => matchesStatic(destination, query)),
     ...(saleMatchesQuery && saleDestination ? [saleDestination] : []),
     ...categories.filter((category) => !query || `${category.name} ${category.collectionName} ${category.href}`.toLowerCase().includes(query)).map((category) => ({
-      label: `${category.collectionName} / ${category.name}`,
-      href: category.href, kind: "page" as const, description: "Category page", mediaUrl: category.image,
+      label: category.name,
+      href: category.href, kind: "page" as const, description: `Category page · ${category.collectionName}`, mediaUrl: category.image,
     })),
     ...products.map((product) => ({
       label: product.name,

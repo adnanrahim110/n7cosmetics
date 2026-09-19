@@ -24,6 +24,7 @@ interface EditableItem {
 }
 
 const iconButton = "grid size-8 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-35";
+const nameInput = "min-w-0 rounded-md border border-zinc-200 bg-white px-2.5 py-2 text-sm text-zinc-800 outline-none transition placeholder:text-zinc-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15";
 
 const typeLabels: Record<EditableItem["type"], string> = {
   link: "Simple link",
@@ -101,7 +102,7 @@ export default function NavigationEditor({ defaultItems, saleOptions }: { defaul
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <div><p className="text-[13px] font-medium text-zinc-700">Navigation links</p><p className="text-[11px] text-zinc-400">Select a page or product; its name and URL are applied automatically.</p></div>
+        <div><p className="text-[13px] font-medium text-zinc-700">Navigation links</p><p className="text-[11px] text-zinc-400">Select a page or product, then edit its display name here to change the navbar text.</p></div>
         <button className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50" onClick={addItem} type="button"><Plus size={13} />Add link</button>
       </div>
       <input name="navigationJson" type="hidden" value={JSON.stringify(items)} />
@@ -115,9 +116,17 @@ export default function NavigationEditor({ defaultItems, saleOptions }: { defaul
           return (
             <article className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50/60" key={item.key}>
               <div className="flex min-h-11 items-center gap-1.5 p-1.5">
-                <button aria-expanded={isExpanded} className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-white" onClick={() => setExpanded(isExpanded ? null : item.key)} type="button">
-                  <span className="grid size-5 shrink-0 place-items-center rounded bg-zinc-200 text-[10px] font-semibold text-zinc-600">{index + 1}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-800">{item.label || "Untitled link"}</span>
+                <span className="grid size-5 shrink-0 place-items-center rounded bg-zinc-200 text-[10px] font-semibold text-zinc-600">{index + 1}</span>
+                <input
+                  aria-label={`Navigation link ${index + 1} display name`}
+                  className={`${nameInput} w-0 flex-1 font-medium`}
+                  maxLength={120}
+                  onChange={(event) => update(index, { label: event.target.value })}
+                  placeholder="Display name"
+                  required
+                  value={item.label}
+                />
+                <button aria-expanded={isExpanded} aria-label={`${isExpanded ? "Collapse" : "Edit"} settings for ${item.label || `link ${index + 1}`}`} className="flex shrink-0 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-white" onClick={() => setExpanded(isExpanded ? null : item.key)} type="button">
                   <span className="hidden rounded bg-white px-2 py-0.5 text-[10px] font-medium text-zinc-500 ring-1 ring-zinc-200 sm:block">{typeLabels[item.type]}</span>
                   <ChevronDown className={`shrink-0 text-zinc-400 transition ${isExpanded ? "rotate-180" : ""}`} size={15} />
                 </button>
@@ -182,6 +191,17 @@ export default function NavigationEditor({ defaultItems, saleOptions }: { defaul
                               onChange={(destination) => updateSub(index, subIndex, { name: destination?.label ?? "", href: destination?.href ?? "" })}
                               required
                             />
+                            <label className="mt-2 block">
+                              <span className="mb-1 block text-[13px] font-medium leading-5 text-zinc-700">Display name</span>
+                              <input
+                                className={`${nameInput} w-full`}
+                                maxLength={120}
+                                onChange={(event) => updateSub(index, subIndex, { name: event.target.value })}
+                                placeholder="Name shown in the navbar"
+                                required
+                                value={sub.name}
+                              />
+                            </label>
                             <MediaDropzone accept="image" className="mt-2" defaultAssets={sub.image ? [{ url: sub.image, type: "image", name: sub.name }] : []} label="Menu thumbnail" name={`navigationThumbnail${index}-${subIndex}`} onChange={(assets) => updateSub(index, subIndex, { image: assets[0]?.url ?? "" })} />
                           </div>
                         ))}
