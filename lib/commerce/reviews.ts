@@ -50,8 +50,7 @@ export async function getProductReviewSummary(productId: string): Promise<Produc
        recommends_product, is_verified_purchase, published_at
      FROM product_reviews
      WHERE product_id = ? AND status = 'PUBLISHED'
-     ORDER BY published_at DESC, id DESC
-     LIMIT 100`,
+     ORDER BY published_at DESC, id DESC`,
     [productId],
   );
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { RowDataPacket } from "mysql2/promise";
 import PageHeader from "@/components/admin/PageHeader";
+import LegacyBadge from "@/components/admin/LegacyBadge";
 import Notice from "@/components/admin/Notice";
 import { requireAdministrator } from "@/lib/auth/session";
 import { selectRows } from "@/lib/db/query";
@@ -8,7 +9,7 @@ import { resolveEnquiryAction, retryEmailAction, unsubscribeSubscriberAction } f
 
 interface Job extends RowDataPacket { id: string; recipient: string; subject: string; template_key: string; status: string; attempts: number; available_at: Date; created_at: Date; last_error: string | null; can_retry: number }
 interface Log extends RowDataPacket { id: string; recipient: string; subject: string; status: string; error_message: string | null; created_at: Date; email_job_id: string | null }
-interface Enquiry extends RowDataPacket { id: string; name: string; email: string; phone: string | null; topic: string; message: string; status: string; created_at: Date }
+interface Enquiry extends RowDataPacket { id: string; source: string; import_id: string | null; name: string; email: string; phone: string | null; topic: string; message: string; status: string; created_at: Date }
 interface Subscriber extends RowDataPacket { id: string; email: string; status: string; requested_at: Date; confirmed_at: Date | null }
 const date = (value: Date) => new Date(value).toLocaleString("en-GB");
 const button = "rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700";

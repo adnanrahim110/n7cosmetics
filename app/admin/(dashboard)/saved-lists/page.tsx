@@ -1,0 +1,17 @@
+import Link from "next/link";
+import type { RowDataPacket } from "mysql2/promise";
+import PageHeader from "@/components/admin/PageHeader";
+import Pagination, { parsePage } from "@/components/admin/Pagination";
+import { selectRows, selectOne } from "@/lib/db/query";
+import { requireAdministrator } from "@/lib/auth/session";
+export default async function SavedLists({ searchParams }: { searchParams: Promise<{ page?: string; customerId?: string; tab?: string }> }) {
+  await requireAdministrator(["OWNER", "MANAGER"]);
+  const query = await searchParams, customerId = /^[1-9]\d*$/.test(query.customerId ?? "") ? query.customerId! : null, tab = query.tab === "carts" ? "carts" : "wishlists";
+  const table = tab === "carts" ? "customer_saved_carts" : "customer_wishlists";
+  const total = Number((await selectOne<RowDataPacket>(`SELECT COUNT(*) n FROM ${table} WHERE (? IS NULL OR customer_id=?)`, [customerId, customerId]))?.n ?? 0), page = Math.min(parsePage(query.page), Math.max(1, Math.ceil(total / 20)));
+  const lists = await selectRows<RowDataPacket>(`SELECT l.*,CAST(l.id AS CHAR) id,c.full_name,c.email FROM ${table} l LEFT JOIN customers c ON c.id=l.customer_id WHERE (? IS NULL OR l.customer_id=?) ORDER BY l.id DESC LIMIT 20 OFFSET ?`, [customerId, customerId, (page - 1) * 20]);
+  const ids = lists.map(list => String(list.id));
+  const items = tab === "wishlists" && ids.length ? await selectRows<RowDataPacket>(`SELECT i.*,COALESCE(p.name,lp.name,CONCAT('Original product #',i.legacy_product_id)) product_name FROM customer_wishlist_items i LEFT JOIN products p ON p.id=i.product_id LEFT JOIN legacy_products lp ON lp.legacy_id=i.legacy_product_id WHERE i.wishlist_id IN (${ids.map(() => "?").join(",")})`, ids) : [];
+  const href = (value: string) => `/admin/saved-lists?${new URLSearchParams({ tab: value, ...(customerId ? { customerId } : {}) })}`;
+  return <div><PageHeader eyebrow="Customer history" title="Saved lists" description="Historical wishlists and saved carts, retained for reference." /><nav className="my-5 flex gap-4 text-sm"><Link href={href("wishlists")} className="text-amber-800 underline">Wishlists</Link><Link href={href("carts")} className="text-amber-800 underline">Saved carts</Link></nav><div className="space-y-4">{lists.map(list => <article key={list.id} className="rounded-xl border border-zinc-200 bg-white p-5"><h2 className="font-semibold">{tab === "carts" ? `Saved cart #${list.id}` : list.name || "Wishlist"}</h2><p className="mt-2 text-sm text-zinc-500">{list.customer_id ? <Link href={`/admin/customers/${list.customer_id}`} className="text-amber-800 underline">{list.full_name || list.email || `Customer #${list.customer_id}`}</Link> : "Guest / unlinked customer"} · Historical</p>{tab === "wishlists" ? <ul className="mt-3 space-y-2 text-sm">{items.filter(item => String(item.wishlist_id) === list.id).map(item => <li key={item.id}>{item.quantity} × {item.product_name}</li>)}</ul> : <details className="mt-3"><summary className="cursor-pointer text-sm text-amber-800">Original cart contents</summary><pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs">{typeof list.contents_json === "string" ? list.contents_json : JSON.stringify(list.contents_json, null, 2)}</pre></details>}</article>)}</div><Pagination pathname="/admin/saved-lists" page={page} pageSize={20} totalItems={total} query={{ customerId: customerId ?? undefined, tab }} /></div>;
+}

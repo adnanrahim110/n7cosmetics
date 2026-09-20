@@ -4,6 +4,7 @@ import { executeMutation, selectOne } from "../db/query";
 import { withTransaction } from "../db/transaction";
 import { calculateQuote, CommerceError } from "./quote";
 import type { CheckoutInput } from "./validation";
+import { saveCheckoutCustomer } from "./customers";
 import { getStripeSettings, PaymentUnavailableError } from "../payments/settings";
 
 export interface ExistingOrderRow extends RowDataPacket { id: string; order_number: string; total_pence: number; currency: string; request_hash: string; expired: number; inventory_state: string }
@@ -60,9 +61,10 @@ export async function createOrder(input: CheckoutInput, mode: "test" | "live", s
       }
 
       const number = orderNumber();
+      const customerId = await saveCheckoutCustomer({ ...input.customer, name: input.billingAddress.fullName, countryCode: input.billingAddress.countryCode }, connection);
       const orderResult = await executeMutation(`INSERT INTO orders (order_number, status, payment_status, fulfillment_status, currency, customer_email, customer_name, customer_phone, subtotal_pence, discount_pence, shipping_pence, tax_pence, total_pence, coupon_code, customer_notes, payment_provider) VALUES (?, 'NEW', 'PENDING', 'UNFULFILLED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [number, quote.currency, input.customer.email, input.billingAddress.fullName, input.customer.phone, quote.subtotalPence, quote.discountPence, quote.shippingPence, quote.taxPence, quote.totalPence, quote.discount?.couponCode ?? null, input.customer.notes ?? null, input.paymentMethod], connection);
       const orderId = String(orderResult.insertId);
-      await executeMutation("UPDATE orders SET shipping_method_name = ? WHERE id = ?", [quote.shippingMethod.name, orderId], connection);
+      await executeMutation("UPDATE orders SET shipping_method_name = ?, customer_id = ? WHERE id = ?", [quote.shippingMethod.name, customerId, orderId], connection);
       for (const type of ["SHIPPING", "BILLING"] as const) {
         const address = type === "BILLING" ? input.billingAddress : input.shippingAddress;
         await executeMutation(`INSERT INTO order_addresses (order_id, address_type, full_name, company, line_1, line_2, city, region, postal_code, country_code, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [orderId, type, address.fullName, address.company ?? null, address.line1, address.line2 ?? null, address.city, address.region ?? null, address.postalCode, address.countryCode, address.phone], connection);

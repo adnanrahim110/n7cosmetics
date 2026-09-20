@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 type DropdownPlacement = "top" | "bottom";
 
 interface AnchoredDropdownOptions {
+  align?: "start" | "end";
   minimumWidth?: number;
   offset?: number;
   preferredHeight?: number;
@@ -21,7 +22,7 @@ interface AnchoredDropdownState {
 export function useBodyAnchoredDropdown(
   open: boolean,
   anchorRef: RefObject<HTMLElement | null>,
-  { minimumWidth = 224, offset = 5, preferredHeight = 340 }: AnchoredDropdownOptions = {},
+  { align = "start", minimumWidth = 224, offset = 5, preferredHeight = 340 }: AnchoredDropdownOptions = {},
 ): AnchoredDropdownState {
   const [placement, setPlacement] = useState<DropdownPlacement>("bottom");
   const [style, setStyle] = useState<CSSProperties>({ position: "fixed", visibility: "hidden", zIndex: 1000 });
@@ -34,7 +35,8 @@ export function useBodyAnchoredDropdown(
     const viewportMargin = 8;
     const maximumWidth = Math.max(0, window.innerWidth - viewportMargin * 2);
     const width = Math.min(Math.max(rect.width, minimumWidth), maximumWidth);
-    const left = Math.min(Math.max(rect.left, viewportMargin), Math.max(viewportMargin, window.innerWidth - width - viewportMargin));
+    const anchorLeft = align === "end" ? rect.right - width : rect.left;
+    const left = Math.min(Math.max(anchorLeft, viewportMargin), Math.max(viewportMargin, window.innerWidth - width - viewportMargin));
     const below = Math.max(0, window.innerHeight - rect.bottom - offset - viewportMargin);
     const above = Math.max(0, rect.top - offset - viewportMargin);
     const nextPlacement: DropdownPlacement = below < Math.min(preferredHeight, 240) && above > below ? "top" : "bottom";
@@ -54,7 +56,7 @@ export function useBodyAnchoredDropdown(
       zIndex: 1000,
       ...anchoredEdge,
     });
-  }, [anchorRef, minimumWidth, offset, preferredHeight]);
+  }, [align, anchorRef, minimumWidth, offset, preferredHeight]);
 
   useLayoutEffect(() => {
     if (!open || !portalTarget) return;

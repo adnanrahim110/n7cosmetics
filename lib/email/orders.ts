@@ -5,6 +5,7 @@ import { enqueueEmail } from "./queue";
 import { orderEmail, type OrderEmailData } from "./templates";
 
 interface OrderRow extends RowDataPacket {
+  source: "LIVE" | "LEGACY";
   order_number: string; customer_name: string; customer_email: string; currency: string; status: string; payment_status: string; fulfillment_status: string;
   payment_provider: string; subtotal_pence: number; discount_pence: number; shipping_pence: number; tax_pence: number; total_pence: number;
   shipping_method_name: string | null; tracking_reference: string | null; tracking_url: string | null;
@@ -15,6 +16,7 @@ interface AddressRow extends RowDataPacket { full_name: string; company: string 
 export async function enqueueOrderEmails(orderId: string, event: "confirmation" | string, connection: PoolConnection): Promise<void> {
   const order = await selectOne<OrderRow>("SELECT * FROM orders WHERE id = ?", [orderId], connection);
   if (!order) throw new Error("Order not found while preparing email.");
+  if (order.source === "LEGACY") return;
   const items = await selectRows<ItemRow>("SELECT product_name, variant_title, quantity, unit_price_pence, line_total_pence FROM order_items WHERE order_id = ? ORDER BY id", [orderId], connection);
   const address = await selectOne<AddressRow>("SELECT * FROM order_addresses WHERE order_id = ? AND address_type = 'SHIPPING'", [orderId], connection);
   const brand = await getEmailPreferences(connection);

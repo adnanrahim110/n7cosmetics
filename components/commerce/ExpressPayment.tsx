@@ -18,7 +18,7 @@ export default function ExpressPayment({ quote, onQuote }: { quote: CheckoutQuot
   const [available, setAvailable] = useState(true);
   const [workingQuote, setWorkingQuote] = useState(quote);
   if (!config.enabled || quote.totalPence < 30) return null;
-  const rates = (value: CheckoutQuote) => [{ id: value.shippingMethod.id, displayName: value.shippingPence ? "Flat rate" : "Free shipment", amount: value.shippingPence }];
+  const rates = (value: CheckoutQuote) => [...value.shippingMethods].sort((a, b) => Number(b.id === value.shippingMethod.id) - Number(a.id === value.shippingMethod.id)).map(method => ({ id: method.id, displayName: method.name, amount: method.pricePence }));
 
   async function refresh(shippingMethodId?: string) {
     const response = await fetch("/api/commerce/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: cart.map(({ slug, quantity }) => ({ slug, quantity })), countryCode: "GB", couponCode: couponCode || undefined, shippingMethodId }) });

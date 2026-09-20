@@ -54,11 +54,14 @@ function CheckoutForm() {
   } | null>(null);
   const [error, setError] = useState<string>();
   const [placing, setPlacing] = useState(false);
+  const [shippingChoice, setShippingChoice] = useState<{ basket: string; id: string } | null>(null);
+  const basket = JSON.stringify({ items: cart.map(({ slug, quantity }) => ({ slug, quantity })), couponCode });
 
   const quoteRequest = JSON.stringify({
     items: cart.map(({ slug, quantity }) => ({ slug, quantity })),
     countryCode,
     couponCode: couponCode || undefined,
+    shippingMethodId: shippingChoice?.basket === basket ? shippingChoice.id : undefined,
   });
   const hasCart = cart.length > 0;
   const currentQuote = quoteState?.key === quoteRequest ? quoteState : null;
@@ -381,6 +384,13 @@ function CheckoutForm() {
             ) : null}
             {quote ? (
               <>
+                <fieldset className="mt-5 space-y-2 border-t border-black/10 pt-4" disabled={placing}>
+                  <legend className="text-sm font-medium">Delivery method</legend>
+                  {quote.shippingMethods.map(method => <label key={method.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input type="radio" name="shippingMethod" checked={quote.shippingMethod.id === method.id} onChange={() => setShippingChoice({ basket, id: method.id })} />
+                    <span className="flex-1">{method.name}</span><span>{method.pricePence ? money(method.pricePence, quote.currency) : "Free"}</span>
+                  </label>)}
+                </fieldset>
                 {quote.freeQuantity ? (
                   <p className="mt-3 text-sm font-medium text-emerald-800">
                     {quote.freeQuantity}{" "}
@@ -407,7 +417,7 @@ function CheckoutForm() {
                   <dt className="text-black/50">Shipment</dt>
                   <dd className="text-right">
                     {quote.shippingPence
-                      ? `Flat rate: ${money(quote.shippingPence, quote.currency)}`
+                      ? money(quote.shippingPence, quote.currency)
                       : "Free"}
                   </dd>
                   <dt className="pt-2 font-semibold">Total</dt>

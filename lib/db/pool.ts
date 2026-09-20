@@ -24,6 +24,7 @@ function createPool(): Pool {
     bigNumberStrings: true,
     multipleStatements: false,
     charset: "utf8mb4",
+    timezone: "Z",
     ssl: config.ssl ? {} : undefined,
   });
 }

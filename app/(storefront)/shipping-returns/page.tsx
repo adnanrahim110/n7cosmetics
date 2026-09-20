@@ -80,8 +80,9 @@ export default async function ShippingReturnsPage() {
                       <div className="flex items-start justify-between gap-5">
                         <dt className="text-black/42">Free shipping</dt>
                         <dd className="text-right font-medium text-black/72">
-                          Orders over{" "}
+                          Orders of{" "}
                           {formatPolicyMoney(method.freeOverPence, currency)}
+                          {" or more "}{method.thresholdBasis === "BEFORE_DISCOUNT" ? "before discounts" : "after discounts"}
                         </dd>
                       </div>
                     ) : null}

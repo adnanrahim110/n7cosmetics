@@ -14,7 +14,7 @@ import { enqueueOrderEmails } from "@/lib/email/orders";
 import { kickEmailQueue } from "@/lib/email/kick";
 
 const schema = z.object({
-  status: z.enum(["NEW", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"]),
+  status: z.enum(["NEW", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "CANCELLED", "REFUNDED", "FAILED", "ON_HOLD"]),
   paymentStatus: z.enum(["UNPAID", "PENDING", "PAID", "PARTIALLY_REFUNDED", "REFUNDED", "FAILED"]),
   fulfillmentStatus: z.enum(["UNFULFILLED", "PARTIAL", "FULFILLED", "RETURNED"]),
   adminNotes: z.string().max(10000).nullable(), historyNote: z.string().max(500).nullable(),
