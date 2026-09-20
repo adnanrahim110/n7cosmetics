@@ -11,11 +11,11 @@ async function main() {
   if (!['127.0.0.1', 'localhost', '::1'].includes(process.env.DB_HOST)) throw new Error('This command is restricted to the local database.');
   const output = resolve(process.argv[2] || `reports/legacy/pre-migration-${Date.now()}.sql.gz`);
   mkdirSync(dirname(output), { recursive: true });
-  const db = await mysql.createConnection({ host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 3306), database: process.env.DB_NAME, user: process.env.DB_USER, password: process.env.DB_PASSWORD, dateStrings: true, supportBigNumbers: true, bigNumberStrings: true, timezone: 'Z' });
+  const db = await mysql.createConnection({ host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 3306), database: process.env.DB_NAME, user: process.env.DB_USER, password: process.env.DB_PASSWORD, dateStrings: true, supportBigNumbers: true, bigNumberStrings: true, jsonStrings: true, timezone: 'Z' });
   const gzip = createGzip();
   const saving = pipeline(gzip, createWriteStream(output, { flags: 'wx' }));
   const write = async (text) => { if (!gzip.write(text)) await once(gzip, 'drain'); };
-  const manifest = { database: process.env.DB_NAME, createdAt: new Date().toISOString(), tables: [] };
+  const manifest = { database: process.env.DB_NAME, createdAt: new Date().toISOString(), jsonStrings: true, tables: [] };
   try {
     await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
     await db.query('START TRANSACTION WITH CONSISTENT SNAPSHOT');
@@ -28,19 +28,24 @@ async function main() {
       const [keys] = await db.query(`SHOW KEYS FROM ${quoted} WHERE Key_name='PRIMARY'`);
       const primaryKey = keys.sort((a, b) => a.Seq_in_index - b.Seq_in_index).map(key => key.Column_name);
       if (!primaryKey.length) throw new Error(`No stable primary key for ${name}.`);
-      const order = primaryKey.map(mysql.escapeId).join(',');
+      const keyColumns = primaryKey.map(key => mysql.escapeId(key));
+      const order = keyColumns.join(',');
       const digest = createHash('sha256');
       await write(`DROP TABLE IF EXISTS ${quoted};\n${ddl[0]['Create Table']};\n`);
-      let offset = 0;
+      let count = 0, last = null;
       while (true) {
-        const [rows] = await db.query(`SELECT * FROM ${quoted} ORDER BY ${order} LIMIT 500 OFFSET ?`, [offset]);
+        const comparisons = keyColumns.map((key, index) => '(' + [...keyColumns.slice(0, index).map(previous => `${previous}=?`), `${key}>?`].join(' AND ') + ')');
+        const where = last ? ` WHERE ${comparisons.join(' OR ')}` : '';
+        const parameters = last ? keyColumns.flatMap((_, index) => last.slice(0, index + 1)) : [];
+        const [rows] = await db.query(`SELECT * FROM ${quoted}${where} ORDER BY ${order} LIMIT 500`, parameters);
         if (!rows.length) break;
         const columns = Object.keys(rows[0]);
         for (const row of rows) digest.update(JSON.stringify(row) + '\n');
         await write(`INSERT INTO ${quoted} (${columns.map(mysql.escapeId).join(',')}) VALUES\n${rows.map(row => '(' + columns.map(c => mysql.escape(row[c] !== null && typeof row[c] === 'object' && !Buffer.isBuffer(row[c]) ? JSON.stringify(row[c]) : row[c])).join(',') + ')').join(',\n')};\n`);
-        offset += rows.length;
+        count += rows.length;
+        last = primaryKey.map(key => rows[rows.length - 1][key]);
       }
-      manifest.tables.push({ name, primaryKey, count: offset, sha256: digest.digest('hex') });
+      manifest.tables.push({ name, primaryKey, count, sha256: digest.digest('hex') });
     }
     await write('SET FOREIGN_KEY_CHECKS=1;\n');
     await db.commit(); gzip.end(); await saving;
