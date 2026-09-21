@@ -54,7 +54,7 @@ export default async function ShippingReturnsPage() {
                 method.estimatedDaysMax,
               );
               const deliveryPrice =
-                method.methodType === "FREE_SHIPPING" || method.pricePence === 0
+                method.pricePence === 0
                   ? "Free"
                   : formatPolicyMoney(method.pricePence, currency);
 
@@ -69,6 +69,7 @@ export default async function ShippingReturnsPage() {
                   <h3 className="mt-2 font-heading text-2xl text-black/85">
                     {method.name}
                   </h3>
+                  <p className="mt-2 text-xs text-black/50">{method.zoneName}{method.postcodes.length ? ` · ${method.postcodes.join(", ")}` : ""}</p>
                   <dl className="mt-5 space-y-3 border-t border-black/10 pt-4 text-sm">
                     <div className="flex items-start justify-between gap-5">
                       <dt className="text-black/42">Postage</dt>
@@ -76,16 +77,16 @@ export default async function ShippingReturnsPage() {
                         {deliveryPrice}
                       </dd>
                     </div>
-                    {method.freeOverPence !== null ? (
-                      <div className="flex items-start justify-between gap-5">
-                        <dt className="text-black/42">Free shipping</dt>
+                    {method.freeShippingRules.map(rule => (
+                      <div key={rule.id} className="flex items-start justify-between gap-5">
+                        <dt className="text-black/42">Automatic free shipping</dt>
                         <dd className="text-right font-medium text-black/72">
                           Orders of{" "}
-                          {formatPolicyMoney(method.freeOverPence, currency)}
-                          {" or more "}{method.thresholdBasis === "BEFORE_DISCOUNT" ? "before discounts" : "after discounts"}
+                          {formatPolicyMoney(rule.minimumSubtotalPence, currency)}
+                          {" or more "}{rule.thresholdBasis === "BEFORE_DISCOUNT" ? "before discounts" : "after discounts"}
                         </dd>
                       </div>
-                    ) : null}
+                    ))}
                     {estimate ? (
                       <div className="flex items-start justify-between gap-5">
                         <dt className="text-black/42">Estimated delivery</dt>

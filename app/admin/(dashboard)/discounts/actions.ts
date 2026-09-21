@@ -17,7 +17,8 @@ const schema = z.object({
   minimumSubtotalPence: z.number().int().nonnegative().nullable(), maximumDiscountPence: z.number().int().nonnegative().nullable(),
   priority: z.number().int().min(-100000).max(100000), startsAt: z.date().nullable(), endsAt: z.date().nullable(), isActive: z.boolean(),
   productIds: z.array(z.string().regex(/^[1-9]\d*$/)), categoryIds: z.array(z.string().regex(/^[1-9]\d*$/)), collectionIds: z.array(z.string().regex(/^[1-9]\d*$/)),
-}).refine((item) => !item.startsAt || !item.endsAt || item.endsAt > item.startsAt, { message: "End must follow start" });
+}).refine((item) => !item.startsAt || !item.endsAt || item.endsAt > item.startsAt, { message: "End must follow start" })
+  .refine(item => item.discountType !== "FREE_SHIPPING" || item.method === "COUPON", { message: "Automatic free shipping is configured under Shipping rules" });
 
 function optionalMoney(formData: FormData, key: string): number | null | undefined { const raw = formString(formData, key); return raw ? (poundsToPence(raw) ?? undefined) : null; }
 function optionalDate(value: string | null): Date | null { if (!value) return null; const date = new Date(value); return Number.isNaN(date.getTime()) ? null : date; }

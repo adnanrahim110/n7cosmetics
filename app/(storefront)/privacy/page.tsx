@@ -97,6 +97,15 @@ export default async function PrivacyPage() {
 
       <LegalSection id="cookies" number="04" title="Cookies">
         <p>
+          If you select “Save my details for next time” at checkout, we
+          save your name, email address, phone number, and billing and delivery
+          addresses in this browser on this device when you continue to payment.
+          We use them to fill in your next checkout. Card details and marketing
+          preferences are not saved with these details. You can remove the saved
+          details using “Clear” at checkout, by unticking the option,
+          or by clearing this website&apos;s data in your browser settings.
+        </p>
+        <p>
           If you leave a comment on our site, you may opt in to saving your
           name, email address, and website in cookies. These are for your
           convenience so you do not have to fill in your details again when you
@@ -175,6 +184,14 @@ export default async function PrivacyPage() {
         number="08"
         title="What rights you have over your data"
       >
+        <p>
+          At checkout, you can opt out of marketing emails from N7 Cosmetics.
+          If you do not opt out, we may email you about our similar fragrances,
+          new launches and offers. We record the choice, the date and the notice
+          shown to you. We continue to respect previous unsubscribes. You can
+          unsubscribe at any time using the link in our marketing emails.
+          This choice does not affect emails needed to process and deliver your order.
+        </p>
         <p>
           If you have an account on this site or have left comments, you can
           request an exported file of the personal data we hold about you,

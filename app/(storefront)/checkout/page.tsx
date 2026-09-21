@@ -18,6 +18,9 @@ import StripeProvider, {
 import { useStripePayment } from "@/components/commerce/useStripePayment";
 import type { CheckoutQuote } from "@/lib/commerce/quote";
 import type { CheckoutInput } from "@/lib/commerce/validation";
+import { normalizePostcode } from "@/lib/commerce/shipping";
+import { checkoutMarketingCopy } from "@/lib/commerce/checkout-preferences";
+import { clearSavedCheckoutDetails, emptyCheckoutAddress, loadSavedCheckoutDetails, saveCheckoutDetails, walletCheckoutDetails, type SavedCheckoutDetails } from "@/lib/commerce/saved-checkout";
 import { PaymentElement, useElements } from "@stripe/react-stripe-js";
 
 const input =
@@ -43,6 +46,13 @@ function CheckoutForm() {
   const paymentConfig = usePaymentConfig();
   const { pay, ready } = useStripePayment();
   const [differentShipping, setDifferentShipping] = useState(false);
+  const [billingDetails, setBillingDetails] = useState(emptyCheckoutAddress);
+  const [shippingDetails, setShippingDetails] = useState(emptyCheckoutAddress);
+  const [contactEmail, setContactEmail] = useState("");
+  const [marketingOptOut, setMarketingOptOut] = useState(false);
+  const [rememberDetails, setRememberDetails] = useState(false);
+  const [hasSavedDetails, setHasSavedDetails] = useState(false);
+  const [detailsMessage, setDetailsMessage] = useState("");
   const [cardReady, setCardReady] = useState(false);
   const [showOrderItems, setShowOrderItems] = useState(false);
   const countryCode = "GB" as const;
@@ -55,11 +65,13 @@ function CheckoutForm() {
   const [error, setError] = useState<string>();
   const [placing, setPlacing] = useState(false);
   const [shippingChoice, setShippingChoice] = useState<{ basket: string; id: string } | null>(null);
-  const basket = JSON.stringify({ items: cart.map(({ slug, quantity }) => ({ slug, quantity })), couponCode });
+  const postalCode = normalizePostcode((differentShipping ? shippingDetails : billingDetails).postalCode);
+  const basket = JSON.stringify({ postalCode });
 
   const quoteRequest = JSON.stringify({
     items: cart.map(({ slug, quantity }) => ({ slug, quantity })),
     countryCode,
+    postalCode,
     couponCode: couponCode || undefined,
     shippingMethodId: shippingChoice?.basket === basket ? shippingChoice.id : undefined,
   });
@@ -68,6 +80,47 @@ function CheckoutForm() {
   const quote = currentQuote?.data ?? null;
   const quoting = hasCart && !currentQuote;
   const displayError = error ?? currentQuote?.error;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = loadSavedCheckoutDetails(window.localStorage);
+        if (!saved) return;
+        setContactEmail(saved.email);
+        setBillingDetails(saved.billingAddress);
+        setShippingDetails(saved.shippingAddress);
+        setDifferentShipping(saved.differentShipping);
+        setRememberDetails(true);
+        setHasSavedDetails(true);
+        setDetailsMessage("Your saved details have been filled in. You can edit them in the form.");
+      } catch { /* Checkout also works when this browser blocks local storage. */ }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  function forgetDetails() {
+    setRememberDetails(false);
+    try {
+      if (clearSavedCheckoutDetails(window.localStorage)) {
+        setHasSavedDetails(false);
+        setDetailsMessage("Saved details cleared from this device.");
+        return;
+      }
+    } catch { /* Explain how to remove data if storage access is blocked. */ }
+    setDetailsMessage("This browser could not clear your saved details. You can remove them by clearing this website’s data in your browser settings.");
+  }
+
+  function rememberCheckout(details: SavedCheckoutDetails) {
+    if (!rememberDetails) return;
+    try {
+      if (saveCheckoutDetails(window.localStorage, details)) {
+        setHasSavedDetails(true);
+        setDetailsMessage("Your details are saved on this device.");
+        return;
+      }
+    } catch { /* Saving details must never block payment. */ }
+    setDetailsMessage("Your browser could not save your details. You can still complete your order.");
+  }
 
   useEffect(() => {
     if (quote) elements?.update({ amount: Math.max(30, quote.totalPence) });
@@ -86,7 +139,12 @@ function CheckoutForm() {
         });
         const data = (await response.json()) as CheckoutQuote & {
           error?: string;
+          code?: string;
         };
+        if (!response.ok && data.code === "DELIVERY_UNAVAILABLE" && JSON.parse(quoteRequest).shippingMethodId && !controller.signal.aborted) {
+          setShippingChoice(null);
+          return;
+        }
         if (!response.ok)
           throw new Error(data.error ?? "Unable to calculate checkout.");
         if (!controller.signal.aborted)
@@ -140,8 +198,10 @@ function CheckoutForm() {
       },
       billingAddress,
       shippingAddress: differentShipping ? address("shipping") : billingAddress,
+      marketingOptOut,
       paymentMethod: "STRIPE",
     };
+    rememberCheckout({ version: 1, email, billingAddress: billingDetails, shippingAddress: differentShipping ? shippingDetails : billingDetails, differentShipping });
     setPlacing(true);
     setError(undefined);
     try {
@@ -192,7 +252,26 @@ function CheckoutForm() {
           onSubmit={submitOrder}
         >
           <div className="space-y-6">
-            {quote ? <ExpressPayment quote={quote} /> : null}
+            <fieldset disabled={placing} className="space-y-5 border border-black/10 bg-white/35 p-4 sm:p-6">
+              <Title text="Contact details" tone="gold" variant="small" />
+              <label className="block text-sm">
+                Email address *
+                <input className={input} name="email" autoComplete="email" maxLength={190} required type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} />
+              </label>
+              <div className="space-y-3 border-t border-black/10 pt-5">
+                <h2 className="text-base font-medium">{checkoutMarketingCopy.title}</h2>
+                <p className="text-sm leading-6 text-black/65">{checkoutMarketingCopy.introduction}</p>
+                <label className="flex cursor-pointer items-start gap-3 text-sm leading-6">
+                  <input className="mt-1 size-4 shrink-0 accent-[#8d6745]" type="checkbox" name="marketingOptOut" checked={marketingOptOut} onChange={(event) => setMarketingOptOut(event.target.checked)} />
+                  <span>{checkoutMarketingCopy.checkbox}</span>
+                </label>
+                <p className="text-xs leading-5 text-black/60">
+                  {checkoutMarketingCopy.unsubscribe} {checkoutMarketingCopy.privacy}{" "}
+                  <Link href="/privacy" className="underline underline-offset-2">Privacy Policy</Link>.
+                </p>
+              </div>
+            </fieldset>
+            {quote ? <ExpressPayment quote={quote} marketingOptOut={marketingOptOut} onCheckoutDetails={(payload) => rememberCheckout(walletCheckoutDetails(payload))} onBusyChange={setPlacing} /> : null}
             <fieldset
               disabled={placing}
               className="grid gap-5 border border-black/10 bg-white/35 p-4 sm:grid-cols-2 sm:p-6"
@@ -203,18 +282,7 @@ function CheckoutForm() {
                 tone="gold"
                 variant="small"
               />
-              <CheckoutAddressFields prefix="billing" />
-              <label className="text-sm sm:col-span-2">
-                Email address *
-                <input
-                  className={input}
-                  name="email"
-                  autoComplete="email"
-                  maxLength={190}
-                  required
-                  type="email"
-                />
-              </label>
+              <CheckoutAddressFields prefix="billing" value={billingDetails} onChange={setBillingDetails} />
               <label className="flex items-center gap-3 text-sm sm:col-span-2">
                 <input
                   type="checkbox"
@@ -233,7 +301,7 @@ function CheckoutForm() {
                     tone="gold"
                     variant="small"
                   />
-                  <CheckoutAddressFields prefix="shipping" />
+                  <CheckoutAddressFields prefix="shipping" value={shippingDetails} onChange={setShippingDetails} />
                 </>
               ) : null}
               <label className="text-sm sm:col-span-2">
@@ -245,6 +313,15 @@ function CheckoutForm() {
                   rows={3}
                 />
               </label>
+            </fieldset>
+
+            <fieldset disabled={placing} className="flex items-center justify-between gap-3 border border-black/10 bg-white/35 px-4 py-3 sm:px-6">
+              <label className="flex cursor-pointer items-center gap-3 text-sm">
+                <input className="size-4 shrink-0 accent-[#8d6745]" type="checkbox" name="rememberDetails" checked={rememberDetails} onChange={(event) => { if (event.target.checked) { setRememberDetails(true); setDetailsMessage(""); } else { forgetDetails(); } }} />
+                <span>Save my details for next time.</span>
+              </label>
+              {hasSavedDetails ? <button aria-label="Clear saved details" className="shrink-0 text-xs underline underline-offset-4" type="button" onClick={forgetDetails}>Clear</button> : null}
+              <p role="status" className="sr-only">{detailsMessage}</p>
             </fieldset>
 
             <section className="border border-black/10 bg-white/35 p-4 sm:p-6">
@@ -388,9 +465,10 @@ function CheckoutForm() {
                   <legend className="text-sm font-medium">Delivery method</legend>
                   {quote.shippingMethods.map(method => <label key={method.id} className="flex cursor-pointer items-center gap-2 text-sm">
                     <input type="radio" name="shippingMethod" checked={quote.shippingMethod.id === method.id} onChange={() => setShippingChoice({ basket, id: method.id })} />
-                    <span className="flex-1">{method.name}</span><span>{method.pricePence ? money(method.pricePence, quote.currency) : "Free"}</span>
+                    <span className="flex-1">{method.name}{method.adjustment ? <span className="mt-0.5 block text-xs text-emerald-800">{method.adjustment.name}{method.adjustment.source === "RULE" ? " — applied automatically" : ""}</span> : null}</span><span>{method.adjustment ? <span className="mr-2 text-black/40 line-through">{money(method.basePricePence, quote.currency)}</span> : null}{method.pricePence ? money(method.pricePence, quote.currency) : "Free"}</span>
                   </label>)}
                 </fieldset>
+                {quote.shippingEstimated ? <p className="mt-2 text-xs text-black/50">Enter your delivery postcode to confirm available services and prices.</p> : null}
                 {quote.freeQuantity ? (
                   <p className="mt-3 text-sm font-medium text-emerald-800">
                     {quote.freeQuantity}{" "}

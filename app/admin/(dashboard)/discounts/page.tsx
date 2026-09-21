@@ -1,4 +1,5 @@
 import type { RowDataPacket } from "mysql2/promise";
+import Link from "next/link";
 import { Plus } from "lucide-react";
 import CustomSelect from "@/components/admin/CustomSelect";
 import Notice from "@/components/admin/Notice";
@@ -17,7 +18,8 @@ function Fields({ item, products, categories, collections }: { item?: DiscountRo
   return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
     <input aria-label="Name" className={`${input} sm:col-span-2`} defaultValue={item?.name} maxLength={190} name="name" placeholder="Discount name" required />
     <CustomSelect defaultValue={item?.method ?? "AUTOMATIC"} name="method" options={[{ value: "AUTOMATIC", label: "Automatic" }, { value: "COUPON", label: "Coupon based" }]} required searchable={false} />
-    <CustomSelect defaultValue={item?.discount_type ?? "PERCENTAGE"} name="discountType" options={[{ value: "PERCENTAGE", label: "Percentage" }, { value: "FIXED_AMOUNT", label: "Fixed amount" }, { value: "FREE_SHIPPING", label: "Free shipping" }]} required searchable={false} />
+    <CustomSelect defaultValue={item?.discount_type ?? "PERCENTAGE"} name="discountType" options={[{ value: "PERCENTAGE", label: "Percentage" }, { value: "FIXED_AMOUNT", label: "Fixed amount" }, { value: "FREE_SHIPPING", label: "Free shipping (coupon only)" }]} required searchable={false} />
+    <p className="text-xs text-zinc-500 sm:col-span-2 lg:col-span-4">Automatic free shipping is managed in <Link className="underline" href="/admin/shipping?tab=rules">Shipping → Automatic rules</Link>. Free-shipping coupons apply only to methods that accept them in Shipping → Methods.</p>
     <input aria-label="Value" className={input} defaultValue={item ? (item.discount_type === "FIXED_AMOUNT" ? penceToPounds(item.value) : item.value) : ""} min={0} name="value" placeholder="Percent or £ amount" required step="0.01" type="number" />
     <CustomSelect defaultValue={item?.applies_to ?? "ALL"} name="appliesTo" options={[{ value: "ALL", label: "All products" }, { value: "PRODUCTS", label: "Selected products" }, { value: "CATEGORIES", label: "Selected categories" }, { value: "COLLECTIONS", label: "Selected collections" }]} required searchable={false} />
     <input aria-label="Minimum subtotal" className={input} defaultValue={penceToPounds(item?.minimum_subtotal_pence)} min={0} name="minimumSubtotal" placeholder="Minimum subtotal £" step="0.01" type="number" />

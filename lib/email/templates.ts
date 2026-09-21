@@ -41,13 +41,15 @@ export function contactReceiptEmail(brand: EmailBrand, name: string, topic: stri
   return { subject: cleanSubject(`N7 enquiry ${reference} · Your message is saved`), text, html: emailLayout(brand, { eyebrow: "N7 · Customer care", title: "Your note is with us.", preview: `Enquiry ${reference} · ${topic}`, body: paragraph(text) + details([["Enquiry reference", reference], ["Regarding", topic]]) }) };
 }
 
-export function newsletterEmail(brand: EmailBrand, kind: "confirm" | "welcome", link: string): EmailContent {
+export function newsletterEmail(brand: EmailBrand, kind: "confirm" | "welcome" | "checkout", link: string): EmailContent {
   if (kind === "confirm") {
     const text = "You asked to receive N7 fragrance updates. Confirm your address to hear about new fragrances, collection releases and N7 offers. This link expires in 48 hours. If you did not sign up, you can ignore this message; your address will stay off the mailing list.";
     return { subject: "N7 fragrance updates · Confirm your address", text: `${text}\n\nConfirm: ${link}`, html: emailLayout(brand, { eyebrow: "N7 · Fragrance notes", title: "A place on the N7 list.", preview: "Confirm your address before N7 sends fragrance updates.", body: paragraph(text) + emailButton("Confirm my subscription", link) }) };
   }
-  const text = "Your address is now confirmed for N7 fragrance updates. We’ll share new additions to the collection and selected offers. Explore Yusuf Bhai Originals, find a familiar inspiration in Recreations, or take a closer look at the N7 Collection.";
-  return { subject: "You’re on the N7 fragrance list", text: `${text}\n\nExplore N7: ${brand.appUrl}\n\nLeave the list: ${link}`, html: emailLayout(brand, { eyebrow: "N7 · Fragrance notes", title: "Good fragrance. Worth a note.", preview: "Your N7 subscription is confirmed.", body: paragraph(text) + emailButton("Explore the collections", brand.appUrl) + paragraph("You can leave the list at any time using the link below."), unsubscribeUrl: link }) };
+  const text = kind === "checkout"
+    ? "You’re receiving this email because you provided your address during checkout with N7 Cosmetics and did not opt out of marketing emails. We’ll share news about our fragrances, new launches and selected offers. You can unsubscribe at any time using the link below."
+    : "Your address is now confirmed for N7 fragrance updates. We’ll share new additions to the collection and selected offers. Explore Yusuf Bhai Originals, find a familiar inspiration in Recreations, or take a closer look at the N7 Collection.";
+  return { subject: "You’re on the N7 fragrance list", text: `${text}\n\nExplore N7: ${brand.appUrl}\n\nLeave the list: ${link}`, html: emailLayout(brand, { eyebrow: "N7 · Fragrance notes", title: "Good fragrance. Worth a note.", preview: kind === "checkout" ? "N7 fragrance updates and your email preferences." : "Your N7 subscription is confirmed.", body: paragraph(text) + emailButton("Explore the collections", brand.appUrl) + paragraph("You can leave the list at any time using the link below."), unsubscribeUrl: link }) };
 }
 
 export function smtpTestEmail(brand: EmailBrand, recipient: string): EmailContent {

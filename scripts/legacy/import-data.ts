@@ -287,10 +287,15 @@ async function importShipping(db: Connection, loaded: Loaded) {
   await db.execute("INSERT IGNORE INTO shipping_zone_countries (zone_id,country_code) VALUES (?, 'GB')", [zoneId]);
   const flat = object(decode(options.get("woocommerce_flat_rate_7_settings")));
   const free = object(decode(options.get("woocommerce_free_shipping_2_settings")));
-  const [methods] = await db.execute<RowDataPacket[]>("SELECT id FROM shipping_methods WHERE zone_id=? AND method_type='FLAT_RATE' ORDER BY id LIMIT 1", [zoneId]);
-  if (methods.length) await db.execute("UPDATE shipping_methods SET price_pence=?,free_over_pence=NULL,threshold_basis='BEFORE_DISCOUNT',legacy_id=7,is_active=1,sort_order=10 WHERE id=?", [pence(String(flat.cost ?? "2.99")), methods[0].id]);
-  else await insert(db, "shipping_methods", { zone_id: zoneId, name: "Standard delivery", method_type: "FLAT_RATE", price_pence: pence(String(flat.cost ?? "2.99")), sort_order: 10, legacy_id: 7, threshold_basis: "BEFORE_DISCOUNT" });
-  await insert(db, "shipping_methods", { zone_id: zoneId, name: "Free shipping", method_type: "FREE_SHIPPING", price_pence: 0, free_over_pence: pence(String(free.min_amount ?? "99.00")), threshold_basis: free.ignore_discounts === "yes" ? "BEFORE_DISCOUNT" : "AFTER_DISCOUNT", sort_order: 0, legacy_id: 2 });
+  const [methods] = await db.execute<RowDataPacket[]>("SELECT m.id FROM shipping_methods m JOIN shipping_method_rates r ON r.method_id=m.id WHERE r.zone_id=? AND m.method_type='DELIVERY' ORDER BY m.id LIMIT 1", [zoneId]);
+  const price = pence(String(flat.cost ?? "2.99"));
+  const methodId = methods.length ? String(methods[0].id) : await insert(db, "shipping_methods", { name: "Standard delivery", method_type: "DELIVERY", price_pence: price, legacy_id: 7, allow_free_shipping_coupon: 1 });
+  await db.execute("UPDATE shipping_methods SET price_pence=?,pricing_mode='FLAT_RATE',legacy_id=7,is_active=1,sort_order=10 WHERE id=?", [price, methodId]);
+  await db.execute("INSERT INTO shipping_method_rates (method_id,zone_id,price_pence) VALUES (?,?,?) ON DUPLICATE KEY UPDATE price_pence=VALUES(price_pence)", [methodId, zoneId, price]);
+  const [existingRules] = await db.query<RowDataPacket[]>("SELECT id FROM shipping_rules WHERE legacy_id=2 LIMIT 1");
+  const ruleId = existingRules.length ? String(existingRules[0].id) : await insert(db, "shipping_rules", { name: "Free Standard delivery", minimum_subtotal_pence: pence(String(free.min_amount ?? "99.00")), threshold_basis: free.ignore_discounts === "yes" ? "BEFORE_DISCOUNT" : "AFTER_DISCOUNT", zone_id: zoneId, legacy_id: 2 });
+  await db.execute("UPDATE shipping_rules SET minimum_subtotal_pence=?,threshold_basis=?,zone_id=?,is_active=1 WHERE id=?", [pence(String(free.min_amount ?? "99.00")), free.ignore_discounts === "yes" ? "BEFORE_DISCOUNT" : "AFTER_DISCOUNT", zoneId, ruleId]);
+  await db.execute("INSERT IGNORE INTO shipping_rule_methods (rule_id,method_id) VALUES (?,?)", [ruleId, methodId]);
 }
 
 export async function applyImport(db: Connection, batchId: string, loaded: Loaded) {

@@ -96,6 +96,8 @@ export default function ProductHero({
   }
 
   const featuredProduct = selectedProducts[0];
+  const featuredProductCode = featuredProduct?.productCode?.trim();
+  const featuredProductInspiration = featuredProduct?.inspiredBy?.trim();
   const supportingProducts = selectedProducts.slice(1, 3);
   const productCount = selectedProducts.length;
   const highlights = heroContent.highlights?.slice(0, 3) ?? [];
@@ -108,7 +110,7 @@ export default function ProductHero({
 
   return (
     <section
-      className="relative isolate min-h-[80svh] overflow-hidden pt-40 text-[#f7f0e8] sm:pt-44"
+      className="relative isolate min-h-[80svh] overflow-hidden pt-40 text-[#f7f0e8] max-sm:min-h-0 max-sm:pt-36 sm:pt-44"
       style={{ backgroundColor: design.heroBase }}
     >
       <div
@@ -123,8 +125,8 @@ export default function ProductHero({
         className="pointer-events-none absolute inset-y-0 left-[14%] -z-10 w-px bg-white/[0.035]"
       />
 
-      <div className="relative mx-auto flex min-h-[calc(80svh-6rem)] max-w-360 flex-col px-5 pb-7 sm:min-h-[calc(80svh-7rem)] sm:px-8 lg:min-h-[calc(80svh-7.5rem)] lg:px-12">
-        <div className="grid grow items-center gap-9 py-9 lg:grid-cols-[minmax(0,0.92fr)_minmax(30rem,1.08fr)] lg:gap-14 lg:py-8">
+      <div className="relative mx-auto flex min-h-[calc(80svh-6rem)] max-w-360 flex-col px-5 pb-7 max-sm:min-h-0 max-sm:pb-5 sm:min-h-[calc(80svh-7rem)] sm:px-8 lg:min-h-[calc(80svh-7.5rem)] lg:px-12">
+        <div className="grid grow items-center gap-9 py-9 max-sm:gap-5 max-sm:py-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(30rem,1.08fr)] lg:gap-14 lg:py-8">
           <div className="relative z-10 max-w-xl lg:pr-4">
             <motion.div
               initial={false}
@@ -146,7 +148,7 @@ export default function ProductHero({
 
             <Title
               as="h1"
-              className="mt-6 uppercase text-[#f7f0e8]"
+              className="mt-6 uppercase text-[#f7f0e8] max-sm:mt-3 max-sm:text-[clamp(1.875rem,7.5vw,2.25rem)] max-sm:leading-[1.05]"
               highlight={heroContent.title.accent}
               highlightClassName={`${design.accentClass} lowercase`}
               text={`${heroContent.title.lead} ${heroContent.title.accent}`}
@@ -161,15 +163,15 @@ export default function ProductHero({
                 delay: shouldReduceMotion ? 0 : 0.12,
                 ease: collectionEase,
               }}
-              className="mt-7 max-w-lg border-t border-white/12 pt-6"
+              className="mt-7 max-w-lg border-t border-white/12 pt-6 max-sm:mt-4 max-sm:pt-3"
             >
               {heroContent.statement ? (
-                <p className="font-heading text-base italic leading-7 text-white/68 sm:text-lg">
+                <p className="font-heading text-base italic leading-7 text-white/68 max-sm:hidden sm:text-lg">
                   &ldquo;{heroContent.statement}&rdquo;
                 </p>
               ) : null}
               <p
-                className={`${heroContent.statement ? "mt-4" : ""} max-w-md text-[11px] font-light leading-6 text-white/46 sm:text-xs`}
+                className={`${heroContent.statement ? "mt-4" : ""} max-w-md text-[11px] font-light leading-6 text-white/46 max-sm:mt-0 max-sm:leading-5 sm:text-xs`}
               >
                 {heroContent.intro}
               </p>
@@ -182,7 +184,7 @@ export default function ProductHero({
                 duration: shouldReduceMotion ? 0 : 0.7,
                 delay: shouldReduceMotion ? 0 : 0.18,
               }}
-              className="mt-7 flex flex-wrap items-center gap-x-7 gap-y-4"
+              className="mt-7 flex flex-wrap items-center gap-x-7 gap-y-4 max-sm:hidden"
             >
               <a
                 href={ctaHref}
@@ -198,7 +200,7 @@ export default function ProductHero({
               </a>
 
               {highlights.length ? (
-                <ul className="flex flex-wrap gap-x-5 gap-y-2">
+                <ul className="flex flex-wrap gap-x-5 gap-y-2 max-sm:hidden">
                   {highlights.map((highlight) => (
                     <li
                       key={highlight}
@@ -225,12 +227,65 @@ export default function ProductHero({
               delay: shouldReduceMotion ? 0 : 0.08,
               ease: collectionEase,
             }}
-            className="relative min-h-96 sm:min-h-120 lg:min-h-116"
+            className="relative min-h-96 max-sm:min-h-0 sm:min-h-120 lg:min-h-116"
             style={{ color: heroInk }}
           >
+            <div
+              className="relative overflow-hidden border border-white/12 sm:hidden"
+              style={{
+                background: `linear-gradient(138deg, ${design.heroSurface} 0%, ${design.heroSurface}e8 68%, ${design.accent}a8 148%)`,
+              }}
+            >
+              {featuredProduct ? (
+                <>
+                  <Link
+                    aria-label={`View ${featuredProduct.name}`}
+                    className="absolute inset-0 z-40 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
+                    href={productHref(featuredProduct)}
+                  />
+                  <div className="relative mx-auto h-44 w-[70%]">
+                    <Image
+                      src={featuredProduct.image}
+                      alt={featuredProduct.name}
+                      fill
+                      priority
+                      sizes="(width < 640px) 65vw, 1px"
+                      className="object-contain p-2 drop-shadow-[0_18px_16px_rgba(20,14,10,0.22)]"
+                    />
+                  </div>
+                  {featuredProductCode || featuredProductInspiration ? (
+                    <div className="relative flex min-w-0 items-center gap-2 border-t border-[#967C55]/25 bg-[#f7f2ea] px-2.5 py-1.5 text-[9px] leading-4 text-[#6b4d2c]">
+                      {featuredProductCode ? (
+                        <p
+                          className="flex min-w-0 max-w-[45%] shrink-0 items-baseline gap-1"
+                          title={`Product code: ${featuredProductCode}`}
+                        >
+                          <span className="shrink-0">Product code:</span>
+                          <span className="truncate font-mono text-[10px] font-bold">{featuredProductCode}</span>
+                        </p>
+                      ) : null}
+                      {featuredProductInspiration ? (
+                        <p
+                          className={`flex min-w-0 flex-1 items-baseline gap-1 ${featuredProductCode ? "border-l border-[#967C55]/25 pl-2" : ""}`}
+                          title={`Inspired by ${featuredProductInspiration}`}
+                        >
+                          <span className="shrink-0">Inspired by</span>
+                          <span className="truncate font-semibold">{featuredProductInspiration}</span>
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="grid min-h-60 place-items-center px-6 text-center text-[9px] font-semibold uppercase tracking-[0.24em] text-current/42">
+                  The next edit is being prepared
+                </div>
+              )}
+            </div>
+
             {productCount === 1 && featuredProduct ? (
               <div
-                className="absolute inset-x-[4%] inset-y-[2%] overflow-hidden border border-white/12 sm:inset-x-[8%] lg:inset-x-[10%]"
+                className="absolute inset-x-[4%] inset-y-[2%] overflow-hidden border border-white/12 max-sm:hidden sm:inset-x-[8%] lg:inset-x-[10%]"
                 style={{
                   background: `linear-gradient(138deg, ${design.heroSurface} 0%, ${design.heroSurface}e8 68%, ${design.accent}a8 148%)`,
                   boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), 0 30px 70px ${design.heroBase}52`,
@@ -283,7 +338,7 @@ export default function ProductHero({
                 </div>
               </div>
             ) : productCount === 2 ? (
-              <div className="absolute inset-x-0 inset-y-[2%] grid grid-cols-2 gap-3 sm:gap-5">
+              <div className="absolute inset-x-0 inset-y-[2%] grid grid-cols-2 gap-3 max-sm:hidden sm:gap-5">
                 {selectedProducts.map((product, index) => (
                   <motion.div
                     key={`${product.name}-${product.image}`}
@@ -332,7 +387,7 @@ export default function ProductHero({
             ) : (
               <>
                 <div
-                  className={`absolute inset-y-[2%] left-0 overflow-hidden border border-white/12 ${supportingProducts.length ? "right-[31%]" : "right-0"}`}
+                  className={`absolute inset-y-[2%] left-0 overflow-hidden border border-white/12 max-sm:hidden ${supportingProducts.length ? "right-[31%]" : "right-0"}`}
                   style={{
                     background: `linear-gradient(138deg, ${design.heroSurface} 0%, ${design.heroSurface}e8 74%, ${design.accent}a8 148%)`,
                     boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), 0 30px 70px ${design.heroBase}52`,
@@ -389,7 +444,7 @@ export default function ProductHero({
 
                 {supportingProducts.length ? (
                   <div
-                    className="absolute inset-y-[8%] right-0 grid w-[27%] border-y border-white/12"
+                    className="absolute inset-y-[8%] right-0 grid w-[27%] border-y border-white/12 max-sm:hidden"
                     style={{
                       gridTemplateRows: `repeat(${supportingProducts.length}, minmax(0, 1fr))`,
                     }}

@@ -73,14 +73,14 @@ async function main() {
     const high = await calculateQuote({ items: [{ slug: String(product.slug), quantity: highQuantity }], countryCode: "GB" });
     assert.equal(low.shippingPence, 299);
     assert.equal(high.shippingPence, 0);
-    const paidMethod = high.shippingMethods.find(method => method.pricePence === 299);
-    assert(paidMethod);
-    const selected = await calculateQuote({ items: [{ slug: String(product.slug), quantity: highQuantity }], countryCode: "GB", shippingMethodId: paidMethod.id });
-    assert.equal(selected.shippingPence, 299, "Explicit delivery choice controls the server quote");
+    assert.equal(high.shippingMethod.id, low.shippingMethod.id, "The method remains Standard when the rule applies");
+    assert.equal(high.shippingMethod.adjustment?.source, "RULE");
+    const selected = await calculateQuote({ items: [{ slug: String(product.slug), quantity: highQuantity }], countryCode: "GB", shippingMethodId: low.shippingMethod.id });
+    assert.equal(selected.shippingPence, 0, "Selecting Standard cannot bypass its automatic rule");
     const [sideEffects] = await db.query<RowDataPacket[]>("SELECT COUNT(*) n FROM stripe_checkouts c JOIN orders o ON o.id=c.order_id WHERE o.source='LEGACY'");
     assert.equal(Number(sideEffects[0].n), 0, "Historical orders have no live payment sessions");
     await applyImport(db, batchId, loaded); // COMPLETE batches must exit before any mutation.
-    console.log(JSON.stringify({ status: "PASS", archivedTables: tables.length, archivedRows: tables.reduce((sum, row) => sum + Number(row.actual), 0), orders: orders.length, reviews: reviews.length, customersExported: exported, enquiries: enquiries.length, originalContentPreserved: true, shipping: "299 below threshold; 0 at threshold; explicit method honored", repeatImport: "no-op" }));
+    console.log(JSON.stringify({ status: "PASS", archivedTables: tables.length, archivedRows: tables.reduce((sum, row) => sum + Number(row.actual), 0), orders: orders.length, reviews: reviews.length, customersExported: exported, enquiries: enquiries.length, originalContentPreserved: true, shipping: "Standard: 299 below threshold; 0 at threshold via automatic rule", repeatImport: "no-op" }));
   } finally { await db.end(); await getPool().end(); }
 }
 main().catch(error => { console.error(error instanceof Error ? error.message : "Verification failed"); process.exitCode = 1; });

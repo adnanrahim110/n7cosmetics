@@ -14,6 +14,7 @@ export const cartPricingInputSchema = z.object({
 
 export const quoteInputSchema = cartPricingInputSchema.extend({
   countryCode: z.literal("GB"),
+  postalCode: z.string().trim().max(30).transform(value => value.toUpperCase().replace(/\s/g, "")).optional(),
   shippingMethodId: z.string().regex(/^[1-9]\d*$/).optional(),
 });
 
@@ -41,6 +42,8 @@ export const checkoutInputSchema = quoteInputSchema.extend({
   }),
   billingAddress: checkoutAddressSchema,
   shippingAddress: checkoutAddressSchema,
+  // Absence means the notice was not presented (e.g. express pay on the cart).
+  marketingOptOut: z.boolean().optional(),
   paymentMethod: z.literal("STRIPE"),
 }).refine((input) => input.countryCode === input.shippingAddress.countryCode, { path: ["countryCode"] });
 

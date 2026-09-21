@@ -24,6 +24,12 @@ test("checkout requires matching delivery country and valid idempotency", () => 
   assert.equal(checkoutInputSchema.safeParse({ ...base, customer: { ...base.customer, phone: "" } }).success, false);
   assert.equal(checkoutInputSchema.safeParse({ ...base, paymentMethod: "CASH_ON_DELIVERY" }).success, false);
   assert.equal(checkoutInputSchema.safeParse({ ...base, paymentMethod: "BANK_TRANSFER" }).success, false);
+  assert.equal(checkoutInputSchema.parse(base).marketingOptOut, undefined);
+  assert.equal(checkoutInputSchema.parse({ ...base, marketingOptOut: false }).marketingOptOut, false);
+  assert.equal(checkoutInputSchema.parse({ ...base, marketingOptOut: true }).marketingOptOut, true);
+  for (const invalid of ["false", "true", 0, 1, null]) {
+    assert.equal(checkoutInputSchema.safeParse({ ...base, marketingOptOut: invalid }).success, false);
+  }
 });
 
 test("buy X get Y pricing discounts qualifying units without customer selection", () => {

@@ -6,6 +6,7 @@ import { calculateQuote, CommerceError } from "./quote";
 import type { CheckoutInput } from "./validation";
 import { saveCheckoutCustomer } from "./customers";
 import { getStripeSettings, PaymentUnavailableError } from "../payments/settings";
+import { saveCheckoutMarketingPreference } from "../email/newsletter";
 
 export interface ExistingOrderRow extends RowDataPacket { id: string; order_number: string; total_pence: number; currency: string; request_hash: string; expired: number; inventory_state: string }
 interface CountRow extends RowDataPacket { redemption_count: number }
@@ -36,7 +37,7 @@ export async function createOrder(input: CheckoutInput, mode: "test" | "live", s
         const currentSettings = await getStripeSettings(connection);
         if (!currentSettings.enabled || currentSettings.revision !== settingsRevision) throw new PaymentUnavailableError();
       }
-      const quote = await calculateQuote({ items: input.items, countryCode: input.countryCode, shippingMethodId: input.shippingMethodId, couponCode: input.couponCode, customerEmail: input.customer.email }, connection);
+      const quote = await calculateQuote({ items: input.items, countryCode: input.shippingAddress.countryCode, postalCode: input.shippingAddress.postalCode, shippingMethodId: input.shippingMethodId, couponCode: input.couponCode, customerEmail: input.customer.email }, connection);
       if (quote.totalPence !== input.expectedTotalPence) throw new CommerceError("CART_CHANGED", "The order total changed. Refresh checkout before paying.");
 
       if (quote.discount?.couponId) {
@@ -64,7 +65,7 @@ export async function createOrder(input: CheckoutInput, mode: "test" | "live", s
       const customerId = await saveCheckoutCustomer({ ...input.customer, name: input.billingAddress.fullName, countryCode: input.billingAddress.countryCode }, connection);
       const orderResult = await executeMutation(`INSERT INTO orders (order_number, status, payment_status, fulfillment_status, currency, customer_email, customer_name, customer_phone, subtotal_pence, discount_pence, shipping_pence, tax_pence, total_pence, coupon_code, customer_notes, payment_provider) VALUES (?, 'NEW', 'PENDING', 'UNFULFILLED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [number, quote.currency, input.customer.email, input.billingAddress.fullName, input.customer.phone, quote.subtotalPence, quote.discountPence, quote.shippingPence, quote.taxPence, quote.totalPence, quote.discount?.couponCode ?? null, input.customer.notes ?? null, input.paymentMethod], connection);
       const orderId = String(orderResult.insertId);
-      await executeMutation("UPDATE orders SET shipping_method_name = ?, customer_id = ? WHERE id = ?", [quote.shippingMethod.name, customerId, orderId], connection);
+      await executeMutation("UPDATE orders SET shipping_method_name = ?, shipping_snapshot_json = ?, customer_id = ? WHERE id = ?", [quote.shippingMethod.name, JSON.stringify(quote.shippingMethod), customerId, orderId], connection);
       for (const type of ["SHIPPING", "BILLING"] as const) {
         const address = type === "BILLING" ? input.billingAddress : input.shippingAddress;
         await executeMutation(`INSERT INTO order_addresses (order_id, address_type, full_name, company, line_1, line_2, city, region, postal_code, country_code, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [orderId, type, address.fullName, address.company ?? null, address.line1, address.line2 ?? null, address.city, address.region ?? null, address.postalCode, address.countryCode, address.phone], connection);
@@ -80,6 +81,8 @@ export async function createOrder(input: CheckoutInput, mode: "test" | "live", s
         if (updated.affectedRows !== 1) throw new CommerceError("COUPON_LIMIT", "The coupon usage limit has been reached.");
         await executeMutation("INSERT INTO coupon_redemptions (coupon_id, order_id, customer_email, discount_pence) VALUES (?, ?, ?, ?)", [quote.discount.couponId, orderId, input.customer.email, quote.discountPence], connection);
       }
+
+      await saveCheckoutMarketingPreference(orderId, input.customer.email, input.marketingOptOut, connection);
 
       return { id: orderId, order_number: number, total_pence: quote.totalPence, currency: quote.currency, request_hash: requestHash, expired: 0, inventory_state: "RESERVED" } as ExistingOrderRow;
     });

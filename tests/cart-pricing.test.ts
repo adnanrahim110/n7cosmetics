@@ -26,7 +26,10 @@ function database(options: { coupon?: boolean; automatic?: boolean; shipping?: b
         used_count: 0, product_ids: null, category_ids: null, collection_ids: null,
       }] : []];
       if (sql.includes("FROM sales s")) return [[{ id: "1", name: "Buy 5 Get 1 Free", buy_quantity: 5, free_quantity: 1, product_ids: "1,2" }]];
-      if (sql.includes("FROM shipping_methods")) return [options.shipping ? [{ id: "1", name: "Standard", method_type: "FLAT_RATE", price_pence: 500, free_over_pence: null, estimated_days_min: 2, estimated_days_max: 4 }] : []];
+      if (sql.includes("FROM shipping_zones z")) return [[{ id: "1", name: "UK", countries: "GB", postcodes: null, is_active: 1, sort_order: 0 }]];
+      if (sql.includes("FROM shipping_methods")) return [options.shipping ? [{ id: "1", name: "Standard", method_type: "DELIVERY", pricing_mode: "FLAT_RATE", price_pence: 500, allow_free_shipping_coupon: 1, estimated_days_min: 2, estimated_days_max: 4, is_active: 1, sort_order: 0 }] : []];
+      if (sql.includes("FROM shipping_method_rates")) return [[{ method_id: "1", zone_id: "1", price_pence: 500 }]];
+      if (sql.includes("FROM shipping_rules") || sql.includes("FROM shipping_rule_methods") || sql.includes("FROM shipping_zone_postcodes")) return [[]];
       throw new Error(`Unexpected query: ${sql}`);
     },
   } as unknown as PoolConnection;

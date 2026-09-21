@@ -45,9 +45,18 @@ async function main() {
       try {
         const [zone] = await connection.query("INSERT INTO shipping_zones (name) VALUES ('United Kingdom')");
         await connection.query("INSERT INTO shipping_zone_countries (zone_id, country_code) VALUES (?, 'GB')", [zone.insertId]);
-        await connection.query("INSERT INTO shipping_methods (zone_id, name, method_type, price_pence, free_over_pence) VALUES (?, 'Standard delivery', 'FLAT_RATE', 299, 9900)", [zone.insertId]);
+        const [columns] = await connection.query("SHOW COLUMNS FROM shipping_methods LIKE 'pricing_mode'");
+        if (columns.length) {
+          const [method] = await connection.query("INSERT INTO shipping_methods (name,method_type,price_pence,allow_free_shipping_coupon) VALUES ('Standard delivery','DELIVERY',299,1)");
+          await connection.query("INSERT INTO shipping_method_rates (method_id,zone_id,price_pence) VALUES (?,?,299)", [method.insertId, zone.insertId]);
+          const [rule] = await connection.query("INSERT INTO shipping_rules (name,minimum_subtotal_pence,threshold_basis,zone_id) VALUES ('Free Standard delivery',9900,'BEFORE_DISCOUNT',?)", [zone.insertId]);
+          await connection.query("INSERT INTO shipping_rule_methods (rule_id,method_id) VALUES (?,?)", [rule.insertId, method.insertId]);
+        } else {
+          // Older exports are upgraded by migration 022 after bootstrap.
+          await connection.query("INSERT INTO shipping_methods (zone_id,name,method_type,price_pence,free_over_pence,threshold_basis) VALUES (?,'Standard delivery','FLAT_RATE',299,9900,'BEFORE_DISCOUNT')", [zone.insertId]);
+        }
         await connection.commit();
-        console.log('Added UK delivery: £2.99, free from £99; editable in Admin → Delivery.');
+        console.log('Added UK delivery: £2.99, free from £99; editable in Admin → Shipping.');
       } catch (error) { await connection.rollback(); throw error; }
     }
     const [rows] = await connection.query('SELECT VERSION() AS version, (SELECT COUNT(*) FROM products) AS products, (SELECT COUNT(*) FROM administrators) AS administrators, (SELECT COUNT(*) FROM orders) AS orders');

@@ -1,82 +1,26 @@
-import type { RowDataPacket } from "mysql2/promise";
-import { selectRows } from "@/lib/db/query";
 import { hasDatabaseConfig } from "@/lib/env";
+import { getShippingConfiguration } from "./shipping-data";
+import type { ShippingRule } from "./shipping";
 
 export interface PublicShippingMethod {
-  id: string;
-  name: string;
-  methodType: "FLAT_RATE" | "FREE_SHIPPING" | "LOCAL_PICKUP";
-  pricePence: number;
-  freeOverPence: number | null;
-  thresholdBasis: "BEFORE_DISCOUNT" | "AFTER_DISCOUNT";
-  estimatedDaysMin: number | null;
-  estimatedDaysMax: number | null;
+  id: string; name: string; zoneName: string; postcodes: string[]; pricePence: number;
+  freeShippingRules: Pick<ShippingRule, "id" | "name" | "minimumSubtotalPence" | "thresholdBasis">[];
+  estimatedDaysMin: number | null; estimatedDaysMax: number | null;
 }
-
-interface ShippingMethodRow extends RowDataPacket {
-  id: string;
-  name: string;
-  method_type: PublicShippingMethod["methodType"];
-  price_pence: number;
-  free_over_pence: number | null;
-  threshold_basis: "BEFORE_DISCOUNT" | "AFTER_DISCOUNT";
-  estimated_days_min: number | null;
-  estimated_days_max: number | null;
-}
-
-const sourcePolicyFallback: PublicShippingMethod[] = [
-  {
-    id: "source-policy",
-    name: "Standard delivery",
-    methodType: "FLAT_RATE",
-    pricePence: 299,
-    freeOverPence: 9900,
-    thresholdBasis: "BEFORE_DISCOUNT",
-    estimatedDaysMin: 3,
-    estimatedDaysMax: 5,
-  },
-];
-
-export async function getPublicShippingMethods(
-  countryCode = "GB",
-): Promise<PublicShippingMethod[]> {
-  if (!hasDatabaseConfig()) return sourcePolicyFallback;
-
-  const rows = await selectRows<ShippingMethodRow>(
-    `SELECT CAST(m.id AS CHAR) AS id,
-            m.name,
-            m.method_type,
-            m.price_pence,
-            m.free_over_pence,
-            m.threshold_basis,
-            m.estimated_days_min,
-            m.estimated_days_max
-       FROM shipping_methods m
-       INNER JOIN shipping_zones z ON z.id = m.zone_id AND z.is_active = 1
-       INNER JOIN shipping_zone_countries c ON c.zone_id = z.id
-      WHERE c.country_code = ? AND m.is_active = 1
-        AND z.id=(SELECT z2.id FROM shipping_zones z2 JOIN shipping_zone_countries c2 ON c2.zone_id=z2.id WHERE c2.country_code=? AND z2.is_active=1 ORDER BY z2.sort_order,z2.id LIMIT 1)
-      ORDER BY z.sort_order, m.sort_order, m.id`,
-    [countryCode, countryCode],
-  );
-
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    methodType: row.method_type,
-    thresholdBasis: row.threshold_basis,
-    pricePence: Number(row.price_pence),
-    freeOverPence:
-      row.free_over_pence === null ? null : Number(row.free_over_pence),
-    estimatedDaysMin:
-      row.estimated_days_min === null
-        ? null
-        : Number(row.estimated_days_min),
-    estimatedDaysMax:
-      row.estimated_days_max === null
-        ? null
-        : Number(row.estimated_days_max),
-  }));
+export async function getPublicShippingMethods(countryCode = "GB"): Promise<PublicShippingMethod[]> {
+  if (!hasDatabaseConfig()) return [{ id: "source-policy", name: "Standard delivery", zoneName: "United Kingdom", postcodes: [], pricePence: 299,
+    freeShippingRules: [{ id: "source-rule", name: "Free Standard delivery", minimumSubtotalPence: 9900, thresholdBasis: "BEFORE_DISCOUNT" }],
+    estimatedDaysMin: 3, estimatedDaysMax: 5 }];
+  const config = await getShippingConfiguration();
+  return config.methods.filter(method => method.isActive).flatMap(method =>
+    config.zones.filter(zone => zone.isActive && zone.countries.includes(countryCode)).flatMap(zone => {
+      const rate = method.rates.find(item => item.zoneId === zone.id);
+      if (!rate) return [];
+      return [{ id: method.id + "-" + zone.id, name: method.name, zoneName: zone.name, postcodes: zone.postcodes,
+        pricePence: method.pricingMode === "FLAT_RATE" ? method.pricePence : rate.pricePence,
+        estimatedDaysMin: method.estimatedDaysMin, estimatedDaysMax: method.estimatedDaysMax,
+        freeShippingRules: config.rules.filter(rule => rule.isActive && rule.methodIds.includes(method.id) && (rule.zoneId === null || rule.zoneId === zone.id)) }];
+    }));
 }
 
 export function formatPolicyMoney(

@@ -34,7 +34,8 @@ async function run() {
     const variant = await executeMutation("INSERT INTO product_variants (product_id, title, sku, price_pence, stock_on_hand, is_default) VALUES (?, '100 ml', 'STRIPE-TEST', 4500, 10, 1)", [product.insertId]);
     const zone = await executeMutation("INSERT INTO shipping_zones (name) VALUES ('UK test')");
     await executeMutation("INSERT INTO shipping_zone_countries (zone_id, country_code) VALUES (?, 'GB')", [zone.insertId]);
-    const delivery = await executeMutation("INSERT INTO shipping_methods (zone_id, name, method_type, price_pence) VALUES (?, 'Delivery', 'FLAT_RATE', 299)", [zone.insertId]);
+    const delivery = await executeMutation("INSERT INTO shipping_methods (name, method_type, price_pence) VALUES ('Delivery', 'DELIVERY', 299)");
+    await executeMutation("INSERT INTO shipping_method_rates (method_id,zone_id,price_pence) VALUES (?,?,299)", [delivery.insertId, zone.insertId]);
     const billing = { fullName: "Billing Person", line1: "1 Test Street", city: "London", postalCode: "SW1A 1AA", countryCode: "GB" as const, phone: "02079460000" };
     const input: CheckoutInput = { idempotencyKey: randomUUID(), expectedTotalPence: 4799, items: [{ slug: "payment-test", quantity: 1 }], customer: { name: billing.fullName, email: "customer@example.com", phone: billing.phone }, countryCode: "GB", billingAddress: billing, shippingAddress: { ...billing, fullName: "Shipping Person", line1: "2 Test Street" }, paymentMethod: "STRIPE", shippingMethodId: String(delivery.insertId) };
     const stock = async () => Number((await selectOne<RowDataPacket>("SELECT stock_on_hand FROM product_variants WHERE id = ?", [variant.insertId]))?.stock_on_hand);

@@ -102,17 +102,21 @@ export function resolveAdminToastFeedback(pathname: string, query: URLSearchPara
       : { type: "error", title: "Some coupon details need attention", description: "Review the code, limits, and selected discount." }));
   }
 
-  if (pathname === "/admin/delivery") {
-    add("saved", { type: "success", title: "Delivery settings saved", description: "Your delivery options have been updated." });
+  if (pathname === "/admin/delivery" || pathname === "/admin/shipping") {
+    const section = query.get("tab");
+    const savedTitle = section === "rules" ? "Shipping rule saved" : section === "zones" ? "Shipping zone settings saved" : "Shipping method saved";
+    add("saved", { type: "success", title: savedTitle, description: "The updated settings will be used for new checkout calculations." });
     const error = query.get("error");
-    if (error) feedback.push(item(pathname, "error", error, error === "zone"
-      ? { type: "error", title: "The delivery zone needs attention", description: "Check its name and two-letter country codes." }
-      : { type: "error", title: "The delivery method needs attention", description: "Check its price, delivery estimate, and free-delivery threshold." }));
+    if (error) feedback.push(item(pathname, "error", error, error === "zone" || error === "zones"
+      ? { type: "error", title: "The shipping zone needs attention", description: "Check its name, country codes, postcode patterns and prices for enabled methods." }
+      : error === "rules"
+        ? { type: "error", title: "The shipping rule needs attention", description: "Enter a valid minimum basket amount and select at least one shipping method." }
+        : { type: "error", title: "The shipping method needs attention", description: "Check its name, price and delivery estimates." }));
   }
 
   if (pathname === "/admin/discounts") {
     add("saved", { type: "success", title: "Discount saved", description: "The promotion settings have been updated." });
-    add("error", { type: "error", title: "Some discount details need attention", description: "Check the value, date range, and the products or collections it applies to." });
+    add("error", { type: "error", title: "Some discount details need attention", description: "Check the value, dates and product targets. Free shipping must use coupon mode; automatic free shipping belongs in Shipping rules." });
   }
 
   if (pathname === "/admin/sales") {

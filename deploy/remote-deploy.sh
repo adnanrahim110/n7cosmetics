@@ -17,14 +17,20 @@ compose config --quiet
 docker pull "$IMAGE"
 actual_sha="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE")"
 [[ "$actual_sha" == "$EXPECTED_SHA" ]] || { echo 'Image revision mismatch.' >&2; exit 1; }
-bash "$APP_DIR/backup.sh"
 cp release.env release.previous.env
 changed=0
+maintenance=0
+migration_started=0
 worker_was_running="$(compose ps -q email-worker)"
 payment_worker_was_running="$(compose ps -q payment-worker)"
 rollback() {
   status=$?
   if [[ "$status" -ne 0 && "$changed" -eq 1 ]]; then
+    if [[ "$migration_started" -eq 1 ]]; then
+      echo 'Release failed after migrations began. Keeping writers stopped and retaining the new release and backup for recovery; the old image may be incompatible.' >&2
+      compose stop app email-worker payment-worker || true
+      exit "$status"
+    fi
     echo 'Release failed. Restoring the previous application image; database backup retained.' >&2
     cp release.previous.env release.env
     if [[ -s .has-successful-release ]]; then
@@ -43,12 +49,37 @@ rollback() {
       compose stop app email-worker payment-worker || true
     fi
   fi
+  if [[ "$status" -ne 0 && "$maintenance" -eq 1 && "$changed" -eq 0 ]]; then
+    compose start app || true
+    if [[ -n "$worker_was_running" ]]; then compose start email-worker || true; fi
+    if [[ -n "$payment_worker_was_running" ]]; then compose start payment-worker || true; fi
+  fi
   exit "$status"
 }
 trap rollback EXIT
 printf 'APP_IMAGE=%s\n' "$IMAGE" > release.env
 changed=1
+pending="$(compose run --rm --no-deps app node .scripts-dist/scripts/release-data.js pending)"
+[[ "$pending" =~ ^[0-9]+$ ]] || { echo 'Unable to determine pending migrations.' >&2; exit 1; }
+if [[ "$pending" -gt 0 ]]; then
+  echo "Entering maintenance for $pending pending migrations."
+  maintenance=1
+  compose stop app email-worker payment-worker
+fi
+# Back up the previous release configuration alongside the quiesced database.
+cp release.env release.next.env
+cp release.previous.env release.env
+bash "$APP_DIR/backup.sh"
+cp release.next.env release.env
+if [[ "$pending" -gt 0 ]]; then
+  snapshot="/app/release-backups/integrity-${EXPECTED_SHA}-$(date -u +%Y%m%dT%H%M%SZ).json"
+  compose run --rm --no-deps --user 0:0 -v "$APP_DIR/backups:/app/release-backups" app node .scripts-dist/scripts/release-data.js snapshot "$snapshot"
+  migration_started=1
+fi
 compose run --rm --no-deps app node .scripts-dist/scripts/migrate.js
+if [[ "$pending" -gt 0 ]]; then
+  compose run --rm --no-deps --user 0:0 -v "$APP_DIR/backups:/app/release-backups:ro" app node .scripts-dist/scripts/release-data.js verify "$snapshot"
+fi
 compose run --rm --no-deps app node scripts/verify-media.cjs
 compose up -d --no-deps --wait --wait-timeout 180 app
 docker exec -e EXPECTED_SHA="$EXPECTED_SHA" n7-app node -e '

@@ -61,7 +61,9 @@ docker compose --env-file stack.env --env-file release.env -f docker-compose.pro
 
 The workflow uses GitHub's ephemeral `GITHUB_TOKEN` for GHCR and removes the VPS registry login after deployment. No persistent registry token is required.
 
-Every deployment checks the current main revision, verifies the image revision label, backs up existing data, runs only unapplied schema migrations, checks all registered media files, and waits for application health. The public `/api/health` response checks the database schema, writable media storage and exact deployed release. Failed rollouts restore the previous application image; database changes require manual restoration from the backup if they are incompatible.
+Every deployment checks the current main revision, verifies the image revision label, backs up existing data, runs only unapplied schema migrations, checks all registered media files, and waits for application health. When migrations are pending, the app and both workers stop before the backup; an integrity snapshot verifies the count and original values of every existing table after migration. Migration 022's conversion of shipping methods into rules is verified separately. The public `/api/health` response checks database connectivity, writable media storage and the exact deployed release.
+
+Failed rollouts before migrations begin restore the previous application image. Once migrations begin, a failure keeps writers stopped for recovery because the previous image may be incompatible with the new schema. Inspect the failure and backup before restarting or restoring. Routine deployments never re-import the local database or replace the live store's records.
 
 ## Backups
 

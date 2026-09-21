@@ -2,7 +2,8 @@ import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { selectOne, selectRows } from "../db/query";
 import type { CartPricingInput, QuoteInput } from "./validation";
 import { calculateBuyXGetYPricing } from "./sale-pricing";
-import { shippingPrice, type ShippingRule } from "./shipping";
+import { shippingOptions, type ShippingOption } from "./shipping";
+import { getShippingConfiguration } from "./shipping-data";
 
 export type CommerceErrorCode = "CART_CHANGED" | "OUT_OF_STOCK" | "INVALID_COUPON" | "COUPON_LIMIT" | "DELIVERY_UNAVAILABLE" | "CHECKOUT_CHANGED" | "CHECKOUT_EXPIRED";
 export class CommerceError extends Error { constructor(public readonly code: CommerceErrorCode, message: string) { super(message); this.name = "CommerceError"; } }
@@ -11,7 +12,6 @@ interface ProductRow extends RowDataPacket { product_id: string; variant_id: str
 interface BundleComponentRow extends RowDataPacket { bundle_product_id: string; variant_id: string; product_name: string; quantity: number; stock_on_hand: number; track_inventory: number; product_type: "STANDARD" | "BUNDLE"; product_status: string; variant_status: string }
 interface DiscountRow extends RowDataPacket { id: string; name: string; method: "AUTOMATIC" | "COUPON"; discount_type: "PERCENTAGE" | "FIXED_AMOUNT" | "FREE_SHIPPING"; value: number; applies_to: "ALL" | "PRODUCTS" | "CATEGORIES" | "COLLECTIONS"; minimum_subtotal_pence: number | null; maximum_discount_pence: number | null; coupon_id: string | null; coupon_code: string | null; usage_limit: number | null; per_email_limit: number | null; used_count: number; product_ids: string | null; category_ids: string | null; collection_ids: string | null }
 interface SaleRow extends RowDataPacket { id: string; name: string; buy_quantity: number; free_quantity: number; product_ids: string | null }
-interface ShippingRow extends RowDataPacket, ShippingRule { id: string; name: string; estimated_days_min: number | null; estimated_days_max: number | null }
 interface CountRow extends RowDataPacket { redemption_count: number }
 
 export interface BundleStockRequirement { variantId: string; name: string; quantity: number; trackInventory: boolean }
@@ -28,8 +28,9 @@ export interface CartPricing {
 export interface CheckoutQuote extends CartPricing {
   shippingPence: number;
   taxPence: number;
-  shippingMethod: { id: string; name: string; estimatedDaysMin: number | null; estimatedDaysMax: number | null };
-  shippingMethods: { id: string; name: string; pricePence: number; estimatedDaysMin: number | null; estimatedDaysMax: number | null }[];
+  shippingMethod: ShippingOption;
+  shippingMethods: ShippingOption[];
+  shippingEstimated: boolean;
 }
 
 interface PromotionCandidate {
@@ -174,19 +175,18 @@ export async function calculateCartPricing(input: CartPricingInput, connection?:
 
 export async function calculateQuote(input: QuoteInput, connection?: PoolConnection): Promise<CheckoutQuote> {
   const pricing = await calculateCartPricing(input, connection);
-  const shippingRows = await selectRows<ShippingRow>(`SELECT CAST(m.id AS CHAR) AS id, m.name, m.method_type, m.price_pence, m.free_over_pence, m.threshold_basis, m.estimated_days_min, m.estimated_days_max FROM shipping_methods m INNER JOIN shipping_zones z ON z.id = m.zone_id AND z.is_active = 1 WHERE z.id = (SELECT z2.id FROM shipping_zones z2 JOIN shipping_zone_countries c ON c.zone_id=z2.id WHERE c.country_code=? AND z2.is_active=1 ORDER BY z2.sort_order,z2.id LIMIT 1) AND m.is_active = 1 ORDER BY m.sort_order, m.id`, [input.countryCode], connection);
-  if (!shippingRows.length) throw new CommerceError("DELIVERY_UNAVAILABLE", "Shipment is not configured for this country.");
-  const available = shippingRows.flatMap(method => {
-    const price = shippingPrice(method, pricing.subtotalPence, pricing.totalPence, Boolean(pricing.discount?.freeShipping));
-    return price === null ? [] : [{ ...method, appliedPrice: price }];
-  });
+  const config = await getShippingConfiguration(connection);
+  const coupon = pricing.discount?.freeShipping ? { id: pricing.discount.id, name: pricing.discount.name } : null;
+  const available = shippingOptions(config, input.countryCode, input.postalCode ?? "", pricing.subtotalPence, pricing.totalPence, coupon);
+  if (!available.length) throw new CommerceError("DELIVERY_UNAVAILABLE", "Delivery is unavailable for this address. Check your postcode or contact us.");
   const chosen = input.shippingMethodId ? available.find((method) => method.id === input.shippingMethodId) : available[0];
   if (!chosen) throw new CommerceError("DELIVERY_UNAVAILABLE", "The shipment option is unavailable.");
-  const shippingPence = chosen.appliedPrice;
+  const shippingPence = chosen.pricePence;
   const taxPence = 0;
   return {
     ...pricing, shippingPence, taxPence, totalPence: pricing.totalPence + shippingPence + taxPence,
-    shippingMethod: { id: chosen.id, name: chosen.name, estimatedDaysMin: chosen.estimated_days_min, estimatedDaysMax: chosen.estimated_days_max },
-    shippingMethods: available.map((method) => ({ id: method.id, name: method.name, pricePence: method.appliedPrice, estimatedDaysMin: method.estimated_days_min, estimatedDaysMax: method.estimated_days_max })),
+    shippingMethod: chosen,
+    shippingMethods: available,
+    shippingEstimated: !input.postalCode && config.zones.some(zone => zone.isActive && zone.countries.includes(input.countryCode) && zone.postcodes.length > 0),
   };
 }
