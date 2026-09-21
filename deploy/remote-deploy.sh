@@ -73,12 +73,12 @@ bash "$APP_DIR/backup.sh"
 cp release.next.env release.env
 if [[ "$pending" -gt 0 ]]; then
   snapshot="/app/release-backups/integrity-${EXPECTED_SHA}-$(date -u +%Y%m%dT%H%M%SZ).json"
-  compose run --rm --no-deps --user 0:0 -v "$APP_DIR/backups:/app/release-backups" app node .scripts-dist/scripts/release-data.js snapshot "$snapshot"
+  compose run --rm --no-deps -v "$APP_DIR/backups:/app/release-backups" app node .scripts-dist/scripts/release-data.js snapshot "$snapshot"
   migration_started=1
 fi
 compose run --rm --no-deps app node .scripts-dist/scripts/migrate.js
 if [[ "$pending" -gt 0 ]]; then
-  compose run --rm --no-deps --user 0:0 -v "$APP_DIR/backups:/app/release-backups:ro" app node .scripts-dist/scripts/release-data.js verify "$snapshot"
+  compose run --rm --no-deps -v "$APP_DIR/backups:/app/release-backups:ro" app node .scripts-dist/scripts/release-data.js verify "$snapshot"
 fi
 compose run --rm --no-deps app node scripts/verify-media.cjs
 compose up -d --no-deps --wait --wait-timeout 180 app
