@@ -13,7 +13,7 @@ type ReviewError = Extract<CreateReviewResult, { success: false }>;
 const inputClass = "mt-1.5 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-100 disabled:bg-zinc-50";
 const secondaryButtonClass = "cursor-pointer rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50";
 
-function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: ReactNode }) {
+function Field({ id, label, error, children }: { id: string; label: ReactNode; error?: string; children: ReactNode }) {
   return (
     <div>
       <label className="block text-xs font-medium text-zinc-600" htmlFor={id}>{label}</label>
@@ -65,7 +65,7 @@ function AddReviewDialog({ products, close }: { products: ProductOption[]; close
     };
   }
 
-  function field(field: AdminReviewField, label: string, children: ReactNode) {
+  function field(field: AdminReviewField, label: ReactNode, children: ReactNode) {
     return <Field id={`${titleId}-${field}`} label={label} error={error?.fieldErrors?.[field]?.[0]}>{children}</Field>;
   }
 
@@ -121,12 +121,12 @@ function AddReviewDialog({ products, close }: { products: ProductOption[]; close
             {!products.length ? <p className="text-xs text-amber-800">Add a product before creating a review.</p> : null}
             <div className="grid gap-4 sm:grid-cols-2">
               {field("name", "Reviewer name", <input {...fieldProps("name")} autoComplete="off" className={inputClass} maxLength={120} minLength={2} required />)}
-              {field("email", "Reviewer email", <input {...fieldProps("email")} autoComplete="off" className={inputClass} maxLength={190} required type="email" />)}
+              {field("email", <>Reviewer email <span className="font-normal text-zinc-400">(optional)</span></>, <input {...fieldProps("email")} autoComplete="off" className={inputClass} maxLength={190} type="email" />)}
               {field("rating", "Rating", <CustomSelect {...fieldProps("rating")} className="mt-1.5" disabled={pending} options={[5, 4, 3, 2, 1].map((rating) => ({ value: String(rating), label: `${rating} ${rating === 1 ? "star" : "stars"}` }))} placeholder="Select a rating" required searchable={false} />)}
               {field("reviewDate", "Review date", <input {...fieldProps("reviewDate")} className={inputClass} defaultValue={defaultDate} max="9999-12-31" min="1000-01-01" required type="date" />)}
             </div>
             <p className="text-xs text-zinc-500">Past dates are supported. The selected date will appear on the review.</p>
-            {field("title", "Review title", <input {...fieldProps("title")} className={inputClass} maxLength={120} minLength={3} required />)}
+            {field("title", <>Review title <span className="font-normal text-zinc-400">(optional)</span></>, <input {...fieldProps("title")} className={inputClass} maxLength={120} />)}
             {field("body", "Review", <textarea {...fieldProps("body")} className={`${inputClass} resize-y`} maxLength={3000} minLength={20} placeholder="Enter the review (at least 20 characters)" required rows={4} />)}
             <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-600"><input className="size-4 accent-amber-700" defaultChecked name="recommendsProduct" type="checkbox" />Recommends this product</label>
           </fieldset>

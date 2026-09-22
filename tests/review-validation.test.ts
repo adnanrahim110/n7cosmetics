@@ -62,7 +62,34 @@ test("admin reviews reject missing, impossible, and unsupported dates", () => {
 });
 
 test("admin reviews still require valid product, reviewer, rating, and review details", () => {
-  for (const invalid of [{ productId: "" }, { productId: "../42" }, { name: "" }, { email: "invalid" }, { rating: "" }, { rating: "0" }, { rating: "6" }, { rating: "2.5" }, { title: "" }, { body: "Too short" }]) {
+  for (const invalid of [{ productId: "" }, { productId: "../42" }, { name: "" }, { email: "invalid" }, { rating: "" }, { rating: "0" }, { rating: "6" }, { rating: "2.5" }, { body: "Too short" }]) {
     assert.equal(adminReviewInputSchema.safeParse({ ...validAdminReview, ...invalid }).success, false);
+  }
+});
+
+test("admin reviews allow optional title and email", () => {
+  const withoutTitleAndEmail = adminReviewInputSchema.safeParse({
+    ...validAdminReview,
+    title: "",
+    email: "",
+  });
+  assert.equal(withoutTitleAndEmail.success, true);
+  if (withoutTitleAndEmail.success) {
+    assert.equal(withoutTitleAndEmail.data.title, null);
+    assert.equal(withoutTitleAndEmail.data.email, null);
+  }
+
+  const omitted = adminReviewInputSchema.safeParse({
+    productId: validAdminReview.productId,
+    name: validAdminReview.name,
+    rating: validAdminReview.rating,
+    body: validAdminReview.body,
+    recommendsProduct: true,
+    reviewDate: validAdminReview.reviewDate,
+  });
+  assert.equal(omitted.success, true);
+  if (omitted.success) {
+    assert.equal(omitted.data.title, null);
+    assert.equal(omitted.data.email, null);
   }
 });

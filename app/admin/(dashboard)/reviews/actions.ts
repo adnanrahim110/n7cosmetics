@@ -61,8 +61,8 @@ export async function createReviewAction(formData: FormData): Promise<CreateRevi
                AND o.payment_status IN ('PAID', 'PARTIALLY_REFUNDED')
              LIMIT 1
            ), ?, ?, ?, ?)`,
-        [review.productId, review.rating, review.name, review.email, review.title, review.body,
-         review.recommendsProduct, review.email, review.productId, metadata.ipAddress,
+        [review.productId, review.rating, review.name, review.email ?? null, review.title ?? null, review.body,
+         review.recommendsProduct, review.email ?? null, review.productId, metadata.ipAddress,
          metadata.userAgent, reviewDate, reviewDate],
         connection,
       );

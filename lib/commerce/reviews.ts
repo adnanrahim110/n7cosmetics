@@ -11,7 +11,7 @@ export interface ProductReview {
   id: string;
   reviewerName: string;
   rating: number;
-  title: string;
+  title: string | null;
   body: string;
   recommendsProduct: boolean;
   verifiedPurchase: boolean;
@@ -30,7 +30,7 @@ interface ReviewRow extends RowDataPacket {
   id: string;
   reviewer_name: string;
   rating: number;
-  title: string;
+  title: string | null;
   body: string;
   recommends_product: number;
   is_verified_purchase: number;

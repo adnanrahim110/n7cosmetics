@@ -67,7 +67,7 @@ export default function ProductReviews({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                     <RatingStars className="shrink-0" rating={review.rating} size={13} />
-                    <h3 className="wrap-anywhere font-body text-base font-semibold leading-6 tracking-normal text-[#1c1814]">{review.title}</h3>
+                    {review.title ? <h3 className="wrap-anywhere font-body text-base font-semibold leading-6 tracking-normal text-[#1c1814]">{review.title}</h3> : null}
                   </div>
                   <p className="mt-2 max-w-3xl whitespace-pre-line wrap-anywhere text-sm leading-6 text-black/65">{review.body}</p>
                   {review.recommendsProduct ? <p className="mt-2 flex items-center gap-1.5 text-xs text-[#66704b]"><Check className="shrink-0" size={14} />Recommends this fragrance</p> : null}

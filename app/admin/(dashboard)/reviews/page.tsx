@@ -24,8 +24,8 @@ interface ReviewRow extends RowDataPacket {
   status: "PENDING" | "PUBLISHED" | "REJECTED";
   rating: number;
   reviewer_name: string;
-  reviewer_email: string;
-  title: string;
+  reviewer_email: string | null;
+  title: string | null;
   body: string;
   recommends_product: number;
   is_verified_purchase: number;
@@ -123,10 +123,10 @@ export default async function ReviewsAdminPage({ searchParams }: ReviewsPageProp
               </div>
 
               <div className="grid gap-6 p-5 lg:grid-cols-[12rem_minmax(0,1fr)_auto]">
-                <div className="text-sm"><p className="font-semibold text-zinc-950">{review.reviewer_name}</p><p className="mt-1 break-all text-xs text-zinc-500">{review.reviewer_email}</p>{review.is_verified_purchase ? <p className="mt-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"><BadgeCheck size={13} />Verified purchase</p> : null}{review.recommends_product ? <p className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500"><Check size={13} />Recommends</p> : null}</div>
+                <div className="text-sm"><p className="font-semibold text-zinc-950">{review.reviewer_name}</p>{review.reviewer_email ? <p className="mt-1 break-all text-xs text-zinc-500">{review.reviewer_email}</p> : null}{review.is_verified_purchase ? <p className="mt-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"><BadgeCheck size={13} />Verified purchase</p> : null}{review.recommends_product ? <p className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500"><Check size={13} />Recommends</p> : null}</div>
                 <div className="min-w-0">
                   <div aria-label={`${review.rating} out of 5 stars`} className="flex gap-0.5 text-amber-600">{[1, 2, 3, 4, 5].map((value) => <Star className={value <= review.rating ? "fill-current" : ""} key={value} size={14} />)}</div>
-                  <h2 className="mt-3 font-body text-base font-semibold text-zinc-950">{review.title}</h2>
+                  {review.title ? <h2 className="mt-3 font-body text-base font-semibold text-zinc-950">{review.title}</h2> : null}
                   <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-600">{review.body}</p>
                   {attachments.length ? <div className="mt-4 grid max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">{attachments.map((item) => <div className="relative aspect-square overflow-hidden rounded-lg bg-zinc-100" key={item.public_url}>{item.mime_type.startsWith("video/") ? <video aria-label={item.original_name} className="size-full object-cover" controls preload="metadata" src={item.public_url} /> : <Image alt={item.original_name} className="object-cover" fill sizes="150px" src={item.public_url} />}</div>)}</div> : null}
                 </div>
