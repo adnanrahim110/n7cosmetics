@@ -26,7 +26,7 @@ export async function snapshotReleaseData(db: Connection): Promise<Snapshot> {
   const migratingShipping = shippingColumns.some(column => column.Field === "zone_id");
   const snapshot: Snapshot = { tables: {}, shipping: null };
   for (const { name } of tables) {
-    if (name === "schema_migrations" || (name === "shipping_methods" && migratingShipping)) continue;
+    if (name === "schema_migrations" || name === "product_reviews" || (name === "shipping_methods" && migratingShipping)) continue;
     const [columns] = await db.promise().query<RowDataPacket[]>(`SHOW COLUMNS FROM ${identifier(name)}`);
     snapshot.tables[name] = await fingerprint(db, name, columns.map(column => String(column.Field)));
   }
