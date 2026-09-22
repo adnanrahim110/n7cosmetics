@@ -1,3 +1,4 @@
+import type { PoolConnection } from "mysql2/promise";
 import { executeMutation } from "@/lib/db/query";
 import type { SqlValue } from "@/lib/db/query";
 
@@ -11,7 +12,7 @@ interface AuditEvent {
   ipAddress?: string | null;
 }
 
-export async function writeAuditLog(event: AuditEvent): Promise<void> {
+export async function writeAuditLog(event: AuditEvent, connection?: PoolConnection): Promise<void> {
   const values: SqlValue[] = [
     event.administratorId ?? null,
     event.action,
@@ -27,5 +28,6 @@ export async function writeAuditLog(event: AuditEvent): Promise<void> {
        (administrator_id, action, entity_type, entity_id, summary, metadata_json, ip_address)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     values,
+    connection,
   );
 }

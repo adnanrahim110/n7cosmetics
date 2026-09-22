@@ -26,11 +26,13 @@ export function useBodyAnchoredDropdown(
 ): AnchoredDropdownState {
   const [placement, setPlacement] = useState<DropdownPlacement>("bottom");
   const [style, setStyle] = useState<CSSProperties>({ position: "fixed", visibility: "hidden", zIndex: 1000 });
-  const portalTarget = typeof document === "undefined" ? null : document.body;
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
   const updatePosition = useCallback(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
+    // Menus inside a modal must stay in its top layer to remain visible and interactive.
+    setPortalTarget(anchor.closest<HTMLDialogElement>("dialog[open]") ?? document.body);
     const rect = anchor.getBoundingClientRect();
     const viewportMargin = 8;
     const maximumWidth = Math.max(0, window.innerWidth - viewportMargin * 2);
@@ -59,11 +61,11 @@ export function useBodyAnchoredDropdown(
   }, [align, anchorRef, minimumWidth, offset, preferredHeight]);
 
   useLayoutEffect(() => {
-    if (!open || !portalTarget) return;
+    if (!open) return;
     updatePosition();
     const frame = window.requestAnimationFrame(updatePosition);
     return () => window.cancelAnimationFrame(frame);
-  }, [open, portalTarget, updatePosition]);
+  }, [open, updatePosition]);
 
   useEffect(() => {
     if (!open) return;

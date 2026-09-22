@@ -4,6 +4,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import { BadgeCheck, Check, Eye, Search, Star, X } from "lucide-react";
 import CustomSelect from "@/components/admin/CustomSelect";
 import AdminMutationForm from "@/components/admin/AdminMutationForm";
+import AddReviewButton from "@/components/admin/AddReviewButton";
 import PageHeader from "@/components/admin/PageHeader";
 import Pagination, { parsePage } from "@/components/admin/Pagination";
 import LegacyBadge from "@/components/admin/LegacyBadge";
@@ -39,6 +40,12 @@ interface ReviewMediaRow extends RowDataPacket {
 }
 
 interface CountRow extends RowDataPacket { total_count: number | string }
+interface ProductOptionRow extends RowDataPacket {
+  id: string;
+  name: string;
+  product_type: "STANDARD" | "BUNDLE";
+  status: "DRAFT" | "ACTIVE" | "ARCHIVED";
+}
 interface ReviewsPageProps { searchParams: Promise<{ q?: string; status?: string; page?: string }> }
 
 const statuses = ["ALL", "PENDING", "PUBLISHED", "REJECTED"] as const;
@@ -85,10 +92,17 @@ export default async function ReviewsAdminPage({ searchParams }: ReviewsPageProp
   ) : [];
   const mediaByReview = new Map<string, ReviewMediaRow[]>();
   for (const item of media) mediaByReview.set(item.review_id, [...(mediaByReview.get(item.review_id) ?? []), item]);
+  const products = await selectRows<ProductOptionRow>(
+    "SELECT CAST(id AS CHAR) AS id, name, product_type, status FROM products ORDER BY name, id",
+  );
+  const productOptions = products.map((product) => ({
+    value: product.id,
+    label: `${product.name}${product.product_type === "BUNDLE" ? " (Bundle)" : ""}${product.status !== "ACTIVE" ? ` · ${product.status.toLowerCase()}` : ""}`,
+  }));
 
   return (
     <div>
-      <PageHeader eyebrow="Community" title="Product reviews" description="Read customer submissions and choose which reviews appear on product pages." />
+      <PageHeader eyebrow="Community" title="Product reviews" description="Read customer submissions and choose which reviews appear on product pages." actions={<AddReviewButton products={productOptions} />} />
       <form className="mt-7 grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_190px_auto]">
         <label className="flex items-center rounded-lg border border-zinc-300 px-3 focus-within:border-amber-700 focus-within:ring-2 focus-within:ring-amber-100"><Search className="text-zinc-400" size={16} /><input aria-label="Search reviews" className="w-full px-2 py-2 text-sm outline-none" defaultValue={q} name="q" placeholder="Product, customer, email, or title" /></label>
         <CustomSelect defaultValue={status} name="status" options={statuses.map((value) => ({ value, label: value === "ALL" ? "All statuses" : value.toLowerCase() }))} searchable={false} />

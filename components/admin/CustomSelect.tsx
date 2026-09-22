@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, Search, X } from "lucide-react";
-import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ComponentProps, type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBodyAnchoredDropdown } from "@/components/ui/useBodyAnchoredDropdown";
 
@@ -13,7 +13,7 @@ export interface CustomSelectOption {
   mediaType?: "image" | "video";
 }
 
-interface CustomSelectProps {
+interface CustomSelectProps extends Pick<ComponentProps<"button">, "id" | "aria-invalid" | "aria-describedby" | "disabled"> {
   name: string;
   options: CustomSelectOption[];
   defaultValue?: string | string[];
@@ -38,6 +38,10 @@ function OptionMedia({ option }: { option: CustomSelectOption }) {
 }
 
 export default function CustomSelect({
+  id,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
+  disabled = false,
   name,
   options,
   defaultValue,
@@ -62,7 +66,8 @@ export default function CustomSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
-  const { portalTarget, style } = useBodyAnchoredDropdown(open, triggerRef, { minimumWidth: 224, preferredHeight: 330 });
+  const expanded = open && !disabled;
+  const { portalTarget, style } = useBodyAnchoredDropdown(expanded, triggerRef, { minimumWidth: 224, preferredHeight: 330 });
 
   const selectedOptions = options.filter((option) => selected.includes(option.value));
   const filteredOptions = useMemo(() => {
@@ -90,6 +95,7 @@ export default function CustomSelect({
   }
 
   function toggle(value: string) {
+    if (disabled) return;
     if (multiple) {
       if (!selected.includes(value) && maximumSelected && selected.length >= maximumSelected) return;
       const next = selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value];
@@ -103,8 +109,10 @@ export default function CustomSelect({
   }
 
   function navigate(event: KeyboardEvent<HTMLElement>) {
-    if (event.key === "Escape") {
+    if (disabled) return;
+    if (event.key === "Escape" && open) {
       event.preventDefault();
+      event.stopPropagation();
       close(true);
       return;
     }
@@ -136,7 +144,7 @@ export default function CustomSelect({
     }
   }
 
-  const dropdown = open && portalTarget ? createPortal(
+  const dropdown = expanded && portalTarget ? createPortal(
     <div
       className="flex min-w-56 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl"
       id={listboxId}
@@ -189,10 +197,15 @@ export default function CustomSelect({
       {selected.map((value) => <input key={value} name={name} type="hidden" value={value} />)}
       {required && !selected.length ? <input aria-hidden="true" className="pointer-events-none absolute bottom-0 left-1/2 size-px opacity-0" defaultValue="" name={`${name}Required`} required tabIndex={-1} /> : null}
       <button
-        aria-controls={open ? listboxId : undefined}
-        aria-expanded={open}
+        id={id}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
+        aria-controls={listboxId}
+        aria-expanded={expanded}
         aria-haspopup="listbox"
-        className="flex min-h-9 w-full items-center gap-2 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-left text-sm outline-none transition focus:border-amber-700 focus:ring-2 focus:ring-amber-100"
+        aria-required={required || undefined}
+        className="flex min-h-9 w-full items-center gap-2 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-left text-sm outline-none transition focus:border-amber-700 focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-zinc-50"
+        disabled={disabled}
         onClick={() => {
           if (open) close();
           else {
@@ -203,12 +216,13 @@ export default function CustomSelect({
         }}
         onKeyDown={navigate}
         ref={triggerRef}
+        role="combobox"
         type="button"
       >
         <span className={`min-w-0 flex-1 ${selectedOptions.length ? "text-zinc-950" : "text-zinc-400"}`}>
           {multiple && selectedOptions.length ? `${selectedOptions.length} selected` : selectedOptions[0]?.label ?? placeholder}
         </span>
-        <ChevronDown aria-hidden="true" className={`shrink-0 text-zinc-400 transition ${open ? "rotate-180" : ""}`} size={16} />
+        <ChevronDown aria-hidden="true" className={`shrink-0 text-zinc-400 transition ${expanded ? "rotate-180" : ""}`} size={16} />
       </button>
       {multiple && selectedOptions.length ? (
         <div className="mt-1.5 flex flex-wrap gap-1">
