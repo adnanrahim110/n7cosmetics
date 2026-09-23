@@ -1,10 +1,13 @@
+import type { Metadata } from "next";
 import { Outfit, Playfair_Display } from "next/font/google";
 import localFont from "next/font/local";
-import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-const siteUrl = (process.env.APP_URL || "https://n7cosmetics.co.uk").replace(/\/$/, "");
+const siteUrl = (process.env.APP_URL || "https://n7cosmetics.co.uk").replace(
+  /\/$/,
+  "",
+);
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -30,34 +33,44 @@ const kindred = localFont({
       path: "../public/kindred-font/KindredItalic-e9L0g.ttf",
       weight: "400",
       style: "italic",
-    }
-  ]
-})
+    },
+  ],
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: "N7 Cosmetics | Luxury Signature Fragrances",
-  description: "Discover the pinnacle of luxury perfumery. Handcrafted signature fragrances, exquisite recreations, and curated collections designed for distinct personalities.",
-  keywords: ["luxury perfume", "fragrance", "N7 Cosmetics", "signature scent", "cologne", "parfum", "UK perfumes"],
+  description:
+    "Discover the pinnacle of luxury perfumery. Handcrafted signature fragrances, exquisite recreations, and curated collections designed for distinct personalities.",
+  keywords: [
+    "luxury perfume",
+    "fragrance",
+    "N7 Cosmetics",
+    "signature scent",
+    "cologne",
+    "parfum",
+    "UK perfumes",
+  ],
   openGraph: {
     title: "N7 Cosmetics | Luxury Signature Fragrances",
-    description: "Discover the pinnacle of luxury perfumery. Handcrafted signature fragrances.",
+    description:
+      "Discover the pinnacle of luxury perfumery. Handcrafted signature fragrances.",
     url: siteUrl,
     siteName: "N7 Cosmetics",
     locale: "en_GB",
     type: "website",
-  }
+  },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   return (
     <html
       lang="en"
       className={`${playfair.variable} ${outfit.variable} ${kindred.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-dark-950 text-dark-50 font-body">
-        {children}
-      </body>
+      <body className=" bg-dark-950 text-dark-50 font-body">{children}</body>
     </html>
   );
 }

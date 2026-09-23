@@ -1,6 +1,6 @@
-import { requireAdministrator } from "@/lib/auth/session";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import { requireAdministrator } from "@/lib/auth/session";
 import type { ReactNode } from "react";
 import { logoutAction } from "./actions";
 
@@ -13,7 +13,10 @@ export default async function AdminLayout({
       <AdminSidebar role={administrator.role} logoutAction={logoutAction} />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <AdminHeader administrator={administrator} logoutAction={logoutAction} />
+        <AdminHeader
+          administrator={administrator}
+          logoutAction={logoutAction}
+        />
         <main
           aria-label="Admin content"
           tabIndex={0}
