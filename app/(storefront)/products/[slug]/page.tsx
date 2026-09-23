@@ -1,4 +1,5 @@
 import ProductDetailActions from "@/components/commerce/ProductDetailActions";
+import ProductStockStatus from "@/components/commerce/ProductStockStatus";
 import ProductGallery from "@/components/commerce/ProductGallery";
 import ProductReviews from "@/components/commerce/ProductReviews";
 import RatingStars from "@/components/commerce/RatingStars";
@@ -92,11 +93,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
     image: product.image,
     pricePence: product.pricePence,
   };
-  const soldOut = product.trackInventory && product.stockOnHand <= 0;
-  const lowStock =
-    product.trackInventory &&
-    product.stockOnHand > 0 &&
-    product.stockOnHand <= 5;
   const saving = product.compareAtPricePence
     ? Math.round((1 - product.pricePence / product.compareAtPricePence) * 100)
     : null;
@@ -224,19 +220,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
                       {product.variantTitle}
                     </p>
                   </div>
-                  <p
-                    className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${soldOut ? "text-red-700" : lowStock ? "text-[#9a5f2f]" : "text-[#66704b]"}`}
-                  >
-                    {soldOut
-                      ? "Out of stock"
-                      : lowStock
-                        ? `Only ${product.stockOnHand} left`
-                        : "In stock"}
-                  </p>
+                  <ProductStockStatus slug={product.slug} />
                 </div>
                 <ProductDetailActions
                   product={commerceProduct}
-                  soldOut={soldOut}
                 />
               </div>
 

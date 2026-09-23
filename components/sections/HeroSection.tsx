@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { HeroContent, HomepageProduct } from "@/lib/homepage/types";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
+import { SoldOutBadge } from "@/components/commerce/ProductStockStatus";
 
 const revealEase = [0.22, 1, 0.36, 1] as const;
 const autoplayDelay = 7000;
@@ -113,6 +114,7 @@ const HeroSection = ({
           >
             <div className="relative w-full">
               <ProductCodeBar code={activeProduct.productCode} className="mb-3" />
+              <SoldOutBadge slug={activeProduct.slug} />
               <motion.h1
                 aria-label={activeProduct.name}
                 className="block w-full leading-none"

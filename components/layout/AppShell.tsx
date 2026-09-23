@@ -10,10 +10,11 @@ import Footer from "./Footer";
 import Header from "./Header";
 import type { FooterContent, HeaderContent } from "@/lib/homepage/types";
 import type { StorefrontProductLabels } from "@/lib/commerce/catalog";
+import type { StockSnapshot } from "@/lib/commerce/stock";
 
-export default function AppShell({ children, settings, headerContent, footerContent, productLabels }: Readonly<{ children: ReactNode; settings?: PublicSiteSettings; headerContent: HeaderContent; footerContent: FooterContent; productLabels: Record<string, StorefrontProductLabels> }>) {
+export default function AppShell({ children, settings, headerContent, footerContent, productLabels, initialStock }: Readonly<{ children: ReactNode; settings?: PublicSiteSettings; headerContent: HeaderContent; footerContent: FooterContent; productLabels: Record<string, StorefrontProductLabels>; initialStock: StockSnapshot }>) {
   return (
-    <CommerceProvider productLabels={productLabels}>
+    <CommerceProvider productLabels={productLabels} initialStock={initialStock}>
       <div className="flex min-h-screen flex-col overflow-x-clip">
         <CustomCursor />
         <CartDrawer />

@@ -1,4 +1,5 @@
 import ProductDetailActions from "@/components/commerce/ProductDetailActions";
+import ProductStockStatus from "@/components/commerce/ProductStockStatus";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import ProductGallery from "@/components/commerce/ProductGallery";
 import ProductReviews from "@/components/commerce/ProductReviews";
@@ -59,9 +60,6 @@ export default async function BundlePage({ params }: BundlePageProps) {
   const bundle = await getStorefrontBundle((await params).slug);
   if (!bundle) notFound();
   const reviewSummary = await getProductReviewSummary(bundle.id);
-  const componentSoldOut = bundle.components.some((component) => component.trackInventory && component.stockOnHand < component.quantity);
-  const soldOut = (bundle.trackInventory && bundle.stockOnHand <= 0) || componentSoldOut || !bundle.componentsAvailable;
-  const lowStock = !soldOut && bundle.trackInventory && bundle.stockOnHand <= 5;
   const saving = bundle.compareAtPricePence ? Math.round((1 - bundle.pricePence / bundle.compareAtPricePence) * 100) : null;
   const gallery = [
     ...bundle.images.map((image) => ({ url: image.url, type: "image" as const, alt: image.alt })),
@@ -137,9 +135,9 @@ export default async function BundlePage({ params }: BundlePageProps) {
               <div className="mt-6">
                 <div className="flex items-end justify-between gap-4">
                   <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/45">Format</p><p className="mt-2 text-sm font-medium">{bundle.variantTitle}</p></div>
-                  <p className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${soldOut ? "text-red-700" : lowStock ? "text-[#9a5f2f]" : "text-[#66704b]"}`}>{soldOut ? "Out of stock" : lowStock ? `Only ${bundle.stockOnHand} left` : "In stock"}</p>
+                  <ProductStockStatus slug={bundle.slug} />
                 </div>
-                <ProductDetailActions product={commerceProduct} soldOut={soldOut} />
+                <ProductDetailActions product={commerceProduct} />
               </div>
 
               <div className="mt-7 grid grid-cols-3 gap-px border border-black/10 bg-black/10">

@@ -28,6 +28,11 @@ export default function CartDrawer() {
     isCartOpen,
     removeFromCart,
     updateQuantity,
+    getCartLimit,
+    getStockIssue,
+    cartBusy,
+    pricingLoading,
+    pricingError,
   } = useCommerce();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
@@ -170,6 +175,7 @@ export default function CartDrawer() {
                           productCode={item.productCode}
                           inspiredBy={item.inspiredBy}
                         />
+                        {getStockIssue(item.slug) ? <p role="status" className="mt-2 text-xs text-red-700">{getStockIssue(item.slug)?.message}</p> : null}
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                           <div className="relative z-20 inline-flex h-9 items-center border border-black/15 bg-white/35">
                             <button
@@ -190,17 +196,7 @@ export default function CartDrawer() {
                             </span>
                             <button
                               aria-label={`Increase ${item.name} quantity`}
-                              disabled={
-                                item.quantity >=
-                                Math.min(
-                                  99,
-                                  cartPricing?.lines.find(
-                                    (line) =>
-                                      line.slug === item.slug &&
-                                      line.trackInventory,
-                                  )?.stockOnHand ?? 99,
-                                )
-                              }
+                              disabled={cartBusy || item.quantity >= getCartLimit(item.slug)}
                               className="grid h-full w-9 place-items-center transition-colors hover:bg-black/5"
                               onClick={() =>
                                 updateQuantity(item.slug, item.quantity + 1)
@@ -255,7 +251,8 @@ export default function CartDrawer() {
                   <Link
                     className="flex min-h-12 items-center justify-center gap-2 bg-[#1c1814] px-4 text-[9px] font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#9a7048]"
                     href="/checkout"
-                    onClick={closeCart}
+                    aria-disabled={pricingLoading || Boolean(pricingError)}
+                    onClick={(event) => { if (pricingLoading || pricingError) event.preventDefault(); else closeCart(); }}
                   >
                     Checkout <ArrowRight aria-hidden="true" size={14} />
                   </Link>

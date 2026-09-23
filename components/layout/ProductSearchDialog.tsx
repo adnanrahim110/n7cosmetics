@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import Title from "@/components/ui/Title";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
+import ProductStockStatus from "@/components/commerce/ProductStockStatus";
 import { MAX_SEARCH_QUERY_LENGTH, MIN_SEARCH_QUERY_LENGTH, normalizeSearchQuery } from "@/lib/commerce/product-search";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -374,6 +375,7 @@ export default function ProductSearchDialog({
                           {result.category}
                         </span>
                         <ProductCodeBar code={result.productCode} className="mt-1" />
+                        <ProductStockStatus slug={result.slug} className="mt-2" />
                         <span className="mt-1 block truncate font-heading text-lg text-[#1c1814] sm:text-2xl">
                           {result.name}
                         </span>

@@ -115,13 +115,12 @@ function SoldOutOverlay() {
 export default function ProductCard({
   product,
   cartAction,
-  soldOut = false,
 }: {
   product: ProductCardProduct;
   cartAction?: ReactNode;
-  soldOut?: boolean;
 }) {
-  const { isWishlisted, toggleWishlist } = useCommerce();
+  const { isWishlisted, toggleWishlist, getStock } = useCommerce();
+  const soldOut = getStock(product.slug).soldOut;
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 

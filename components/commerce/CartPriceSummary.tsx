@@ -10,6 +10,7 @@ export default function CartPriceSummary({ showCouponControl = true }: { showCou
   const { cartPricing, pricingLoading, pricingError, couponCode, setCouponCode } = useCommerce();
   return (
     <div aria-live="polite" className="text-sm">
+      {cartPricing && pricingError ? <p role="alert" className="mb-3 text-red-700">{pricingError}</p> : null}
       {cartPricing ? (
         <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2">
           <dt className="text-black/50">Subtotal</dt><dd>{formatCartPrice(cartPricing.subtotalPence)}</dd>

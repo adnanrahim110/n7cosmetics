@@ -7,6 +7,7 @@ import CartAction from "@/components/commerce/CartAction";
 import { commerceProductHref, useCommerce } from "@/components/commerce/CommerceProvider";
 import Title from "@/components/ui/Title";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
+import ProductStockStatus from "@/components/commerce/ProductStockStatus";
 
 function money(pence: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -49,6 +50,7 @@ export default function WishlistPage() {
                     <ProductCodeBar code={item.productCode} className="mb-2" />
                     <h2 className="break-words font-heading text-xl transition-colors group-hover:text-[#8d6745]">{item.name}</h2>
                     <p className="mt-1 text-sm text-black/45">{money(item.pricePence)}</p>
+                    <ProductStockStatus slug={item.slug} className="mt-2" />
                   </div>
                   <button
                     aria-label={`Remove ${item.name} from wishlist`}

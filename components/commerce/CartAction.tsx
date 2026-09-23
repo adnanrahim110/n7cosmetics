@@ -27,7 +27,9 @@ export default function CartAction({
   disabled = false,
   ariaLabel,
 }: CartActionProps) {
-  const { addToCart, isInCart } = useCommerce();
+  const { addToCart, isInCart, getStock, getCartLimit, cartBusy, hydrated } = useCommerce();
+  const soldOut = getStock(product.slug).soldOut;
+  const maximum = getCartLimit(product.slug);
   const inCart = isInCart(product.slug);
 
   if (inCart) {
@@ -44,13 +46,13 @@ export default function CartAction({
 
   return (
     <button
-      aria-label={ariaLabel}
+      aria-label={soldOut ? `${product.name} is sold out` : ariaLabel}
       className={className}
-      disabled={disabled}
+      disabled={disabled || soldOut || cartBusy || !hydrated || quantity > maximum}
       onClick={() => addToCart(product, quantity)}
       type="button"
     >
-      {children}
+      {soldOut ? "Sold Out" : maximum === 0 ? "Stock limit reached" : children}
     </button>
   );
 }

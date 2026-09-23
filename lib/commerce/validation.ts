@@ -10,6 +10,7 @@ export const cartPricingInputSchema = z.object({
   items: z.array(cartLineSchema).min(1).max(MAX_CART_LINES).refine((items) => new Set(items.map((item) => item.slug)).size === items.length),
   couponCode: z.string().trim().toUpperCase().regex(/^[A-Z0-9_-]+$/).max(80).optional(),
   customerEmail: z.email().max(190).transform((value) => value.toLowerCase()).optional(),
+  reservationKey: z.uuid().optional(),
 });
 
 export const quoteInputSchema = cartPricingInputSchema.extend({
@@ -31,7 +32,7 @@ export const checkoutAddressSchema = z.object({
   phone: phoneSchema,
 });
 
-export const checkoutInputSchema = quoteInputSchema.extend({
+export const checkoutInputSchema = quoteInputSchema.omit({ reservationKey: true }).extend({
   idempotencyKey: z.uuid(),
   expectedTotalPence: z.number().int().min(30).max(99999999),
   customer: z.object({

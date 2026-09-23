@@ -6,9 +6,12 @@ import CartAction from "./CartAction";
 import type { CommerceProduct } from "./CommerceProvider";
 import { useCommerce } from "./CommerceProvider";
 
-export default function ProductDetailActions({ product, soldOut }: { product: CommerceProduct; soldOut: boolean }) {
+export default function ProductDetailActions({ product }: { product: CommerceProduct }) {
   const [quantity, setQuantity] = useState(1);
-  const { isWishlisted, toggleWishlist } = useCommerce();
+  const { isWishlisted, toggleWishlist, getStock, getCartLimit } = useCommerce();
+  const soldOut = getStock(product.slug).soldOut;
+  const maximum = getCartLimit(product.slug);
+  const selectedQuantity = Math.min(quantity, Math.max(1, maximum));
   const wishlisted = isWishlisted(product.slug);
   return (
     <div className="mt-8">
@@ -18,11 +21,12 @@ export default function ProductDetailActions({ product, soldOut }: { product: Co
           <input
             aria-label="Quantity"
             className="ml-2 w-12 bg-transparent text-center outline-none"
-            max={99}
+            disabled={soldOut || maximum === 0}
+            max={maximum}
             min={1}
-            onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
+            onChange={(event) => setQuantity(Math.max(1, Math.min(maximum, Math.floor(Number(event.target.value)))))}
             type="number"
-            value={quantity}
+            value={selectedQuantity}
           />
         </label>
         <CartAction
@@ -30,7 +34,7 @@ export default function ProductDetailActions({ product, soldOut }: { product: Co
           inCartClassName="order-3 col-span-2 flex min-h-11 items-center justify-center gap-3 border border-[#9a7048]/55 bg-[#eee5d8] px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#704e31] transition-colors hover:border-[#704e31] hover:bg-[#e6d8c6] sm:order-none sm:min-h-0 sm:flex-1 sm:px-6 sm:tracking-[0.18em]"
           disabled={soldOut}
           product={product}
-          quantity={quantity}
+          quantity={selectedQuantity}
           inCartChildren={
             <>
               <Check size={16} strokeWidth={1.7} />

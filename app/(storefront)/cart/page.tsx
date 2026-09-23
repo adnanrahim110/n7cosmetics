@@ -18,7 +18,7 @@ function money(pence: number) {
 }
 
 export default function CartPage() {
-  const { cart, cartPricing, removeFromCart, updateQuantity } = useCommerce();
+  const { cart, cartPricing, removeFromCart, updateQuantity, getCartLimit, getStockIssue, cartBusy, pricingError, pricingLoading } = useCommerce();
 
   return (
     <div className="min-h-screen bg-[#f3eee5] pb-16 pt-40 text-[#1c1814] sm:pb-24 sm:pt-44">
@@ -67,7 +67,7 @@ export default function CartPage() {
                       <span className="w-8 text-center text-sm">{item.quantity}</span>
                       <button
                         aria-label="Increase quantity"
-                        disabled={item.quantity >= Math.min(99, cartPricing?.lines.find((line) => line.slug === item.slug && line.trackInventory)?.stockOnHand ?? 99)}
+                        disabled={cartBusy || item.quantity >= getCartLimit(item.slug)}
                         className="grid size-8 place-items-center"
                         onClick={() => updateQuantity(item.slug, item.quantity + 1)}
                         type="button"
@@ -79,6 +79,7 @@ export default function CartPage() {
 
                   <div className="col-span-2 flex items-center justify-between border-t border-black/8 pt-3 sm:col-span-1 sm:flex-col sm:items-end sm:border-0 sm:pt-0">
                     <CartLinePrice line={cartPricing?.lines.find((line) => line.slug === item.slug)} fallbackPence={item.pricePence * item.quantity} />
+                    {getStockIssue(item.slug) ? <p role="status" className="max-w-64 text-xs text-red-700">{getStockIssue(item.slug)?.message}</p> : null}
                     <button
                       aria-label={`Remove ${item.name}`}
                       className="relative z-20 grid size-9 place-items-center text-black/35 hover:text-red-600"
@@ -98,6 +99,8 @@ export default function CartPage() {
               <Link
                 className="mt-6 flex items-center justify-between bg-[#1c1814] px-5 py-4 text-xs font-semibold uppercase tracking-[0.17em] text-white"
                 href="/checkout"
+                aria-disabled={pricingLoading || Boolean(pricingError)}
+                onClick={(event) => { if (pricingLoading || pricingError) event.preventDefault(); }}
               >
                 Checkout <ArrowRight size={16} />
               </Link>

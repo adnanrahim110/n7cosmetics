@@ -12,6 +12,7 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import Button from "@/components/ui/Button";
 import Title from "@/components/ui/Title";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
+import { SoldOutBadge } from "@/components/commerce/ProductStockStatus";
 import type { HomepageProduct, RecreationsContent } from "@/lib/homepage/types";
 
 const customEase = [0.65, 0, 0.35, 1] as const;
@@ -150,6 +151,7 @@ export default function RecreationsSlider({
                 <div className="flex flex-col justify-between bg-[#17130f] p-4 pt-3 text-[#f5eee5] sm:p-7 md:p-8">
                   <div>
                     <ProductCodeBar code={mobileActiveProduct.productCode} className="mb-3" />
+                    <SoldOutBadge slug={mobileActiveProduct.slug} />
                     <h3
                       className="font-heading text-[2rem] leading-[0.98] tracking-normal text-[#f5eee5] sm:text-[2.6rem]"
                       id={`${mobilePanelId}-title`}
@@ -354,6 +356,7 @@ export default function RecreationsSlider({
                       {String(activeIndex + 1).padStart(2, "0")}
                     </span>
                     <ProductCodeBar code={activeProduct.productCode} className="mb-3" />
+                    <SoldOutBadge slug={activeProduct.slug} />
                     <h3 className="mb-4 font-heading text-3xl leading-tight tracking-wide text-[#1a1a1a] sm:text-4xl md:text-5xl lg:text-6xl">
                       {activeProduct.name}
                     </h3>

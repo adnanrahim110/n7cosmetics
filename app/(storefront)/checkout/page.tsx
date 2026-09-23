@@ -40,7 +40,7 @@ export default function CheckoutPage() {
 }
 
 function CheckoutForm() {
-  const { cart, cartCount, cartPricing, couponCode, setCouponCode } =
+  const { cart, cartCount, cartPricing, couponCode, setCouponCode, pricingError, pricingLoading, reservationKey } =
     useCommerce();
   const elements = useElements();
   const paymentConfig = usePaymentConfig();
@@ -79,7 +79,7 @@ function CheckoutForm() {
   const currentQuote = quoteState?.key === quoteRequest ? quoteState : null;
   const quote = currentQuote?.data ?? null;
   const quoting = hasCart && !currentQuote;
-  const displayError = error ?? currentQuote?.error;
+  const displayError = error ?? pricingError ?? currentQuote?.error;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -134,7 +134,7 @@ function CheckoutForm() {
         const response = await fetch("/api/commerce/quote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: quoteRequest,
+          body: JSON.stringify({ ...JSON.parse(quoteRequest), reservationKey }),
           signal: controller.signal,
         });
         const data = (await response.json()) as CheckoutQuote & {
@@ -162,11 +162,11 @@ function CheckoutForm() {
     };
     void load();
     return () => controller.abort();
-  }, [hasCart, quoteRequest]);
+  }, [hasCart, quoteRequest, reservationKey, pricingError]);
 
   async function submitOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!quote || quoting || placing) return;
+    if (!quote || quoting || placing || pricingLoading || pricingError) return;
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") ?? "");
     const read = (key: string) => String(formData.get(key) ?? "").trim();
@@ -271,7 +271,7 @@ function CheckoutForm() {
                 </p>
               </div>
             </fieldset>
-            {quote ? <ExpressPayment quote={quote} marketingOptOut={marketingOptOut} onCheckoutDetails={(payload) => rememberCheckout(walletCheckoutDetails(payload))} onBusyChange={setPlacing} /> : null}
+            {quote && (placing || (!pricingLoading && !pricingError)) ? <ExpressPayment quote={quote} marketingOptOut={marketingOptOut} onCheckoutDetails={(payload) => rememberCheckout(walletCheckoutDetails(payload))} onBusyChange={setPlacing} /> : null}
             <fieldset
               disabled={placing}
               className="grid gap-5 border border-black/10 bg-white/35 p-4 sm:grid-cols-2 sm:p-6"
@@ -533,6 +533,7 @@ function CheckoutForm() {
             <button
               className="mt-6 flex w-full items-center justify-center gap-2 bg-[#1c1814] px-5 py-4 text-xs font-semibold uppercase tracking-[0.17em] text-white disabled:opacity-40"
               disabled={
+                pricingLoading || Boolean(pricingError) ||
                 !quote ||
                 quote.totalPence < 30 ||
                 placing ||

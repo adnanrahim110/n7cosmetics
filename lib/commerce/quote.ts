@@ -4,12 +4,13 @@ import type { CartPricingInput, QuoteInput } from "./validation";
 import { calculateBuyXGetYPricing } from "./sale-pricing";
 import { shippingOptions, type ShippingOption } from "./shipping";
 import { getShippingConfiguration } from "./shipping-data";
+import { getStockProducts } from "./stock-data";
+import { inspectStock } from "./stock";
 
 export type CommerceErrorCode = "CART_CHANGED" | "OUT_OF_STOCK" | "INVALID_COUPON" | "COUPON_LIMIT" | "DELIVERY_UNAVAILABLE" | "CHECKOUT_CHANGED" | "CHECKOUT_EXPIRED";
 export class CommerceError extends Error { constructor(public readonly code: CommerceErrorCode, message: string) { super(message); this.name = "CommerceError"; } }
 
 interface ProductRow extends RowDataPacket { product_id: string; variant_id: string; product_type: "STANDARD" | "BUNDLE"; slug: string; product_name: string; variant_title: string; sku: string; price_pence: number; stock_on_hand: number; track_inventory: number; image_url: string | null; category_ids: string | null; collection_ids: string | null }
-interface BundleComponentRow extends RowDataPacket { bundle_product_id: string; variant_id: string; product_name: string; quantity: number; stock_on_hand: number; track_inventory: number; product_type: "STANDARD" | "BUNDLE"; product_status: string; variant_status: string }
 interface DiscountRow extends RowDataPacket { id: string; name: string; method: "AUTOMATIC" | "COUPON"; discount_type: "PERCENTAGE" | "FIXED_AMOUNT" | "FREE_SHIPPING"; value: number; applies_to: "ALL" | "PRODUCTS" | "CATEGORIES" | "COLLECTIONS"; minimum_subtotal_pence: number | null; maximum_discount_pence: number | null; coupon_id: string | null; coupon_code: string | null; usage_limit: number | null; per_email_limit: number | null; used_count: number; product_ids: string | null; category_ids: string | null; collection_ids: string | null }
 interface SaleRow extends RowDataPacket { id: string; name: string; buy_quantity: number; free_quantity: number; product_ids: string | null }
 interface CountRow extends RowDataPacket { redemption_count: number }
@@ -56,33 +57,17 @@ export async function calculateCartPricing(input: CartPricingInput, connection?:
   const productRows = await selectRows<ProductRow>(`SELECT CAST(p.id AS CHAR) AS product_id, CAST(v.id AS CHAR) AS variant_id, p.product_type, p.slug, p.name AS product_name, v.title AS variant_title, v.sku, v.price_pence, v.stock_on_hand, p.track_inventory, i.url AS image_url, GROUP_CONCAT(DISTINCT pc.category_id) AS category_ids, GROUP_CONCAT(DISTINCT pcl.collection_id) AS collection_ids FROM products p INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 AND v.status = 'ACTIVE' LEFT JOIN product_images i ON i.id = (SELECT pi.id FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) LEFT JOIN product_categories pc ON pc.product_id = p.id LEFT JOIN product_collections pcl ON pcl.product_id = p.id WHERE p.status = 'ACTIVE' AND p.slug IN (${placeholders}) GROUP BY p.id, v.id, i.url`, input.items.map((item) => item.slug), connection);
   if (productRows.length !== input.items.length) throw new CommerceError("CART_CHANGED", "One or more products are no longer available.");
   const products = new Map(productRows.map((row) => [row.slug, row]));
-  const bundleIds = productRows.filter((row) => row.product_type === "BUNDLE").map((row) => row.product_id);
-  const bundleRows = bundleIds.length ? await selectRows<BundleComponentRow>(
-    `SELECT CAST(bi.bundle_product_id AS CHAR) AS bundle_product_id, CAST(v.id AS CHAR) AS variant_id,
-       p.name AS product_name, bi.quantity, v.stock_on_hand, p.track_inventory, p.product_type,
-       p.status AS product_status, v.status AS variant_status
-     FROM bundle_items bi
-     INNER JOIN product_variants v ON v.id = bi.component_variant_id
-     INNER JOIN products p ON p.id = v.product_id
-     WHERE bi.bundle_product_id IN (${bundleIds.map(() => "?").join(",")})
-     ORDER BY bi.bundle_product_id, bi.sort_order, bi.component_variant_id`,
-    bundleIds,
-    connection,
-  ) : [];
-  const bundleComponents = new Map<string, BundleComponentRow[]>();
-  for (const component of bundleRows) bundleComponents.set(component.bundle_product_id, [...(bundleComponents.get(component.bundle_product_id) ?? []), component]);
+  const stockProducts = await getStockProducts(input.items.map((item) => item.slug), connection, input.reservationKey);
+  const stock = inspectStock(stockProducts, input.items);
+  if (stock.issues.length) throw new CommerceError(stock.issues[0].code, stock.issues[0].message);
+  const inventory = new Map(stockProducts.map((product) => [product.slug, product]));
   const lines: QuoteLine[] = input.items.map((item) => {
     const row = products.get(item.slug);
     if (!row) throw new CommerceError("CART_CHANGED", "Product not found.");
-    if (Boolean(row.track_inventory) && row.stock_on_hand < item.quantity) throw new CommerceError("OUT_OF_STOCK", `${row.product_name} does not have enough stock.`);
-    const components = row.product_type === "BUNDLE" ? bundleComponents.get(row.product_id) ?? [] : [];
-    if (row.product_type === "BUNDLE" && !components.length) throw new CommerceError("CART_CHANGED", `${row.product_name} is not ready to purchase.`);
-    for (const component of components) {
-      if (component.product_type !== "STANDARD" || component.product_status !== "ACTIVE" || component.variant_status !== "ACTIVE") throw new CommerceError("CART_CHANGED", `A product in ${row.product_name} is no longer available.`);
-      if (Boolean(component.track_inventory) && component.stock_on_hand < component.quantity * item.quantity) throw new CommerceError("OUT_OF_STOCK", `${row.product_name} does not have enough component stock.`);
-    }
+    const inventoryProduct = inventory.get(item.slug)!;
+    const components = inventoryProduct.components;
     const subtotal = row.price_pence * item.quantity;
-    return { productId: row.product_id, variantId: row.variant_id, productType: row.product_type, slug: row.slug, name: row.product_name, variantTitle: row.variant_title, sku: row.sku, image: row.image_url, unitPricePence: row.price_pence, quantity: item.quantity, subtotalPence: subtotal, discountPence: 0, freeQuantity: 0, totalPence: subtotal, stockOnHand: row.stock_on_hand, trackInventory: Boolean(row.track_inventory), categoryIds: ids(row.category_ids), collectionIds: ids(row.collection_ids), bundleComponents: components.map((component) => ({ variantId: component.variant_id, name: component.product_name, quantity: component.quantity, trackInventory: Boolean(component.track_inventory) })) };
+    return { productId: row.product_id, variantId: row.variant_id, productType: row.product_type, slug: row.slug, name: row.product_name, variantTitle: row.variant_title, sku: row.sku, image: row.image_url, unitPricePence: row.price_pence, quantity: item.quantity, subtotalPence: subtotal, discountPence: 0, freeQuantity: 0, totalPence: subtotal, stockOnHand: inventoryProduct.stockOnHand, trackInventory: inventoryProduct.trackInventory, categoryIds: ids(row.category_ids), collectionIds: ids(row.collection_ids), bundleComponents: components.map((component) => ({ variantId: component.variantId, name: component.name, quantity: component.quantity, trackInventory: component.trackInventory })) };
   });
   const subtotalPence = lines.reduce((sum, line) => sum + line.subtotalPence, 0);
   const discounts = await selectRows<DiscountRow>(`SELECT CAST(d.id AS CHAR) AS id, d.name, d.method, d.discount_type, d.value, d.applies_to, d.minimum_subtotal_pence, d.maximum_discount_pence, CAST(c.id AS CHAR) AS coupon_id, c.code AS coupon_code, c.usage_limit, c.per_email_limit, COALESCE(c.used_count, 0) AS used_count, (SELECT GROUP_CONCAT(product_id) FROM discount_products WHERE discount_id = d.id) AS product_ids, (SELECT GROUP_CONCAT(category_id) FROM discount_categories WHERE discount_id = d.id) AS category_ids, (SELECT GROUP_CONCAT(collection_id) FROM discount_collections WHERE discount_id = d.id) AS collection_ids FROM discounts d LEFT JOIN coupons c ON c.discount_id = d.id AND c.is_active = 1 WHERE d.is_active = 1 AND (d.starts_at IS NULL OR d.starts_at <= CURRENT_TIMESTAMP(3)) AND (d.ends_at IS NULL OR d.ends_at > CURRENT_TIMESTAMP(3)) AND (d.method = 'AUTOMATIC' OR (d.method = 'COUPON' AND c.code = ?)) ORDER BY d.priority DESC, d.id`, [input.couponCode ?? ""], connection);

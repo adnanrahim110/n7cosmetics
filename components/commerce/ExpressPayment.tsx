@@ -16,7 +16,7 @@ export default function ExpressPayment({ quote, onQuote, marketingOptOut, onChec
   onCheckoutDetails?: (input: Omit<CheckoutInput, "idempotencyKey">) => void;
   onBusyChange?: (busy: boolean) => void;
 }) {
-  const { cart, couponCode } = useCommerce();
+  const { cart, couponCode, reservationKey } = useCommerce();
   const config = usePaymentConfig();
   const elements = useElements();
   const { pay } = useStripePayment();
@@ -28,7 +28,7 @@ export default function ExpressPayment({ quote, onQuote, marketingOptOut, onChec
   const rates = (value: CheckoutQuote) => [...value.shippingMethods].sort((a, b) => Number(b.id === value.shippingMethod.id) - Number(a.id === value.shippingMethod.id)).map(method => ({ id: method.id, displayName: method.name, amount: method.pricePence }));
 
   async function refresh(shippingMethodId?: string, postalCode = walletPostcode.current) {
-    const response = await fetch("/api/commerce/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: cart.map(({ slug, quantity }) => ({ slug, quantity })), countryCode: "GB", postalCode, couponCode: couponCode || undefined, shippingMethodId }) });
+    const response = await fetch("/api/commerce/quote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: cart.map(({ slug, quantity }) => ({ slug, quantity })), countryCode: "GB", postalCode, couponCode: couponCode || undefined, shippingMethodId, reservationKey }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Shipment is unavailable.");
     const next = data as CheckoutQuote;

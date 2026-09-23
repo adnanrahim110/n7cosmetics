@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useElements, useStripe } from "@stripe/react-stripe-js";
 import type { CheckoutInput } from "@/lib/commerce/validation";
 import { usePaymentConfig } from "./StripeProvider";
+import { useCommerce } from "./CommerceProvider";
 
 type PaymentInput = Omit<CheckoutInput, "idempotencyKey">;
 export function useStripePayment() {
   const stripe = useStripe();
   const elements = useElements();
   const { paymentLock: busyRef } = usePaymentConfig();
+  const { setReservationKey } = useCommerce();
   const router = useRouter();
 
   async function pay(payload: PaymentInput): Promise<void> {
@@ -29,15 +31,17 @@ export function useStripePayment() {
         if (data.paid) { router.push(`/checkout/confirmation?key=${encodeURIComponent(previous.key)}`); return; }
         if (!response.ok) throw new Error(data.error || "Your previous payment is still processing. Please wait before retrying.");
         previous = null;
+        setReservationKey(undefined);
       }
       const key = previous?.key || crypto.randomUUID();
       sessionStorage.setItem("n7-stripe-attempt", JSON.stringify({ key, fingerprint }));
       const response = await fetch("/api/commerce/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, idempotencyKey: key }) });
       const data = await response.json();
       if (!response.ok) {
-        if (data.code === "CHECKOUT_EXPIRED") sessionStorage.removeItem("n7-stripe-attempt");
+        if (data.code === "CHECKOUT_EXPIRED") { sessionStorage.removeItem("n7-stripe-attempt"); setReservationKey(undefined); }
         throw new Error(data.error || "Unable to start payment. Please try again.");
       }
+      setReservationKey(key);
       const returnUrl = `${window.location.origin}/checkout/confirmation?key=${encodeURIComponent(key)}`;
       if (data.paid) { router.push(`/checkout/confirmation?key=${encodeURIComponent(key)}`); return; }
       const address = payload.billingAddress;

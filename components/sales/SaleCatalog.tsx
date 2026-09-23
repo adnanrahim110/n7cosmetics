@@ -27,6 +27,9 @@ export default function SaleCatalog({ sale }: { sale: SaleStorefrontContent }) {
     pricingLoading,
     pricingError,
     couponCode,
+    getStock,
+    getCartLimit,
+    cartBusy,
   } = useCommerce();
   const router = useRouter();
   const sectionRef = useRef<HTMLElement>(null);
@@ -97,7 +100,7 @@ export default function SaleCatalog({ sale }: { sale: SaleStorefrontContent }) {
         pricePence: Math.round(product.price * 100),
       },
       delta,
-      { openCart: false, maxQuantity: product.maxQuantity },
+      { openCart: false },
     );
   }
 
@@ -145,20 +148,17 @@ export default function SaleCatalog({ sale }: { sale: SaleStorefrontContent }) {
           {sale.products.map((product) => {
             const slug = product.slug ?? "";
             const quantity = quantities[slug] ?? 0;
-            const pricedLine = cartPricing?.lines.find(
-              (line) => line.slug === slug,
-            );
-            const maximum = pricedLine?.trackInventory
-              ? Math.min(product.maxQuantity, pricedLine.stockOnHand)
-              : product.maxQuantity;
+            const pricedLine = cartPricing?.lines.find((line) => line.slug === slug);
+            const maximum = getCartLimit(slug);
+            const soldOut = getStock(slug).soldOut;
             const canAdd =
               hydrated &&
+              !cartBusy &&
               quantity < maximum &&
               (quantity > 0 || cart.length < MAX_CART_LINES);
             return (
               <div className="min-w-0" key={slug}>
                 <ProductCard
-                  soldOut={maximum <= 0}
                   product={{
                     slug,
                     name: product.name,
@@ -186,7 +186,7 @@ export default function SaleCatalog({ sale }: { sale: SaleStorefrontContent }) {
                             size={14}
                             strokeWidth={2}
                           />
-                          <span>{maximum === 0 ? "Sold out" : "Add to Cart"}</span>
+                          <span>{soldOut ? "Sold out" : maximum === 0 ? "Stock limit reached" : "Add to Cart"}</span>
                         </button>
                         <div
                           aria-label={`Quantity of ${product.name} in cart`}
@@ -391,7 +391,7 @@ export default function SaleCatalog({ sale }: { sale: SaleStorefrontContent }) {
             </Button>
             <Button
               className="min-h-11 w-full bg-[#1c1814]! px-3! py-0! text-[9px]! tracking-[0.13em]! text-white! hover:bg-[#8d4939]! sm:min-w-32"
-              disabled={!hydrated || !cart.length}
+              disabled={!hydrated || !cart.length || pricingLoading || Boolean(pricingError)}
               onClick={() => {
                 closeCart();
                 router.push("/checkout");
