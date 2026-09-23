@@ -6,11 +6,12 @@ import path from "node:path";
 import mysql from "mysql2/promise";
 import type { RowDataPacket } from "mysql2/promise";
 import Stripe from "stripe";
+import { mock } from "node:test";
 import { getDatabaseConfig } from "../lib/env";
 import { executeMutation, selectOne, selectRows } from "../lib/db/query";
 import { createOrder } from "../lib/commerce/orders";
 import type { CheckoutInput } from "../lib/commerce/validation";
-import { applyPaymentIntent, validIntentForOrder, type PaymentIntentSnapshot } from "../lib/payments/stripe";
+import { applyPaymentIntent, reconcileStripeCheckout, reconcileStripeCheckouts, validIntentForOrder, type PaymentIntentSnapshot } from "../lib/payments/stripe";
 import { getStripeSettings, stripeKeysReady } from "../lib/payments/settings";
 import { encryptSecret } from "../lib/security/encryption";
 
@@ -96,6 +97,134 @@ async function run() {
     assert.throws(() => stripe.webhooks.constructEvent(payload + " ", header, signingSecret)); checks++;
     const old = stripe.webhooks.generateTestHeaderString({ payload, secret: signingSecret, timestamp: Math.floor(Date.now() / 1000) - 600 });
     assert.throws(() => stripe.webhooks.constructEvent(payload, old, signingSecret)); checks++;
+
+    // Exercise direct verification and the worker against a real isolated database.
+    // Mock the Stripe transport only: no network requests or email delivery.
+    const intents = new Map<string, PaymentIntentSnapshot>();
+    let unavailable = false;
+    const retrieval = mock.method(stripe.paymentIntents, "retrieve", async (id: string) => {
+      if (unavailable) throw new Error("Mock Stripe outage");
+      const payment = intents.get(id);
+      assert.ok(payment, `Unexpected intent retrieval: ${id}`);
+      return { ...payment } as Stripe.Response<Stripe.PaymentIntent>;
+    });
+    const cancellation = mock.method(stripe.paymentIntents, "cancel", async (id: string) => {
+      const payment = intents.get(id);
+      assert.ok(payment);
+      const canceled = { ...payment, status: "canceled" as const };
+      intents.set(id, canceled);
+      return canceled as Stripe.Response<Stripe.PaymentIntent>;
+    });
+    const creation = mock.method(stripe.paymentIntents, "create", async () => { throw new Error("Verification must not create a new payment for an active checkout"); });
+    await executeMutation("UPDATE product_variants SET stock_on_hand = 100 WHERE id = ?", [variant.insertId]);
+    const pendingOrder = async (status: PaymentIntentSnapshot["status"] = "succeeded") => {
+      const pending = await createOrder({ ...input, idempotencyKey: randomUUID() }, "test");
+      const payment = intent(pending.id, status);
+      intents.set(payment.id, payment);
+      await executeMutation("UPDATE stripe_checkouts SET intent_id = ? WHERE order_id = ?", [payment.id, pending.id]);
+      return pending;
+    };
+    const state = (id: string) => selectOne<RowDataPacket>("SELECT o.payment_status,c.inventory_state FROM orders o JOIN stripe_checkouts c ON c.order_id=o.id WHERE o.id=?", [id]);
+    const emailCount = async (id: string) => Number((await selectOne<RowDataPacket>("SELECT COUNT(*) AS n FROM email_jobs WHERE dedupe_key = ?", [`order:${id}:confirmation:customer`]))?.n);
+    const releaseLease = (id: string) => executeMutation("UPDATE stripe_checkouts SET reconcile_after = NULL WHERE order_id = ?", [id]);
+
+    await executeMutation("UPDATE site_settings SET value_json = ? WHERE setting_key = 'stripe.webhook_secret_encrypted'", [JSON.stringify("")]);
+    const noWebhook = await getStripeSettings();
+    check(stripeKeysReady(noWebhook) && !noWebhook.webhookSecret, "Matching API keys enable payments without a webhook secret");
+    check(!stripeKeysReady({ ...noWebhook, mode: "live" }), "API keys must still match the selected mode");
+    const direct = await pendingOrder();
+    const reservedStock = await stock();
+    await Promise.all([reconcileStripeCheckout(direct.id, noWebhook, stripe), reconcileStripeCheckout(direct.id, noWebhook, stripe)]);
+    check((await state(direct.id))?.payment_status === "PAID", "Direct verification completes payment without a webhook");
+    check(retrieval.mock.callCount() === 1, "Concurrent confirmation requests retrieve Stripe once");
+    check(await stock() === reservedStock && await emailCount(direct.id) === 1, "Direct verification commits reserved stock and queues one confirmation");
+    await applyPaymentIntent(intent(direct.id), { id: "evt_after_direct", type: "payment_intent.succeeded" });
+    await reconcileStripeCheckout(direct.id, noWebhook, stripe);
+    check(await emailCount(direct.id) === 1 && await stock() === reservedStock && retrieval.mock.callCount() === 1, "Later webhooks and refreshes cannot duplicate payment effects or API calls");
+
+    await executeMutation("UPDATE site_settings SET value_json = ? WHERE setting_key = 'stripe.webhook_secret_encrypted'", [JSON.stringify("unreadable-ciphertext")]);
+    check(stripeKeysReady(await getStripeSettings()), "Unreadable webhook settings do not disable API payments");
+    await executeMutation("UPDATE site_settings SET value_json = ? WHERE setting_key = 'stripe.webhook_secret_encrypted'", [JSON.stringify(encryptSecret("whsec_" + "z".repeat(24)))]);
+    const wrongWebhook = await getStripeSettings();
+    assert.throws(() => stripe.webhooks.constructEvent(payload, header, wrongWebhook.webhookSecret)); checks++;
+    const withoutBrowser = await pendingOrder();
+    await reconcileStripeCheckouts(20, stripe);
+    check((await state(withoutBrowser.id))?.payment_status === "PAID", "Worker confirms fresh payments before expiry even with an incorrect webhook and no returning browser");
+    check(await emailCount(withoutBrowser.id) === 1, "Worker queues the confirmation without a customer request");
+
+    const unsubmitted = await pendingOrder("requires_payment_method");
+    await reconcileStripeCheckout(unsubmitted.id, wrongWebhook, stripe);
+    check((await state(unsubmitted.id))?.payment_status === "PENDING" && cancellation.mock.callCount() === 0, "Verification never cancels or fails an unsubmitted active checkout");
+    const callsBeforeThrottle = retrieval.mock.callCount();
+    await reconcileStripeCheckout(unsubmitted.id, wrongWebhook, stripe);
+    check(retrieval.mock.callCount() === callsBeforeThrottle, "Repeated pending checks are throttled across requests");
+    const missingIntent = await pendingOrder();
+    await executeMutation("UPDATE stripe_checkouts SET intent_id = NULL WHERE order_id = ?", [missingIntent.id]);
+    await reconcileStripeCheckout(missingIntent.id, wrongWebhook, stripe);
+    check(creation.mock.callCount() === 0 && (await state(missingIntent.id))?.payment_status === "PENDING", "Visiting confirmation cannot create or confirm a new payment");
+
+    const recovering = await pendingOrder();
+    unavailable = true;
+    await assert.rejects(reconcileStripeCheckout(recovering.id, wrongWebhook, stripe)); checks++;
+    check((await state(recovering.id))?.payment_status === "PENDING" && await emailCount(recovering.id) === 0, "A Stripe outage cannot mark a payment successful or failed");
+    unavailable = false;
+    await releaseLease(recovering.id);
+    await reconcileStripeCheckout(recovering.id, wrongWebhook, stripe);
+    check((await state(recovering.id))?.payment_status === "PAID", "Verification recovers after a transient Stripe failure");
+
+    const outboxRetry = await pendingOrder();
+    await setup.query("CREATE TRIGGER fail_direct_email BEFORE INSERT ON email_jobs FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Mock direct confirmation outbox failure'");
+    await assert.rejects(reconcileStripeCheckout(outboxRetry.id, wrongWebhook, stripe)); checks++;
+    check((await state(outboxRetry.id))?.inventory_state === "RESERVED" && await emailCount(outboxRetry.id) === 0, "Direct confirmation rolls back atomically if saving its email fails");
+    await setup.query("DROP TRIGGER fail_direct_email");
+    await releaseLease(outboxRetry.id);
+    await Promise.all([
+      reconcileStripeCheckout(outboxRetry.id, wrongWebhook, stripe),
+      applyPaymentIntent(intent(outboxRetry.id), { id: "evt_concurrent_direct", type: "payment_intent.succeeded" }),
+    ]);
+    check((await state(outboxRetry.id))?.payment_status === "PAID" && await emailCount(outboxRetry.id) === 1, "Concurrent webhook and direct recovery complete payment and queue one email");
+
+    const mismatched = await pendingOrder();
+    const wrongId = intent(mismatched.id).id;
+    intents.set(wrongId, { ...intent(mismatched.id), metadata: { n7_order_id: direct.id } });
+    await assert.rejects(reconcileStripeCheckout(mismatched.id, wrongWebhook, stripe), /order mismatch/); checks++;
+    check((await state(mismatched.id))?.payment_status === "PENDING" && await emailCount(mismatched.id) === 0, "Another order's Stripe payment cannot confirm this checkout");
+    for (const changes of [{ amount: 1 }, { amount_received: 1 }, { currency: "usd" }, { livemode: true }, { id: "pi_unexpected" }]) {
+      intents.set(wrongId, { ...intent(mismatched.id), ...changes });
+      await releaseLease(mismatched.id);
+      await assert.rejects(reconcileStripeCheckout(mismatched.id, wrongWebhook, stripe)); checks++;
+    }
+
+    const declined = await pendingOrder("requires_payment_method");
+    intents.set(intent(declined.id).id, { ...intent(declined.id, "requires_payment_method"), last_payment_error: { type: "card_error", code: "card_declined" } });
+    await reconcileStripeCheckout(declined.id, wrongWebhook, stripe);
+    check((await state(declined.id))?.payment_status === "FAILED", "Direct API verification records a declined card without a webhook");
+    intents.set(intent(declined.id).id, intent(declined.id, "processing"));
+    await releaseLease(declined.id);
+    await reconcileStripeCheckout(declined.id, wrongWebhook, stripe);
+    check((await state(declined.id))?.payment_status === "PENDING", "A retried payment returns to pending while Stripe processes it");
+    intents.set(intent(declined.id).id, intent(declined.id));
+    await releaseLease(declined.id);
+    await reconcileStripeCheckout(declined.id, wrongWebhook, stripe);
+    check((await state(declined.id))?.payment_status === "PAID" && await emailCount(declined.id) === 1, "A successful retry completes the same order once");
+
+    const processing = await pendingOrder("processing");
+    await executeMutation("UPDATE stripe_checkouts SET expires_at = DATE_SUB(CURRENT_TIMESTAMP(3), INTERVAL 1 MINUTE) WHERE order_id IN (?,?)", [processing.id, unsubmitted.id]);
+    await releaseLease(unsubmitted.id);
+    const beforeExpiryStock = await stock();
+    await reconcileStripeCheckout(processing.id, wrongWebhook, stripe);
+    check((await state(processing.id))?.inventory_state === "RESERVED" && await stock() === beforeExpiryStock && cancellation.mock.callCount() === 0, "Expired processing payments retain their stock until Stripe resolves them");
+    await reconcileStripeCheckout(unsubmitted.id, wrongWebhook, stripe);
+    check((await state(unsubmitted.id))?.inventory_state === "RELEASED" && await stock() === beforeExpiryStock + 1 && cancellation.mock.callCount() === 1, "Expired abandoned payments are canceled before stock is restored");
+
+    // A permanently processing older payment must not starve newer paid orders.
+    await executeMutation("UPDATE stripe_checkouts SET reconcile_after = DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL 1 DAY) WHERE inventory_state = 'RESERVED'");
+    const older = await pendingOrder("processing");
+    const newer = await pendingOrder();
+    await reconcileStripeCheckouts(1, stripe);
+    await reconcileStripeCheckouts(1, stripe);
+    check((await state(older.id))?.inventory_state === "RESERVED" && (await state(newer.id))?.payment_status === "PAID", "Worker batches rotate past unresolved payments without starving new orders");
+    mock.restoreAll();
     console.log(`${checks} Stripe integration checks passed; no Stripe API calls, charges or email sends.`);
   } finally {
     await globalThis.n7MySqlPool?.end();

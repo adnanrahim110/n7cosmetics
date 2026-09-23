@@ -30,15 +30,15 @@ export async function getStripeSettings(connection?: PoolConnection): Promise<St
     mode: values["stripe.mode"] === "live" ? "live" : "test",
     publishableKey: String(values["stripe.publishable_key"] || ""),
     secretKey: decrypt("stripe.secret_key_encrypted"),
-    webhookSecret: decrypt("stripe.webhook_secret_encrypted"),
+    // A broken webhook configuration must not disable direct API verification.
+    webhookSecret: (() => { try { return decrypt("stripe.webhook_secret_encrypted"); } catch { return ""; } })(),
     revision: createHash("sha256").update(JSON.stringify(values)).digest("hex"),
   };
 }
 
-export function stripeKeysReady(settings: Pick<StripeSettings, "mode" | "publishableKey" | "secretKey" | "webhookSecret">): boolean {
+export function stripeKeysReady(settings: Pick<StripeSettings, "mode" | "publishableKey" | "secretKey">): boolean {
   return new RegExp(`^pk_${settings.mode}_[A-Za-z0-9]{16,}$`).test(settings.publishableKey)
-    && new RegExp(`^sk_${settings.mode}_[A-Za-z0-9]{16,}$`).test(settings.secretKey)
-    && /^whsec_[A-Za-z0-9]{16,}$/.test(settings.webhookSecret);
+    && new RegExp(`^sk_${settings.mode}_[A-Za-z0-9]{16,}$`).test(settings.secretKey);
 }
 
 export function stripeClient(settings: StripeSettings): Stripe {

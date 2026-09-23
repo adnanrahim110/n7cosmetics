@@ -112,8 +112,7 @@ export default function Header({ content }: { content: HeaderContent }) {
   const { cartCount, isCartOpen, openCart, wishlistCount } = useCommerce();
   const pathname = usePathname();
   const forceDarkText =
-    pathname === "/cart" ||
-    pathname === "/checkout" ||
+    ["/cart", "/checkout", "/wishlist", "/newsletter"].some((href) => pathnameMatchesHref(pathname, href)) ||
     pathname.startsWith("/products/") ||
     /^\/bundles\/[^/]+/.test(pathname);
   const headerContainerRef = useRef<HTMLElement>(null);

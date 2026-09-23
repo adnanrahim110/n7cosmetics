@@ -39,7 +39,7 @@ export async function saveStripeSettingsAction(form: FormData): Promise<void> {
     await selectOne("SELECT setting_key FROM site_settings WHERE setting_key = 'stripe.enabled' FOR UPDATE", [], connection);
     const latest = await getStripeSettings(connection);
     if (latest.revision !== current.revision) redirect("/admin/settings?stripe-error=changed#stripe");
-    if (candidate.mode !== current.mode || candidate.secretKey !== current.secretKey || candidate.webhookSecret !== current.webhookSecret || candidate.publishableKey !== current.publishableKey) {
+    if (candidate.mode !== current.mode || candidate.secretKey !== current.secretKey || candidate.publishableKey !== current.publishableKey) {
       const pending = await selectOne<RowDataPacket & { total: number }>("SELECT COUNT(*) AS total FROM stripe_checkouts WHERE inventory_state = 'RESERVED'", [], connection);
       if (Number(pending?.total)) redirect("/admin/settings?stripe-error=pending#stripe");
     }

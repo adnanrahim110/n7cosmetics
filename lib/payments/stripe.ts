@@ -10,10 +10,9 @@ interface StripeOrder extends RowDataPacket {
   idempotency_key: string; intent_id: string | null; stripe_mode: "test" | "live"; inventory_state: string;
 }
 
-export async function ensurePaymentIntent(orderId: string, settings: StripeSettings): Promise<Stripe.PaymentIntent> {
+export async function ensurePaymentIntent(orderId: string, settings: StripeSettings, stripe = stripeClient(settings)): Promise<Stripe.PaymentIntent> {
   const order = await selectOne<StripeOrder>(`SELECT CAST(o.id AS CHAR) AS id, o.order_number, o.total_pence, o.currency, o.payment_status, p.idempotency_key, c.intent_id, c.stripe_mode, c.inventory_state FROM orders o JOIN stripe_checkouts c ON c.order_id = o.id JOIN payments p ON p.order_id = o.id AND p.provider = 'STRIPE' WHERE o.id = ?`, [orderId]);
   if (!order || order.stripe_mode !== settings.mode) throw new Error("Payment account does not match this checkout.");
-  const stripe = stripeClient(settings);
   if (order.intent_id) return stripe.paymentIntents.retrieve(order.intent_id);
   if (order.inventory_state === "RELEASED") throw new Error("This checkout has expired.");
   // The same server-side order always uses exactly the same Stripe request/key,
@@ -40,7 +39,7 @@ export function validIntentForOrder(intent: Pick<Stripe.PaymentIntent, "amount" 
 }
 
 // Called only with a signature-verified webhook or an authenticated Stripe API response.
-export type PaymentIntentSnapshot = Pick<Stripe.PaymentIntent, "id" | "metadata" | "amount" | "amount_received" | "currency" | "livemode" | "status">;
+export type PaymentIntentSnapshot = Pick<Stripe.PaymentIntent, "id" | "metadata" | "amount" | "amount_received" | "currency" | "livemode" | "status"> & Partial<Pick<Stripe.PaymentIntent, "last_payment_error">>;
 export async function applyPaymentIntent(intent: PaymentIntentSnapshot, event?: { id: string; type: string }): Promise<void> {
   const orderId = intent.metadata.n7_order_id;
   if (!orderId || !/^[1-9]\d*$/.test(orderId)) return;
@@ -75,29 +74,53 @@ export async function applyPaymentIntent(intent: PaymentIntentSnapshot, event?: 
       await executeMutation("UPDATE orders SET status = 'CANCELLED', payment_status = 'FAILED' WHERE id = ?", [orderId], connection);
       await executeMutation("UPDATE payments SET status = 'CANCELLED', processed_at = CURRENT_TIMESTAMP(3) WHERE order_id = ? AND provider = 'STRIPE'", [orderId], connection);
       await executeMutation("INSERT INTO order_status_history (order_id, status, note) VALUES (?, 'CANCELLED', 'Stripe payment cancelled; reserved stock and coupon usage released')", [orderId], connection);
-    } else if (event?.type === "payment_intent.payment_failed" && order.inventory_state === "RESERVED") {
+    } else if ((event?.type === "payment_intent.payment_failed" || (intent.status === "requires_payment_method" && intent.last_payment_error)) && order.inventory_state === "RESERVED") {
       await executeMutation("UPDATE orders SET payment_status = 'FAILED' WHERE id = ?", [orderId], connection);
       await executeMutation("UPDATE payments SET status = 'FAILED' WHERE order_id = ? AND provider = 'STRIPE'", [orderId], connection);
+    } else if (["processing", "requires_action", "requires_confirmation"].includes(intent.status) && order.inventory_state === "RESERVED" && order.payment_status === "FAILED") {
+      await executeMutation("UPDATE orders SET payment_status = 'PENDING' WHERE id = ?", [orderId], connection);
+      await executeMutation("UPDATE payments SET status = 'PENDING' WHERE order_id = ? AND provider = 'STRIPE'", [orderId], connection);
     }
   });
 }
 
-export async function expireStripeCheckouts(limit = 20): Promise<number> {
-  const rows = await selectRows<RowDataPacket & { order_id: string }>("SELECT CAST(order_id AS CHAR) AS order_id FROM stripe_checkouts WHERE inventory_state = 'RESERVED' AND expires_at <= CURRENT_TIMESTAMP(3) ORDER BY expires_at LIMIT ?", [limit]);
+export async function reconcileStripeCheckout(orderId: string, settings: StripeSettings, stripe = stripeClient(settings)): Promise<boolean> {
+  // A database lease bounds API calls across browsers, app instances and the worker.
+  const claimed = await executeMutation(`UPDATE stripe_checkouts SET reconcile_after = DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL 180 SECOND)
+    WHERE order_id = ? AND inventory_state = 'RESERVED'
+      AND (reconcile_after IS NULL OR reconcile_after <= CURRENT_TIMESTAMP(3))`, [orderId]);
+  if (!claimed.affectedRows) return false;
+  try {
+    const checkout = await selectOne<RowDataPacket & { intent_id: string | null; expired: number }>("SELECT intent_id, expires_at <= CURRENT_TIMESTAMP(3) AS expired FROM stripe_checkouts WHERE order_id = ?", [orderId]);
+    if (!checkout || (!checkout.intent_id && !checkout.expired)) return false;
+    let intent = await ensurePaymentIntent(orderId, settings, stripe);
+    if (intent.metadata.n7_order_id !== orderId) throw new Error("Stripe payment order mismatch.");
+    // Only cancel abandoned payments after the reservation expires. Processing
+    // payments retain their stock, and a paid intent is always committed.
+    if (checkout.expired && ["requires_payment_method", "requires_confirmation", "requires_action", "requires_capture"].includes(intent.status)) {
+      try { intent = await stripe.paymentIntents.cancel(intent.id, { cancellation_reason: "abandoned" }); }
+      catch { intent = await stripe.paymentIntents.retrieve(intent.id); }
+    }
+    if (intent.metadata.n7_order_id !== orderId) throw new Error("Stripe payment order mismatch.");
+    await applyPaymentIntent(intent);
+    return true;
+  } finally {
+    await executeMutation("UPDATE stripe_checkouts SET reconcile_after = DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL 3 SECOND) WHERE order_id = ?", [orderId]);
+  }
+}
+
+export async function reconcileStripeCheckouts(limit = 20, client?: Stripe): Promise<number> {
+  const rows = await selectRows<RowDataPacket & { order_id: string }>(`SELECT CAST(order_id AS CHAR) AS order_id FROM stripe_checkouts
+    WHERE inventory_state = 'RESERVED' AND (intent_id IS NOT NULL OR expires_at <= CURRENT_TIMESTAMP(3))
+      AND (reconcile_after IS NULL OR reconcile_after <= CURRENT_TIMESTAMP(3))
+    ORDER BY reconcile_after, order_id LIMIT ?`, [limit]);
   if (!rows.length) return 0;
   const settings = await getStripeSettings();
-  const stripe = stripeClient(settings);
+  const stripe = client ?? stripeClient(settings);
   let processed = 0;
   for (const row of rows) {
     try {
-      let intent = await ensurePaymentIntent(row.order_id, settings);
-      if (["requires_payment_method", "requires_confirmation", "requires_action", "requires_capture"].includes(intent.status)) {
-        try { intent = await stripe.paymentIntents.cancel(intent.id, { cancellation_reason: "abandoned" }); }
-        catch { intent = await stripe.paymentIntents.retrieve(intent.id); }
-      }
-      // A processing payment keeps its stock until Stripe resolves it.
-      await applyPaymentIntent(intent);
-      processed++;
+      if (await reconcileStripeCheckout(row.order_id, settings, stripe)) processed++;
     } catch { console.error(`Unable to reconcile Stripe checkout ${row.order_id}; will retry.`); }
   }
   return processed;
