@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "lenis/dist/lenis.css";
 
+/* Dashboard panels own scrolling; the document must not scroll behind them. */
+html:has([data-admin-dashboard]),
+body:has([data-admin-dashboard]) {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .admin-scrollbar {
   --scrollbar-thumb: #a1a1aa;
   --scrollbar-track: #e4e4e7;
@@ -88,13 +96,16 @@
     @apply bg-dark-950 text-dark-50 font-body antialiased;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
+  :is(h1, h2, h3, h4, h5, h6) {
     @apply font-heading text-primary-700 tracking-wide;
+  }
+
+  button {
+    @apply cursor-pointer outline-none focus:outline-none focus-visible:outline-none;
+  }
+
+  :is(input, select, textarea) {
+    @apply outline-none focus:outline-none focus-visible:outline-none;
   }
 }
 

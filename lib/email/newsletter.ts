@@ -33,7 +33,7 @@ export async function saveCheckoutMarketingPreference(orderId: string, email: st
   if (!inserted.affectedRows || !unsubscribeToken) return;
   const brand = await getEmailPreferences(connection);
   const url = `${brand.appUrl}/newsletter/unsubscribe?token=${unsubscribeToken}`;
-  await enqueueEmail({ ...newsletterEmail(brand, "checkout", url), to: email, replyTo: brand.contactEmail, unsubscribeUrl: url, templateKey: "newsletter-welcome" }, { dedupeKey: `checkout-newsletter:${orderId}`, subscriberId: subscriber.id }, connection);
+  await enqueueEmail({ ...newsletterEmail(brand, "checkout", url), to: email, replyTo: brand.replyToEmail, unsubscribeUrl: url, templateKey: "newsletter-welcome" }, { dedupeKey: `checkout-newsletter:${orderId}`, subscriberId: subscriber.id }, connection);
 }
 
 export async function subscribeNewsletter(email: string, ipAddress: string): Promise<"accepted" | "limited"> {
@@ -50,7 +50,7 @@ export async function subscribeNewsletter(email: string, ipAddress: string): Pro
     await executeMutation("UPDATE email_jobs SET status = 'CANCELLED', payload_encrypted = NULL, locked_at = NULL, lock_token = NULL WHERE subscriber_id = ? AND status IN ('PENDING','FAILED','PROCESSING')", [subscriber.id], connection);
     await executeMutation("UPDATE newsletter_subscribers SET status = 'PENDING', confirmation_token_hash = ?, confirmation_expires_at = DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL 48 HOUR), unsubscribe_token_hash = NULL, confirmed_at = NULL, unsubscribed_at = NULL, requested_at = CURRENT_TIMESTAMP(3), consent_text = ?, marketing_basis = 'CONSENT' WHERE id = ?", [tokenHash, newsletterConsent, subscriber.id], connection);
     const brand = await getEmailPreferences(connection);
-    await enqueueEmail({ ...newsletterEmail(brand, "confirm", `${brand.appUrl}/newsletter/confirm?token=${token}`), to: email, replyTo: brand.contactEmail, templateKey: "newsletter-confirmation" }, { dedupeKey: `newsletter-confirm:${tokenHash}`, subscriberId: subscriber.id, expiresAt: new Date(Date.now() + 48 * 3600_000) }, connection);
+    await enqueueEmail({ ...newsletterEmail(brand, "confirm", `${brand.appUrl}/newsletter/confirm?token=${token}`), to: email, replyTo: brand.replyToEmail, templateKey: "newsletter-confirmation" }, { dedupeKey: `newsletter-confirm:${tokenHash}`, subscriberId: subscriber.id, expiresAt: new Date(Date.now() + 48 * 3600_000) }, connection);
     return "accepted";
   });
 }
@@ -64,7 +64,7 @@ export async function confirmNewsletter(token: string): Promise<boolean> {
     await executeMutation("UPDATE newsletter_subscribers SET status = 'ACTIVE', confirmed_at = CURRENT_TIMESTAMP(3), confirmation_token_hash = NULL, confirmation_expires_at = NULL, unsubscribe_token_hash = ? WHERE id = ?", [newsletterTokenHash(unsubscribeToken), subscriber.id], connection);
     const brand = await getEmailPreferences(connection);
     const url = `${brand.appUrl}/newsletter/unsubscribe?token=${unsubscribeToken}`;
-    await enqueueEmail({ ...newsletterEmail(brand, "welcome", url), to: subscriber.email, replyTo: brand.contactEmail, unsubscribeUrl: url, templateKey: "newsletter-welcome" }, { dedupeKey: `newsletter-welcome:${newsletterTokenHash(token)}`, subscriberId: subscriber.id }, connection);
+    await enqueueEmail({ ...newsletterEmail(brand, "welcome", url), to: subscriber.email, replyTo: brand.replyToEmail, unsubscribeUrl: url, templateKey: "newsletter-welcome" }, { dedupeKey: `newsletter-welcome:${newsletterTokenHash(token)}`, subscriberId: subscriber.id }, connection);
     return true;
   });
 }

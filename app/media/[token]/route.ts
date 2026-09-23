@@ -96,7 +96,8 @@ async function serveMedia(request: Request, context: RouteContext, headOnly: boo
     "Cache-Control": "public, max-age=31536000, immutable",
     "Content-Disposition": "inline",
     "Content-Type": asset.mime_type,
-    "Cross-Origin-Resource-Policy": "same-site",
+    // Public image URLs are also embedded in customer emails and their previews.
+    "Cross-Origin-Resource-Policy": asset.mime_type.startsWith("image/") ? "cross-origin" : "same-site",
     "ETag": etag,
     "X-Content-Type-Options": "nosniff",
   };

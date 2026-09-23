@@ -9,7 +9,7 @@ export default async function AdminLayout({
 }: Readonly<{ children: ReactNode }>) {
   const administrator = await requireAdministrator();
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f6f5f2] text-zinc-950 lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+    <div data-admin-dashboard className="fixed inset-0 flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f6f5f2] text-zinc-950 lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
       <AdminSidebar role={administrator.role} logoutAction={logoutAction} />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

@@ -1,6 +1,6 @@
 import type { PoolConnection } from "mysql2/promise";
-import { executeMutation } from "@/lib/db/query";
-import type { SqlValue } from "@/lib/db/query";
+import { executeMutation } from "../db/query";
+import type { SqlValue } from "../db/query";
 
 interface AuditEvent {
   administratorId?: string | null;

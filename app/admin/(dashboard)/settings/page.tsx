@@ -3,19 +3,19 @@ import type { RowDataPacket } from "mysql2/promise";
 import CustomSelect from "@/components/admin/CustomSelect";
 import Notice from "@/components/admin/Notice";
 import PageHeader from "@/components/admin/PageHeader";
-import PasswordInput from "@/components/admin/PasswordInput";
+import SmtpSettingsForm from "@/components/admin/SmtpSettingsForm";
+import NotificationSettingsForm from "@/components/admin/NotificationSettingsForm";
 import SocialMediaLinksEditor from "@/components/admin/SocialMediaLinksEditor";
 import StripeSettings from "@/components/admin/StripeSettings";
 import { requireAdministrator } from "@/lib/auth/session";
 import { selectRows } from "@/lib/db/query";
 import { normalizeSocialMediaLinks } from "@/lib/social-media";
+import { getEmailPreferences } from "@/lib/email/brand";
+import { readSmtpValues, settingsRevision } from "@/lib/email/store";
+import { smtpProviders } from "@/lib/email/settings";
 import {
   saveSettingsAction,
-  saveEmailPreferencesAction,
-  verifySmtpAction,
-  saveSmtpSettingsAction,
   saveSocialMediaSettingsAction,
-  sendTestEmailAction,
 } from "./actions";
 
 interface SettingRow extends RowDataPacket {
@@ -28,12 +28,11 @@ interface SettingsQuery {
   saved?: string;
   "social-error"?: string;
   "social-saved"?: string;
-  "smtp-error"?: string;
   "smtp-saved"?: string;
   "smtp-test"?: string;
-  "smtp-verify"?: string;
   "email-saved"?: string;
   "email-error"?: string;
+  "notification-test"?: string;
   "stripe-saved"?: string;
   "stripe-error"?: string;
 }
@@ -56,12 +55,13 @@ const card = "rounded-xl border border-zinc-200 bg-white p-5 shadow-sm";
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<SettingsQuery> }) {
   const [admin, rows, query] = await Promise.all([
     requireAdministrator(),
-    selectRows<SettingRow>("SELECT setting_key, value_json FROM site_settings WHERE setting_key IN ('contact.phone','contact.email','contact.address','contact.whatsapp','social.links','store.currency','inventory.low_stock_threshold','smtp.host','smtp.port','smtp.secure','smtp.user','smtp.password_encrypted','smtp.from_name','smtp.from_email','smtp.verified_at','smtp.verify_error','email.order_recipient','email.bank_instructions')"),
+    selectRows<SettingRow>("SELECT setting_key, value_json FROM site_settings WHERE setting_key IN ('contact.phone','contact.email','contact.address','contact.whatsapp','social.links','store.currency','inventory.low_stock_threshold','email.reply_to')"),
     searchParams,
   ]);
   const settings = Object.fromEntries(rows.map((row) => [row.setting_key, settingValue(row.value_json)]));
   const socialLinks = normalizeSocialMediaLinks(rows.find((row) => row.setting_key === "social.links")?.value_json);
   const smtpTest = query["smtp-test"];
+  const [smtpValues, email] = await Promise.all([admin.role === "OWNER" ? readSmtpValues() : Promise.resolve({} as Record<string, unknown>), getEmailPreferences()]);
 
   return (
     <div>
@@ -70,13 +70,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {query.error ? <Notice>Check the email, field lengths, and inventory threshold.</Notice> : null}
       {query["social-saved"] ? <Notice type="success">Social media profiles saved and published across the storefront.</Notice> : null}
       {query["social-error"] ? <Notice>Check every social profile has a supported platform and a valid web address.</Notice> : null}
-      {query["smtp-saved"] ? <Notice type="success">SMTP settings saved securely.</Notice> : null}
-      {query["smtp-error"] ? <Notice>{query["smtp-error"] === "password" ? "Enter a Gmail app password for the first SMTP setup." : query["smtp-error"] === "tls" ? "Use implicit TLS for port 465. Turn it off for STARTTLS on port 587." : "Check every SMTP field and provide a valid sender email."}</Notice> : null}
-      {query["email-saved"] ? <Notice type="success">Order email settings saved.</Notice> : null}
+      {query["smtp-saved"] ? <Notice type="success">SMTP connection verified and saved securely.</Notice> : null}
+      {query["email-saved"] ? <Notice type="success">Store notification settings saved.</Notice> : null}
       {query["email-error"] ? <Notice>Check the recipient address and payment instructions.</Notice> : null}
-      {smtpTest === "sent" ? <Notice type="success">Test email sent to {admin.email}.</Notice> : null}
-      {smtpTest === "failed" ? <Notice>The SMTP server rejected the test. Check the host, port, security mode, username, and password.</Notice> : null}
+      {smtpTest === "sent" ? <Notice type="success">Test email accepted by the SMTP server. Check the chosen recipient’s inbox.</Notice> : null}
+      {smtpTest === "failed" ? <Notice>Delivery test failed. Check Email & enquiries → Attempt history for the connection or sender error.</Notice> : null}
       {smtpTest === "skipped" ? <Notice>SMTP is not fully configured yet.</Notice> : null}
+      {smtpTest === "invalid" ? <Notice>Enter a valid test recipient email address.</Notice> : null}
+      {query["notification-test"] === "queued" ? <Notice type="success">Tests queued for the saved recipients. Check delivery history for each result.</Notice> : null}
+      {query["notification-test"] === "empty" || query["notification-test"] === "invalid" ? <Notice>Enable this notification and save at least one recipient before testing.</Notice> : null}
 
       <form action={saveSettingsAction} className="mt-7 space-y-6">
         <section className={`${card} grid gap-5 sm:grid-cols-2`}>
@@ -119,39 +121,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       {admin.role === "OWNER" ? <StripeSettings saved={query["stripe-saved"]} error={query["stripe-error"]} /> : null}
 
-      <section className={`${card} mt-8`} id="email-content">
-        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-body text-base font-semibold">Order email settings</h2><Link className="text-sm text-amber-800 underline" href="/admin/emails">Delivery history and templates</Link></div>
-        <form action={saveEmailPreferencesAction} className="mt-5 space-y-5">
-          <label className="block text-sm font-medium text-zinc-700">New order notifications<input className={input} defaultValue={settings["email.order_recipient"]} maxLength={190} name="orderRecipient" placeholder={settings["contact.email"] || "Store inbox"} type="email" /><span className="mt-1 block text-xs font-normal text-zinc-500">Leave blank to use the store contact email. Customers receive their own confirmation.</span></label>
-          <label className="block text-sm font-medium text-zinc-700">Bank transfer instructions<textarea className={input} defaultValue={settings["email.bank_instructions"]} maxLength={2000} name="bankInstructions" rows={5} /><span className="mt-1 block text-xs font-normal text-zinc-500">Shown in unpaid bank-transfer order emails. Include the account name, sort code and account number. The order reference is added automatically.</span></label>
-          <button className="rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save email content</button>
-        </form>
-      </section>
-
-      {admin.role === "OWNER" ? (
-        <section className={`${card} mt-8`} id="smtp">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Owner only</p>
-            <h2 className="mt-1 font-body text-base font-semibold text-zinc-950">SMTP email delivery</h2>
-            <p className="mt-1 text-sm text-zinc-500">Gmail delivers order updates, customer enquiries, password recovery and subscription emails. The app password is encrypted in the database.</p>
-          </div>
-          <p className="mt-3 text-sm leading-6 text-zinc-500">Use your full Gmail or Google Workspace address and a <a className="text-amber-800 underline" href="https://support.google.com/accounts/answer/185833" rel="noreferrer" target="_blank">Google app password</a> with 2-Step Verification enabled. The sender must be that mailbox or a verified Gmail sending alias.</p>
-          {settings["smtp.verified_at"] ? <p className="mt-3 text-sm text-emerald-700">Connection verified {new Date(settings["smtp.verified_at"]).toLocaleString("en-GB")}.</p> : <p className="mt-3 text-sm text-amber-800">Connection has not been verified with the current settings.</p>}
-          {settings["smtp.verify_error"] ? <p className="mt-2 break-words text-sm text-red-700">{settings["smtp.verify_error"]}</p> : null}
-          <form action={saveSmtpSettingsAction} className="mt-5 grid gap-5 sm:grid-cols-2">
-            <label className="text-sm font-medium text-zinc-700">SMTP host<input className={input} defaultValue={settings["smtp.host"] || "smtp.gmail.com"} maxLength={255} name="smtpHost" placeholder="smtp.example.com" required /></label>
-            <label className="text-sm font-medium text-zinc-700">Port<input className={input} defaultValue={settings["smtp.port"] || "465"} max={65535} min={1} name="smtpPort" required type="number" /></label>
-            <label className="text-sm font-medium text-zinc-700">Username<input autoComplete="username" className={input} defaultValue={settings["smtp.user"]} maxLength={255} name="smtpUser" required /></label>
-            <PasswordInput autoComplete="new-password" hint={settings["smtp.password_encrypted"] ? "A password is saved. Leave blank to keep it unchanged." : "Required the first time SMTP is configured."} label="SMTP app password" maxLength={500} name="smtpPassword" required={!settings["smtp.password_encrypted"]} />
-            <label className="text-sm font-medium text-zinc-700">Sender name<input className={input} defaultValue={settings["smtp.from_name"] || "N7 Cosmetics"} maxLength={120} name="smtpFromName" required /></label>
-            <label className="text-sm font-medium text-zinc-700">Sender email<input className={input} defaultValue={settings["smtp.from_email"]} maxLength={190} name="smtpFromEmail" required type="email" /></label>
-            <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-2"><input defaultChecked={settings["smtp.secure"] ? settings["smtp.secure"] === "true" : true} name="smtpSecure" type="checkbox" />Use implicit TLS (normally port 465)</label>
-            <div className="flex justify-end sm:col-span-2"><button className="rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save SMTP</button></div>
-          </form>
-          <form action={verifySmtpAction} className="mt-4 flex justify-end"><button className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold" type="submit">Verify connection without sending</button></form>
-          {settings["smtp.password_encrypted"] ? <form action={sendTestEmailAction} className="mt-3 flex justify-end"><button className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50" type="submit">Send test to {admin.email}</button></form> : null}
-        </section>
-      ) : null}
+      {admin.role === "OWNER" || admin.role === "MANAGER" ? <NotificationSettingsForm key={JSON.stringify([email.notifications, email.replyToEmail, email.bankInstructions])} saved={email.notifications} replyTo={settings["email.reply_to"] || ""} contactEmail={email.contactEmail} bankInstructions={email.bankInstructions || ""} /> : null}
+      {admin.role === "OWNER" ? <SmtpSettingsForm key={settingsRevision(smtpValues)} saved={{ provider: smtpProviders.includes(smtpValues["smtp.provider"] as typeof smtpProviders[number]) ? smtpValues["smtp.provider"] as typeof smtpProviders[number] : smtpValues["smtp.host"] === "smtp.gmail.com" ? "gmail" : "custom", host: String(smtpValues["smtp.host"] || ""), port: Number(smtpValues["smtp.port"] || 465), security: smtpValues["smtp.secure"] === false ? "starttls" : "tls", user: String(smtpValues["smtp.user"] || ""), fromName: String(smtpValues["smtp.from_name"] || "N7 Cosmetics"), fromEmail: String(smtpValues["smtp.from_email"] || ""), hasPassword: Boolean(smtpValues["smtp.password_encrypted"]), revision: settingsRevision(smtpValues), verifiedAt: String(smtpValues["smtp.verified_at"] || "") }} adminEmail={admin.email} /> : null}
+      <p className="mt-5 text-sm"><Link className="text-amber-800 underline" href="/admin/emails">Delivery history, enquiries and email templates</Link></p>
     </div>
   );
 }

@@ -35,7 +35,7 @@ export async function requestPasswordResetAction(formData: FormData): Promise<vo
           await cancelRecipientEmails("admin-password-reset", admin.email, connection);
           await executeMutation("INSERT INTO administrator_password_resets (administrator_id, token_hash, expires_at, request_ip) VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL 30 MINUTE), ?)", [admin.id, tokenHash, metadata.ipAddress], connection);
           const brand = await getEmailPreferences(connection);
-          await enqueueEmail({ ...passwordResetEmail(brand, admin.name, resetUrl), to: admin.email, templateKey: "admin-password-reset" }, { dedupeKey: `admin-reset:${tokenHash}`, expiresAt: new Date(Date.now() + 30 * 60_000) }, connection);
+          await enqueueEmail({ ...passwordResetEmail(brand, admin.name, resetUrl), to: admin.email, replyTo: brand.replyToEmail, templateKey: "admin-password-reset" }, { dedupeKey: `admin-reset:${tokenHash}`, expiresAt: new Date(Date.now() + 30 * 60_000) }, connection);
         });
         kickEmailQueue();
       }

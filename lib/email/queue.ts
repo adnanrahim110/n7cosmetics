@@ -4,6 +4,9 @@ import { executeMutation, selectOne, selectRows } from "../db/query";
 import { withTransaction } from "../db/transaction";
 import { decryptSecret, encryptSecret } from "../security/encryption";
 import { getSmtpSettings, logEmail, sendProjectEmail, type EmailSendResult, type ProjectEmail } from "./service";
+import { getEmailPreferences } from "./brand";
+import { notificationRecipients, type NotificationType } from "./settings";
+import { getApplicationConfig } from "../env";
 
 export const MAX_EMAIL_ATTEMPTS = 5;
 export function retryDelaySeconds(attempt: number): number { return Math.min(3600, 60 * 5 ** Math.max(0, attempt - 1)); }
@@ -37,7 +40,7 @@ export async function retryQueuedEmail(id: string, allowPasswordReset: boolean):
   });
 }
 
-export async function processEmailQueue(limit = 10, deliver: (email: ProjectEmail, jobId?: string) => Promise<EmailSendResult> = sendProjectEmail): Promise<number> {
+export async function processEmailQueue(limit = 10, deliver?: (email: ProjectEmail, jobId?: string) => Promise<EmailSendResult>): Promise<number> {
   await executeMutation("UPDATE email_jobs SET status = 'CANCELLED', payload_encrypted = NULL, lock_token = NULL, locked_at = NULL, last_error = 'Message expired before delivery.' WHERE expires_at <= CURRENT_TIMESTAMP(3) AND status IN ('PENDING','FAILED','PROCESSING')");
   // Reset and newsletter links do not need to remain recoverable after delivery.
   await executeMutation("UPDATE email_jobs SET payload_encrypted = NULL WHERE expires_at <= CURRENT_TIMESTAMP(3) AND payload_encrypted IS NOT NULL AND status IN ('SENT','CANCELLED')");
@@ -70,8 +73,15 @@ export async function processEmailQueue(limit = 10, deliver: (email: ProjectEmai
     try {
       if (!job.payload_encrypted) throw new Error("No recoverable email content remains.");
       const email = JSON.parse(decryptSecret(job.payload_encrypted)) as ProjectEmail;
-      email.messageId = `<n7-job-${job.id}@${settings.fromEmail.split("@")[1]}>`;
-      result = await deliver(email, job.id);
+      const legacyTypes: Record<string, NotificationType> = { "new-order-team": "new_order", "storefront-contact": "enquiry", "order-update-team": "order_update", "payment-failure-team": "payment_failure", "low-stock-team": "low_stock" };
+      const type = email.notificationType || legacyTypes[email.templateKey];
+      if (type && !notificationRecipients((await getEmailPreferences()).notifications, type).includes(email.to.toLowerCase())) {
+        await executeMutation("UPDATE email_jobs SET status = 'CANCELLED', payload_encrypted = NULL, lock_token = NULL, locked_at = NULL, last_error = 'Notification disabled or recipient removed.' WHERE id = ? AND lock_token = ?", [job.id, token]);
+        continue;
+      }
+      // Keep the identifier stable when the SMTP provider or sender changes.
+      email.messageId = `<n7-job-${job.id}@${new URL(getApplicationConfig().appUrl).hostname}>`;
+      result = deliver ? await deliver(email, job.id) : await sendProjectEmail(email, job.id, settings);
     } catch (error) {
       result = { status: "FAILED", error: error instanceof Error ? error.message : "Email could not be delivered." };
       await logEmail({ to: job.recipient, subject: job.subject, templateKey: job.template_key, text: "" }, result, job.id);

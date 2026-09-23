@@ -146,13 +146,17 @@ export function resolveAdminToastFeedback(pathname: string, query: URLSearchPara
     add("error", { type: "error", title: "Some store settings need attention", description: "Check the email address, text lengths, and inventory threshold." });
     add("social-saved", { type: "success", title: "Social profiles published", description: "The updated links are now available across the storefront." });
     add("social-error", { type: "error", title: "Some social links need attention", description: "Choose a supported platform and enter a complete web address for each profile." });
-    add("smtp-saved", { type: "success", title: "Email delivery settings saved", description: "Your credentials were stored securely." });
+    add("smtp-saved", { type: "success", title: "Email connection verified and saved", description: "Your credentials were stored securely." });
+    add("email-saved", { type: "success", title: "Notification settings saved", description: "Your store recipients and email preferences have been updated." });
+    const notificationTest = query.get("notification-test");
+    if (notificationTest) feedback.push(item(pathname, "notification-test", notificationTest, notificationTest === "queued" ? { type: "success", title: "Recipient tests queued", description: "Check Email & enquiries for individual delivery results." } : { type: "warning", title: "No recipients available", description: "Enable the notification and save its recipient list before testing." }));
     add("smtp-error", { type: "error", title: "Email delivery settings need attention", description: "Check the server details and sender email address." });
     const test = query.get("smtp-test");
     const tests: Record<string, ToastCopy> = {
       sent: { type: "success", title: "Test email sent", description: "Check your inbox to confirm delivery." },
       failed: { type: "error", title: "The test email wasn’t sent", description: "Check the email server, security mode, username, and password." },
       skipped: { type: "warning", title: "Email delivery isn’t ready yet", description: "Complete the email delivery settings before sending a test." },
+      invalid: { type: "error", title: "Invalid test recipient", description: "Enter one valid email address." },
     };
     if (test) feedback.push(item(pathname, "smtp-test", test, tests[test] ?? tests.failed));
   }

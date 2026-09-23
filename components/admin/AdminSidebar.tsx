@@ -184,7 +184,7 @@ export default function AdminSidebar({
   return (
     <aside
       aria-label="Administration sidebar"
-      className="flex h-dvh min-h-0 shrink-0 flex-col overflow-hidden border-b border-zinc-800 bg-zinc-950 text-white lg:h-full lg:max-h-none lg:border-b-0 lg:border-r"
+      className={`flex ${isOpen ? "h-[min(32rem,60dvh)]" : "h-16"} min-h-0 shrink-0 flex-col overflow-hidden border-b border-zinc-800 bg-zinc-950 text-white lg:h-full lg:max-h-none lg:border-b-0 lg:border-r`}
       onKeyDown={(event) => {
         if (event.key === "Escape" && isOpen) {
           event.preventDefault();

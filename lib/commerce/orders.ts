@@ -1,5 +1,5 @@
-import { createHash, randomBytes } from "node:crypto";
-import type { RowDataPacket } from "mysql2/promise";
+import { createHash } from "node:crypto";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { executeMutation, selectOne } from "../db/query";
 import { withTransaction } from "../db/transaction";
 import { calculateQuote, CommerceError } from "./quote";
@@ -11,9 +11,13 @@ import { saveCheckoutMarketingPreference } from "../email/newsletter";
 export interface ExistingOrderRow extends RowDataPacket { id: string; order_number: string; total_pence: number; currency: string; request_hash: string; expired: number; inventory_state: string }
 interface CountRow extends RowDataPacket { redemption_count: number }
 
-function orderNumber(): string {
-  const date = new Date().toISOString().slice(2, 10).replaceAll("-", "");
-  return `N7-${date}-${randomBytes(4).toString("hex").toUpperCase()}`;
+async function orderNumber(connection: PoolConnection): Promise<string> {
+  // The row lock and increment belong to the checkout transaction, so concurrent
+  // checkouts get distinct numbers and a rolled-back order does not consume one.
+  const sequence = await selectOne<RowDataPacket & { next_number: string }>("SELECT CAST(next_number AS CHAR) AS next_number FROM order_number_sequence WHERE id = 1 FOR UPDATE", [], connection);
+  if (!sequence) throw new Error("Order numbering is not configured. Run the database migrations.");
+  await executeMutation("UPDATE order_number_sequence SET next_number = next_number + 1 WHERE id = 1", [], connection);
+  return `N7-${sequence.next_number}`;
 }
 
 async function findIdempotentOrder(key: string): Promise<ExistingOrderRow | null> {
@@ -61,7 +65,7 @@ export async function createOrder(input: CheckoutInput, mode: "test" | "live", s
         if (stock.affectedRows !== 1) throw new CommerceError("OUT_OF_STOCK", "An item no longer has enough stock. Please review your cart.");
       }
 
-      const number = orderNumber();
+      const number = await orderNumber(connection);
       const customerId = await saveCheckoutCustomer({ ...input.customer, name: input.billingAddress.fullName, countryCode: input.billingAddress.countryCode }, connection);
       const orderResult = await executeMutation(`INSERT INTO orders (order_number, status, payment_status, fulfillment_status, currency, customer_email, customer_name, customer_phone, subtotal_pence, discount_pence, shipping_pence, tax_pence, total_pence, coupon_code, customer_notes, payment_provider) VALUES (?, 'NEW', 'PENDING', 'UNFULFILLED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [number, quote.currency, input.customer.email, input.billingAddress.fullName, input.customer.phone, quote.subtotalPence, quote.discountPence, quote.shippingPence, quote.taxPence, quote.totalPence, quote.discount?.couponCode ?? null, input.customer.notes ?? null, input.paymentMethod], connection);
       const orderId = String(orderResult.insertId);

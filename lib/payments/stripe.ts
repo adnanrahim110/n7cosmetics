@@ -3,6 +3,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import { executeMutation, selectOne, selectRows } from "../db/query";
 import { withTransaction } from "../db/transaction";
 import { enqueueOrderEmails } from "../email/orders";
+import { enqueuePaymentFailureAlert } from "../email/alerts";
 import { getStripeSettings, stripeClient, type StripeSettings } from "./settings";
 
 interface StripeOrder extends RowDataPacket {
@@ -75,6 +76,7 @@ export async function applyPaymentIntent(intent: PaymentIntentSnapshot, event?: 
       await executeMutation("UPDATE payments SET status = 'CANCELLED', processed_at = CURRENT_TIMESTAMP(3) WHERE order_id = ? AND provider = 'STRIPE'", [orderId], connection);
       await executeMutation("INSERT INTO order_status_history (order_id, status, note) VALUES (?, 'CANCELLED', 'Stripe payment cancelled; reserved stock and coupon usage released')", [orderId], connection);
     } else if ((event?.type === "payment_intent.payment_failed" || (intent.status === "requires_payment_method" && intent.last_payment_error)) && order.inventory_state === "RESERVED") {
+      if (order.payment_status !== "FAILED") await enqueuePaymentFailureAlert(orderId, connection);
       await executeMutation("UPDATE orders SET payment_status = 'FAILED' WHERE id = ?", [orderId], connection);
       await executeMutation("UPDATE payments SET status = 'FAILED' WHERE order_id = ? AND provider = 'STRIPE'", [orderId], connection);
     } else if (["processing", "requires_action", "requires_confirmation"].includes(intent.status) && order.inventory_state === "RESERVED" && order.payment_status === "FAILED") {

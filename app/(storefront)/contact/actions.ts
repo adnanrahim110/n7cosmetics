@@ -14,6 +14,7 @@ import { getEmailPreferences } from "@/lib/email/brand";
 import { enqueueEmail } from "@/lib/email/queue";
 import { kickEmailQueue } from "@/lib/email/kick";
 import { contactEmail, contactReceiptEmail } from "@/lib/email/templates";
+import { enqueueStoreNotification } from "@/lib/email/notifications";
 import { hasDatabaseConfig } from "@/lib/env";
 
 interface AttemptCountRow extends RowDataPacket {
@@ -127,10 +128,8 @@ export async function submitContactAction(
       const enquiry = await executeMutation("INSERT INTO contact_enquiries (name, email, phone, topic, message) VALUES (?, ?, ?, ?, ?)", [parsed.data.name, parsed.data.email, parsed.data.phone ?? null, topic, parsed.data.message], connection);
       const brand = await getEmailPreferences(connection);
       const id = String(enquiry.insertId);
-      if (brand.contactEmail) {
-        await enqueueEmail({ ...contactEmail(brand, { ...parsed.data, topic }), to: brand.contactEmail, replyTo: parsed.data.email, templateKey: "storefront-contact" }, { dedupeKey: `enquiry:${id}:team` }, connection);
-        await enqueueEmail({ ...contactReceiptEmail(brand, parsed.data.name, topic, `N7-${id}`), to: parsed.data.email, replyTo: brand.contactEmail, templateKey: "contact-receipt" }, { dedupeKey: `enquiry:${id}:receipt` }, connection);
-      }
+      await enqueueStoreNotification(brand, "enquiry", { ...contactEmail(brand, { ...parsed.data, topic }), replyTo: parsed.data.email, templateKey: "storefront-contact" }, `enquiry:${id}`, connection);
+      await enqueueEmail({ ...contactReceiptEmail(brand, parsed.data.name, topic, `N7-${id}`), to: parsed.data.email, replyTo: brand.replyToEmail, templateKey: "contact-receipt" }, { dedupeKey: `enquiry:${id}:receipt` }, connection);
       await executeMutation("INSERT INTO contact_form_attempts (ip_address, succeeded) VALUES (?, 1)", [metadata.ipAddress], connection);
       return id;
     });

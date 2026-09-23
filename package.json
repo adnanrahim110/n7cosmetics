@@ -33,6 +33,7 @@
     "email:worker": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/email-worker.js",
     "email:worker:deploy": "node .scripts-dist/scripts/email-worker.js",
     "email:verify-flow": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-email-flow.js",
+    "orders:verify-flow": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-order-tracking-flow.js",
     "legacy:archive": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/legacy-import.js archive",
     "legacy:plan": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/legacy-import.js plan",
     "legacy:apply": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/legacy-import.js apply",

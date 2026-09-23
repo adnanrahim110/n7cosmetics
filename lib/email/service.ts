@@ -1,9 +1,8 @@
 import nodemailer from "nodemailer";
-import type { RowDataPacket } from "mysql2/promise";
-import { executeMutation, selectRows } from "../db/query";
+import { executeMutation } from "../db/query";
 import { decryptSecret } from "../security/encryption";
-
-interface SettingRow extends RowDataPacket { setting_key: string; value_json: unknown }
+import { readSmtpValues } from "./store";
+import type { NotificationType } from "./settings";
 
 export interface SmtpSettings {
   host: string;
@@ -24,18 +23,13 @@ export interface ProjectEmail {
   templateKey: string;
   messageId?: string;
   unsubscribeUrl?: string;
+  notificationType?: NotificationType;
 }
 
 export type EmailSendResult = { status: "SENT" | "FAILED" | "SKIPPED"; messageId?: string; error?: string };
 
-function settingValue(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  try { return JSON.parse(value) as unknown; } catch { return value; }
-}
-
 export async function getSmtpSettings(): Promise<SmtpSettings | null> {
-  const rows = await selectRows<SettingRow>("SELECT setting_key, value_json FROM site_settings WHERE setting_key LIKE 'smtp.%'");
-  const values = new Map(rows.map((row) => [row.setting_key, settingValue(row.value_json)]));
+  const values = new Map(Object.entries(await readSmtpValues()));
   const host = typeof values.get("smtp.host") === "string" ? String(values.get("smtp.host")) : "";
   const user = typeof values.get("smtp.user") === "string" ? String(values.get("smtp.user")) : "";
   const encryptedPassword = typeof values.get("smtp.password_encrypted") === "string" ? String(values.get("smtp.password_encrypted")) : "";
@@ -57,15 +51,31 @@ export function smtpTransportOptions(settings: SmtpSettings) {
 export async function verifySmtpConnection(): Promise<EmailSendResult> {
   try {
     const settings = await getSmtpSettings();
-    if (!settings) return { status: "SKIPPED", error: "Save all SMTP settings, including the app password, first." };
-    const transport = nodemailer.createTransport(smtpTransportOptions(settings));
-    try { await transport.verify(); return { status: "SENT" }; } finally { transport.close(); }
+    if (!settings) return { status: "SKIPPED", error: "Save all SMTP settings, including the SMTP password, first." };
+    return await verifySmtpSettings(settings);
   } catch (error) { return { status: "FAILED", error: error instanceof Error ? error.message : "Unable to verify SMTP." }; }
 }
 
-export async function sendProjectEmail(email: ProjectEmail, jobId?: string): Promise<EmailSendResult> {
+export function smtpErrorMessage(error: unknown, password: string): string {
+  const code = (error as { code?: string })?.code;
+  if (code === "EAUTH") return "Authentication failed. Check the SMTP username, password and the provider's SMTP access requirements.";
+  if (code === "EDNS" || code === "ENOTFOUND") return "SMTP hostname could not be found. Use your provider's outgoing mail hostname.";
+  if (code === "ETIMEDOUT" || code === "ECONNECTION" || code === "ECONNREFUSED") return "Cannot connect to the SMTP server. Check the hostname, port and your hosting provider's outbound SMTP access.";
+  if (code === "ETLS" || code?.includes("CERT")) return "TLS verification failed. Check the server hostname, certificate and encryption mode.";
+  const message = error instanceof Error ? error.message : "SMTP delivery failed.";
+  return (password ? message.split(password).join("[redacted]") : message).slice(0, 500);
+}
+
+export async function verifySmtpSettings(settings: SmtpSettings): Promise<EmailSendResult> {
+  const transport = nodemailer.createTransport(smtpTransportOptions(settings));
+  try { await transport.verify(); return { status: "SENT" }; }
+  catch (error) { return { status: "FAILED", error: smtpErrorMessage(error, settings.password) }; }
+  finally { transport.close(); }
+}
+
+export async function sendProjectEmail(email: ProjectEmail, jobId?: string, snapshot?: SmtpSettings): Promise<EmailSendResult> {
   let settings: SmtpSettings | null;
-  try { settings = await getSmtpSettings(); } catch (error) {
+  try { settings = snapshot ?? await getSmtpSettings(); } catch (error) {
     const result: EmailSendResult = { status: "FAILED", error: error instanceof Error ? error.message : "Unable to read SMTP settings." };
     await logEmail(email, result, jobId); return result;
   }
@@ -76,6 +86,6 @@ export async function sendProjectEmail(email: ProjectEmail, jobId?: string): Pro
     if (!sent.accepted.length) throw new Error("SMTP did not accept the recipient.");
     const result: EmailSendResult = { status: "SENT", messageId: sent.messageId }; await logEmail(email, result, jobId); return result;
   } catch (error) {
-    const result: EmailSendResult = { status: "FAILED", error: error instanceof Error ? error.message : "Unknown SMTP error." }; await logEmail(email, result, jobId); return result;
+    const result: EmailSendResult = { status: "FAILED", error: smtpErrorMessage(error, settings.password) }; await logEmail(email, result, jobId); return result;
   } finally { transport.close(); }
 }

@@ -8,6 +8,9 @@ import Pagination, { parsePage } from "@/components/admin/Pagination";
 import LegacyBadge from "@/components/admin/LegacyBadge";
 import { isDatabaseId } from "@/lib/admin/form";
 import StatusBadge from "@/components/admin/StatusBadge";
+import OrderStatusControl from "@/components/admin/OrderStatusControl";
+import { orderStatuses, type OrderStatus } from "@/lib/admin/order-status";
+import { requireAdministrator } from "@/lib/auth/session";
 import { selectOne, selectRows } from "@/lib/db/query";
 
 interface OrderRow extends RowDataPacket {
@@ -15,7 +18,9 @@ interface OrderRow extends RowDataPacket {
   source: string;
   import_id: string | null;
   order_number: string;
-  status: string;
+  status: OrderStatus;
+  postage_service: string | null;
+  tracking_reference: string | null;
   payment_status: string;
   customer_name: string;
   customer_email: string;
@@ -34,7 +39,7 @@ interface OrdersPageProps {
   searchParams: Promise<{ q?: string; status?: string; page?: string; source?: string; customerId?: string }>;
 }
 
-const statuses = ["ALL", "NEW", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "CANCELLED", "REFUNDED", "FAILED", "ON_HOLD"] as const;
+const statuses = ["ALL", ...orderStatuses] as const;
 const pageSize = 25;
 
 function money(pence: number, currency: string): string {
@@ -42,6 +47,7 @@ function money(pence: number, currency: string): string {
 }
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
+  const administrator = await requireAdministrator();
   const query = await searchParams;
   const q = query.q?.trim().slice(0, 100) ?? "";
   const status = statuses.includes(query.status as (typeof statuses)[number]) ? query.status! : "ALL";
@@ -63,7 +69,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     `SELECT
        CAST(o.id AS CHAR) AS id,
        o.order_number, o.source, CAST(o.import_id AS CHAR) import_id,
-       o.status,
+       o.status, o.postage_service, o.tracking_reference,
        o.payment_status,
        o.customer_name,
        o.customer_email,
@@ -123,7 +129,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                     </div>
                   </td>
                   <td className="px-4 py-3"><p>{order.customer_name}</p><p className="text-xs text-zinc-400">{order.customer_email}</p></td>
-                  <td className="px-4 py-3"><StatusBadge status={order.status} /></td>
+                  <td className="px-4 py-3"><OrderStatusControl canCancelOrRefund={administrator.role !== "FULFILLMENT"} historical={order.source === "LEGACY"} orderId={order.id} orderNumber={order.order_number} postageService={order.postage_service} status={order.status} trackingReference={order.tracking_reference} /></td>
                   <td className="px-4 py-3"><StatusBadge status={order.payment_status} /></td>
                   <td className="px-4 py-3 text-zinc-600">{order.item_count}</td>
                   <td className="px-4 py-3 text-right font-medium">{money(order.total_pence, order.currency)}</td>
