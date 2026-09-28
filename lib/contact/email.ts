@@ -4,6 +4,6 @@ export { escapeEmailHtml } from "../email/layout";
 export type { ContactEmailInput } from "../email/templates";
 export type { EmailContent as ContactEmailContent } from "../email/layout";
 
-export function buildContactEmail(input: ContactEmailInput, brand: EmailBrand = { appUrl: "https://n7.eluvaire.com" }) {
+export function buildContactEmail(input: ContactEmailInput, brand: EmailBrand = { appUrl: "https://n7cosmetics.co.uk" }) {
   return contactEmail(brand, input);
 }

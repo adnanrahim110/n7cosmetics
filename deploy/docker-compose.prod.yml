@@ -46,6 +46,20 @@ services:
       traefik.http.middlewares.n7-headers.headers.stsSeconds: "31536000"
       traefik.http.middlewares.n7-headers.headers.contentTypeNosniff: "true"
       traefik.http.middlewares.n7-headers.headers.referrerPolicy: strict-origin-when-cross-origin
+      traefik.http.routers.n7-aliases.rule: Host(`www.${APP_DOMAIN}`) || Host(`${APP_LEGACY_DOMAIN:-n7.eluvaire.com}`)
+      traefik.http.routers.n7-aliases.entrypoints: websecure
+      traefik.http.routers.n7-aliases.tls.certresolver: le
+      traefik.http.routers.n7-aliases.service: n7
+      traefik.http.routers.n7-aliases.middlewares: n7-canonical
+      traefik.http.middlewares.n7-canonical.redirectregex.regex: ^https?://[^/]+/(.*)
+      traefik.http.middlewares.n7-canonical.redirectregex.replacement: https://${APP_DOMAIN}/$${1}
+      traefik.http.middlewares.n7-canonical.redirectregex.permanent: "true"
+      # Stripe does not follow redirects when delivering existing webhooks.
+      traefik.http.routers.n7-legacy-webhook.rule: Host(`${APP_LEGACY_DOMAIN:-n7.eluvaire.com}`) && Path(`/api/payments/stripe/webhook`)
+      traefik.http.routers.n7-legacy-webhook.entrypoints: websecure
+      traefik.http.routers.n7-legacy-webhook.tls.certresolver: le
+      traefik.http.routers.n7-legacy-webhook.service: n7
+      traefik.http.routers.n7-legacy-webhook.middlewares: n7-headers
 
   email-worker:
     image: ${APP_IMAGE:-ghcr.io/adnanrahim110/n7cosmetics:latest}

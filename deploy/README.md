@@ -1,6 +1,6 @@
 # N7 VPS operations
 
-Production: https://n7.eluvaire.com on SSH alias `n7-vps`.
+Production: https://n7cosmetics.co.uk on SSH alias `n7-vps`.
 Application directory: `/srv/apps/n7cosmetics`.
 
 ## Layout
@@ -9,7 +9,7 @@ Application directory: `/srv/apps/n7cosmetics`.
 | --- | --- |
 | `docker-compose.prod.yml` | Application, MariaDB, Traefik, networks and persistent volumes |
 | `app.env` | Runtime settings (DB host is supplied by Compose) |
-| `stack.env` | `APP_DOMAIN` and `ACME_EMAIL` |
+| `stack.env` | `APP_DOMAIN`, `APP_LEGACY_DOMAIN` and `ACME_EMAIL` |
 | `release.env` | Exact `APP_IMAGE=ghcr.io/adnanrahim110/n7cosmetics@sha256:...` |
 | `release.previous.env` | Previous application image for manual rollback |
 | `secrets/db_password` | Dedicated application's database password |
@@ -31,7 +31,7 @@ Named Docker volumes retain MariaDB data, TLS certificate state and Next's image
 4. Set these runtime values in `app.env`:
 
 ```dotenv
-APP_URL=https://n7.eluvaire.com
+APP_URL=https://n7cosmetics.co.uk
 DB_NAME=n7cosmetics
 DB_USER=n7cosmetics
 DB_PORT=3306
@@ -49,6 +49,14 @@ docker compose --env-file stack.env --env-file release.env -f docker-compose.pro
 
 6. Securely upload the authoritative SQL export and local media archive into `import/`. Verify the export checksum, require an empty target schema, then import once with MariaDB's root credentials. Extract media into `media/` and set ownership to UID/GID 1000. Record the imported export SHA-256 in `.database-imported`. Never repeat the import over a running store's newer data.
 7. Configure the GitHub repository secrets below and push the deployment changes to `main`.
+
+## Production domain
+
+Set `APP_DOMAIN=n7cosmetics.co.uk` and `APP_LEGACY_DOMAIN=n7.eluvaire.com` in `stack.env`, and `APP_URL=https://n7cosmetics.co.uk` in `app.env`. The application and both workers must be recreated after changing runtime environment files. The image build also uses this production URL for prerendered metadata and robots.txt; rebuild the image when changing domains.
+
+Cloudflare's proxied apex A record points to `187.7.25.228`, its AAAA record points to `2a02:4780:f:5358::1`, and `www` is a proxied CNAME to `n7cosmetics.co.uk`. Use **Full (strict)** SSL/TLS after Traefik obtains valid certificates. Keep mail records separate from storefront changes.
+
+Traefik permanently redirects `www` and the previous domain to the main HTTPS domain, preserving paths and query strings. Existing Stripe webhook deliveries to the previous domain remain routed directly to the application because Stripe does not follow redirects. New webhook registrations should use `https://n7cosmetics.co.uk/api/payments/stripe/webhook`; register the new domain for payment wallets in Stripe as well.
 
 ## GitHub Actions
 
@@ -88,7 +96,7 @@ docker compose --env-file stack.env --env-file release.env -f docker-compose.pro
 docker logs --tail 100 n7-app
 docker logs --tail 100 n7-email-worker
 docker logs --tail 100 n7-proxy
-curl --fail https://n7.eluvaire.com/api/health
+curl --fail https://n7cosmetics.co.uk/api/health
 docker compose --env-file stack.env --env-file release.env -f docker-compose.prod.yml run --rm --no-deps app node scripts/verify-media.cjs
 ```
 

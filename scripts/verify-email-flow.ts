@@ -281,7 +281,7 @@ async function run(): Promise<void> {
 
     const directory = path.resolve("reports/email-previews");
     await mkdir(directory, { recursive: true });
-    for (const preview of emailPreviews({ appUrl: "https://n7.eluvaire.com", contactEmail: "preview@example.com" })) await writeFile(path.join(directory, `${preview.key}.html`), preview.email.html);
+    for (const preview of emailPreviews({ appUrl: "https://n7cosmetics.co.uk", contactEmail: "preview@example.com" })) await writeFile(path.join(directory, `${preview.key}.html`), preview.email.html);
     console.log(`${checks} integration checks passed using mocked SMTP. Preview HTML: ${directory}`);
   } finally {
     nodemailer.createTransport = originalTransport;

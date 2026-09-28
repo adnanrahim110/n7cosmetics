@@ -16,7 +16,7 @@ permissions:
 
 env:
   IMAGE: ghcr.io/adnanrahim110/n7cosmetics
-  APP_URL: https://n7.eluvaire.com
+  APP_URL: https://n7cosmetics.co.uk
 
 jobs:
   quality:

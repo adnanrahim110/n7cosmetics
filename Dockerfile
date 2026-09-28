@@ -14,7 +14,7 @@ RUN pnpm install --frozen-lockfile --prod
 FROM base AS builder
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-ARG APP_URL=https://n7.eluvaire.com
+ARG APP_URL=https://n7cosmetics.co.uk
 ENV APP_URL=$APP_URL
 RUN pnpm build:deploy
 

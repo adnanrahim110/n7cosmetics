@@ -1,6 +1,6 @@
 # N7 Cosmetics
 
-Next.js 16 storefront, admin panel, commerce APIs, and MariaDB database. Production runs at **https://n7.eluvaire.com** on the `n7-vps` SSH host.
+Next.js 16 storefront, admin panel, commerce APIs, and MariaDB database. Production runs at **https://n7cosmetics.co.uk** on the `n7-vps` SSH host.
 
 ## Development
 
