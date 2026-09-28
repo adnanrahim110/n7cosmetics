@@ -15,6 +15,7 @@ import { getRequestMetadata } from "@/lib/auth/request";
 import { requireAdministrator } from "@/lib/auth/session";
 import { executeMutation, selectOne, selectRows } from "@/lib/db/query";
 import { withTransaction } from "@/lib/db/transaction";
+import { deleteProductRecord, ProductDeletionError, type DeleteProductResult } from "@/lib/admin/product-deletion";
 
 const noteListSchema = z.array(z.string().min(1).max(100)).max(20);
 const productInputSchema = z.object({
@@ -179,9 +180,9 @@ function fileLimitState(formData: FormData): ProductActionState | null {
   return total > 300 * 1024 * 1024 ? { error: "The selected media exceeds the 300 MB limit for one save." } : null;
 }
 
-async function auditProduct(administratorId: string, action: string, productId: string, summary: string): Promise<void> {
+async function auditProduct(administratorId: string, action: string, productId: string, summary: string, connection?: PoolConnection): Promise<void> {
   const metadata = await getRequestMetadata();
-  await writeAuditLog({ administratorId, action, entityType: "product", entityId: productId, summary, ipAddress: metadata.ipAddress });
+  await writeAuditLog({ administratorId, action, entityType: "product", entityId: productId, summary, ipAddress: metadata.ipAddress }, connection);
 }
 
 export async function createProductAction(returnTo: string, _previousState: ProductActionState, formData: FormData): Promise<ProductActionState> {
@@ -367,8 +368,37 @@ export async function updateProductAction(productId: string, returnTo: string, _
 
 export async function archiveProductAction(productId: string): Promise<void> {
   const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
-  if (!isDatabaseId(productId)) return;
-  await executeMutation("UPDATE products SET status = 'ARCHIVED' WHERE id = ?", [productId]);
-  await auditProduct(administrator.id, "PRODUCT_ARCHIVE", productId, "Archived product");
-  revalidatePath("/admin/products");
+  if (!isDatabaseId(productId)) throw new Error("Invalid product ID.");
+  await withTransaction(async (connection) => {
+    const product = await selectOne<ExistingProductRow>("SELECT name FROM products WHERE id = ? AND product_type = 'STANDARD' FOR UPDATE", [productId], connection);
+    if (!product) throw new Error("Product not found.");
+    await executeMutation("UPDATE products SET status = 'ARCHIVED' WHERE id = ?", [productId], connection);
+    await auditProduct(administrator.id, "PRODUCT_ARCHIVE", productId, `Archived product ${product.name}`, connection);
+  });
+  revalidatePath("/", "layout");
+}
+
+export async function deleteProductAction(productId: string): Promise<DeleteProductResult> {
+  const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
+  const metadata = await getRequestMetadata();
+  try {
+    await withTransaction(async (connection) => {
+      const product = await deleteProductRecord(productId, connection);
+      await writeAuditLog({
+        administratorId: administrator.id,
+        action: "PRODUCT_DELETE",
+        entityType: "product",
+        entityId: productId,
+        summary: `Deleted product ${product.name}`,
+        metadata: { slug: product.slug },
+        ipAddress: metadata.ipAddress,
+      }, connection);
+    });
+  } catch (error) {
+    if (error instanceof ProductDeletionError) return { success: false, message: error.message, canSoftDelete: error.canSoftDelete };
+    console.error("Unable to delete product", error);
+    return { success: false, message: "The product could not be deleted. Nothing was changed. Please try again." };
+  }
+  revalidatePath("/", "layout");
+  return { success: true };
 }

@@ -10,7 +10,7 @@ const validReview = {
   email: "Customer@Example.com",
   rating: "5",
   title: "A warm, lasting signature",
-  body: "The amber settles beautifully and lasted throughout the evening.",
+  body: "Great",
   recommendsProduct: true,
   consent: "on",
 };
@@ -23,7 +23,7 @@ test("review input accepts a complete customer review and normalizes email", () 
 
 test("review input requires a star rating and meaningful review text", () => {
   assert.equal(reviewInputSchema.safeParse({ ...validReview, rating: "0" }).success, false);
-  assert.equal(reviewInputSchema.safeParse({ ...validReview, body: "Too short" }).success, false);
+  assert.equal(reviewInputSchema.safeParse({ ...validReview, body: "Tiny" }).success, false);
 });
 
 test("review input rejects invalid product references and missing consent", () => {
@@ -62,7 +62,7 @@ test("admin reviews reject missing, impossible, and unsupported dates", () => {
 });
 
 test("admin reviews still require valid product, reviewer, rating, and review details", () => {
-  for (const invalid of [{ productId: "" }, { productId: "../42" }, { name: "" }, { email: "invalid" }, { rating: "" }, { rating: "0" }, { rating: "6" }, { rating: "2.5" }, { body: "Too short" }]) {
+  for (const invalid of [{ productId: "" }, { productId: "../42" }, { name: "" }, { email: "invalid" }, { rating: "" }, { rating: "0" }, { rating: "6" }, { rating: "2.5" }, { body: "Tiny" }]) {
     assert.equal(adminReviewInputSchema.safeParse({ ...validAdminReview, ...invalid }).success, false);
   }
 });

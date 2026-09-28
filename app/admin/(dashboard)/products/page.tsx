@@ -3,6 +3,7 @@ import { Eye, Pencil, Plus } from "lucide-react";
 import AdminThumbnail from "@/components/admin/AdminThumbnail";
 import AdminMutationForm from "@/components/admin/AdminMutationForm";
 import ArchiveProductButton from "@/components/admin/ArchiveProductButton";
+import DeleteProductButton from "@/components/admin/DeleteProductButton";
 import PageHeader from "@/components/admin/PageHeader";
 import Pagination, { parsePage } from "@/components/admin/Pagination";
 import ProductFiltersToolbar from "@/components/admin/ProductFiltersToolbar";
@@ -104,7 +105,14 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                   <td className="px-4 py-3"><StatusBadge status={product.status} /></td>
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-600">{formatMoney(product.price_pence)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-600">{product.stock_on_hand ?? "—"}</td>
-                  <td className="px-4 py-3"><div className="flex items-center justify-end gap-1"><Link aria-label={`View ${product.name} in storefront`} className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-amber-700" href={`/products/${product.slug}`} target="_blank" title="View storefront"><Eye size={16} /></Link><Link aria-label={`Edit ${product.name}`} className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950" href={productFormPath(`/admin/products/${product.id}`, returnTo)} title="Edit product"><Pencil size={16} /></Link><AdminMutationForm action={archiveProductAction.bind(null, product.id)} errorMessage="The product couldn’t be archived" loadingMessage="Archiving product…" successDescription="It is hidden from the storefront and still available in admin." successMessage="Product archived" successType="warning"><ArchiveProductButton disabled={product.status === "ARCHIVED"} name={product.name} /></AdminMutationForm></div></td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <Link aria-label={`View ${product.name} in storefront`} className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-amber-700" href={`/products/${product.slug}`} target="_blank" title="View storefront"><Eye size={16} /></Link>
+                      <Link aria-label={`Edit ${product.name}`} className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950" href={productFormPath(`/admin/products/${product.id}`, returnTo)} title="Edit product"><Pencil size={16} /></Link>
+                      <AdminMutationForm action={archiveProductAction.bind(null, product.id)} errorMessage="The product couldn’t be archived" loadingMessage="Archiving product…" successDescription="It is hidden from the storefront and still available in admin." successMessage="Product archived" successType="warning"><ArchiveProductButton disabled={product.status === "ARCHIVED"} name={product.name} /></AdminMutationForm>
+                      <DeleteProductButton name={product.name} productId={product.id} />
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!result.products.length ? <tr><td className="px-4 py-12 text-center text-zinc-500" colSpan={8}>{hasActiveProductFilters(filters) ? "No products match these filters." : "No products found."}</td></tr> : null}

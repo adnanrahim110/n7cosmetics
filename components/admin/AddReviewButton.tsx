@@ -127,7 +127,7 @@ function AddReviewDialog({ products, close }: { products: ProductOption[]; close
             </div>
             <p className="text-xs text-zinc-500">Past dates are supported. The selected date will appear on the review.</p>
             {field("title", <>Review title <span className="font-normal text-zinc-400">(optional)</span></>, <input {...fieldProps("title")} className={inputClass} maxLength={120} />)}
-            {field("body", "Review", <textarea {...fieldProps("body")} className={`${inputClass} resize-y`} maxLength={3000} minLength={20} placeholder="Enter the review (at least 20 characters)" required rows={4} />)}
+            {field("body", "Review", <textarea {...fieldProps("body")} className={`${inputClass} resize-y`} maxLength={3000} minLength={5} placeholder="Enter the review" required rows={4} />)}
             <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-600"><input className="size-4 accent-amber-700" defaultChecked name="recommendsProduct" type="checkbox" />Recommends this product</label>
           </fieldset>
         </div>

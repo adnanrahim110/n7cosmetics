@@ -7,7 +7,7 @@ export const reviewInputSchema = z.object({
   email: z.email("Enter a valid email address.").max(190, "Email is too long.").transform((value) => value.toLowerCase()),
   rating: z.coerce.number().int().min(1, "Choose a star rating.").max(5, "Choose a star rating."),
   title: z.string().trim().min(3, "Add a short title.").max(120, "Title must be 120 characters or fewer."),
-  body: z.string().trim().min(20, "Share at least 20 characters about your experience.").max(3000, "Review must be 3,000 characters or fewer."),
+  body: z.string().trim().min(5, "Share at least 5 characters about your experience.").max(3000, "Review must be 3,000 characters or fewer."),
   recommendsProduct: z.boolean(),
   consent: z.literal("on", { error: "Confirm that this review reflects your own experience." }),
 });
