@@ -21,6 +21,16 @@ env:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      database:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: release-test-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,6 +49,14 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:unit
+      - name: Verify migration data preservation
+        run: pnpm release:verify-flow
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_NAME: n7_release_test
+          DB_USER: root
+          DB_PASSWORD: release-test-only
 
   build:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

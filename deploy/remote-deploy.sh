@@ -23,12 +23,13 @@ maintenance=0
 migration_started=0
 worker_was_running="$(compose ps -q email-worker)"
 payment_worker_was_running="$(compose ps -q payment-worker)"
+meta_worker_was_running="$(compose ps -q meta-worker)"
 rollback() {
   status=$?
   if [[ "$status" -ne 0 && "$changed" -eq 1 ]]; then
     if [[ "$migration_started" -eq 1 ]]; then
       echo 'Release failed after migrations began. Keeping writers stopped and retaining the new release and backup for recovery; the old image may be incompatible.' >&2
-      compose stop app email-worker payment-worker || true
+      compose stop app email-worker payment-worker meta-worker || true
       exit "$status"
     fi
     echo 'Release failed. Restoring the previous application image; database backup retained.' >&2
@@ -45,14 +46,20 @@ rollback() {
       else
         compose stop payment-worker || true
       fi
+      if [[ -n "$meta_worker_was_running" ]]; then
+        compose up -d --no-deps --wait meta-worker || true
+      else
+        compose stop meta-worker || true
+      fi
     else
-      compose stop app email-worker payment-worker || true
+      compose stop app email-worker payment-worker meta-worker || true
     fi
   fi
   if [[ "$status" -ne 0 && "$maintenance" -eq 1 && "$changed" -eq 0 ]]; then
     compose start app || true
     if [[ -n "$worker_was_running" ]]; then compose start email-worker || true; fi
     if [[ -n "$payment_worker_was_running" ]]; then compose start payment-worker || true; fi
+    if [[ -n "$meta_worker_was_running" ]]; then compose start meta-worker || true; fi
   fi
   exit "$status"
 }
@@ -64,7 +71,7 @@ pending="$(compose run --rm --no-deps app node .scripts-dist/scripts/release-dat
 if [[ "$pending" -gt 0 ]]; then
   echo "Entering maintenance for $pending pending migrations."
   maintenance=1
-  compose stop app email-worker payment-worker
+  compose stop app email-worker payment-worker meta-worker
 fi
 # Back up the previous release configuration alongside the quiesced database.
 cp release.env release.next.env
@@ -88,6 +95,7 @@ fetch("http://127.0.0.1:3000/api/health",{signal:AbortSignal.timeout(10000)})
  .catch(e=>{console.error(e.message);process.exitCode=1;});'
 compose up -d --no-deps --wait --wait-timeout 90 email-worker
 compose up -d --no-deps --wait --wait-timeout 90 payment-worker
+compose up -d --no-deps --wait --wait-timeout 90 meta-worker
 printf '%s\n' "$EXPECTED_SHA" > .has-successful-release
 changed=0
 compose ps

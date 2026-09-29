@@ -10,9 +10,12 @@ interface Snapshot { tables: Record<string, Fingerprint>; shipping: RowDataPacke
 const identifier = (value: string) => `\`${value.replaceAll("`", "``")}\``;
 const modulus = 1n << 256n;
 
-async function fingerprint(db: Connection, table: string, columns: string[]): Promise<Fingerprint> {
+async function fingerprint(db: Connection, table: string, columns: string[], excludeSetting?: string): Promise<Fingerprint> {
   let count = 0, sum = 0n;
-  const stream = db.query(`SELECT ${columns.map(identifier).join(",")} FROM ${identifier(table)}`).stream();
+  const stream = db.query(
+    `SELECT ${columns.map(identifier).join(",")} FROM ${identifier(table)}${excludeSetting ? " WHERE setting_key <> ?" : ""}`,
+    excludeSetting ? [excludeSetting] : [],
+  ).stream();
   for await (const row of stream) {
     sum = (sum + BigInt(`0x${createHash("sha256").update(JSON.stringify(row)).digest("hex")}`)) % modulus;
     count++;
@@ -36,7 +39,20 @@ export async function snapshotReleaseData(db: Connection): Promise<Snapshot> {
 
 export async function verifyReleaseData(db: Connection, snapshot: Snapshot) {
   for (const [table, before] of Object.entries(snapshot.tables)) {
-    const after = await fingerprint(db, table, before.columns);
+    let after = await fingerprint(db, table, before.columns);
+    if (table === "site_settings" && after.count === before.count + 1) {
+      // Migration 028 adds this default. Excluding it must reproduce the entire
+      // original fingerprint, so existing settings (including Meta) stay protected.
+      const [rows] = await db.promise().query<RowDataPacket[]>(
+        "SELECT setting_group, value_json, is_public, updated_by FROM site_settings WHERE setting_key = ?",
+        ["meta.configuration"],
+      );
+      const added = rows[0];
+      if (added?.setting_group === "meta" && added.is_public === 0 && added.updated_by === null
+        && JSON.stringify(typeof added.value_json === "string" ? JSON.parse(added.value_json) : added.value_json) === "{}") {
+        after = await fingerprint(db, table, before.columns, "meta.configuration");
+      }
+    }
     assert.equal(after.count, before.count, `Row count changed in ${table}`);
     assert.equal(after.digest, before.digest, `Existing values changed in ${table}`);
   }

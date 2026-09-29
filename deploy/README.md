@@ -52,7 +52,7 @@ docker compose --env-file stack.env --env-file release.env -f docker-compose.pro
 
 ## Production domain
 
-Set `APP_DOMAIN=n7cosmetics.co.uk` and `APP_LEGACY_DOMAIN=n7.eluvaire.com` in `stack.env`, and `APP_URL=https://n7cosmetics.co.uk` in `app.env`. The application and both workers must be recreated after changing runtime environment files. The image build also uses this production URL for prerendered metadata and robots.txt; rebuild the image when changing domains.
+Set `APP_DOMAIN=n7cosmetics.co.uk` and `APP_LEGACY_DOMAIN=n7.eluvaire.com` in `stack.env`, and `APP_URL=https://n7cosmetics.co.uk` in `app.env`. The application and all three workers must be recreated after changing runtime environment files. The image build also uses this production URL for prerendered metadata and robots.txt; rebuild the image when changing domains.
 
 Cloudflare's proxied apex A record points to `187.7.25.228`, its AAAA record points to `2a02:4780:f:5358::1`, and `www` is a proxied CNAME to `n7cosmetics.co.uk`. Use **Full (strict)** SSL/TLS after Traefik obtains valid certificates. Keep mail records separate from storefront changes.
 
@@ -69,7 +69,7 @@ Traefik permanently redirects `www` and the previous domain to the main HTTPS do
 
 The workflow uses GitHub's ephemeral `GITHUB_TOKEN` for GHCR and removes the VPS registry login after deployment. No persistent registry token is required.
 
-Every deployment checks the current main revision, verifies the image revision label, backs up existing data, runs only unapplied schema migrations, checks all registered media files, and waits for application health. When migrations are pending, the app and both workers stop before the backup; an integrity snapshot verifies the count and original values of every existing table after migration. Migration 022's conversion of shipping methods into rules is verified separately. The public `/api/health` response checks database connectivity, writable media storage and the exact deployed release.
+Every deployment checks the current main revision, verifies the image revision label, backs up existing data, runs only unapplied schema migrations, checks all registered media files, and waits for application health. When migrations are pending, the app and all three workers stop before the backup; an integrity snapshot verifies existing table data after migration. Migration 022's conversion of shipping methods into rules is verified separately. Migration 028 may add only the default private `meta.configuration` setting; excluding that new row must exactly reproduce the original settings fingerprint. Existing Meta settings remain protected. CI runs `pnpm release:verify-flow` against an isolated MariaDB database to verify migrations 028/029 and reject unexpected data changes. The public `/api/health` response checks database connectivity, writable media storage and the exact deployed release.
 
 Failed rollouts before migrations begin restore the previous application image. Once migrations begin, a failure keeps writers stopped for recovery because the previous image may be incompatible with the new schema. Inspect the failure and backup before restarting or restoring. Routine deployments never re-import the local database or replace the live store's records.
 
@@ -84,7 +84,7 @@ systemctl status n7-backup.timer
 sudo -u deploy bash /srv/apps/n7cosmetics/backup.sh
 ```
 
-To restore, stop both the application and email-worker services, back up its current state, restore the SQL dump into a clean database, restore matching media and configuration, restore the desired release image, and run the health and media checks. SQL migrations are not automatically reversed.
+To restore, stop the application and all three worker services, back up its current state, restore the SQL dump into a clean database, restore matching media and configuration, restore the desired release image, and run the health and media checks. SQL migrations are not automatically reversed.
 
 ## Common commands
 
@@ -100,7 +100,7 @@ curl --fail https://n7cosmetics.co.uk/api/health
 docker compose --env-file stack.env --env-file release.env -f docker-compose.prod.yml run --rm --no-deps app node scripts/verify-media.cjs
 ```
 
-For an application-only rollback, first confirm that any applied migrations are backward compatible, copy `release.previous.env` to `release.env`, then run Compose `up -d --no-deps --wait app email-worker`. When rolling back to an image from before email-worker support, stop the worker and start only `app`. The SQL export and private media remain unchanged by routine application releases.
+For an application-only rollback, first confirm that any applied migrations are backward compatible, copy `release.previous.env` to `release.env`, then run Compose `up -d --no-deps --wait app email-worker payment-worker meta-worker`. Stop any worker unsupported by the target image before starting the supported services. The SQL export and private media remain unchanged by routine application releases.
 
 ## Reference setup
 
@@ -110,4 +110,6 @@ Infrastructure references: [Docker on Ubuntu](https://docs.docker.com/engine/ins
 
 The `email-worker` service processes saved messages, retries and enabled low-stock alerts without web requests. It shares the application image, database and encryption secret. Gmail, hosted mailbox or custom SMTP credentials and notification recipient lists are configured in the admin panel; see [email setup](../docs/email.md).
 
-The `payment-worker` service reconciles unresolved Stripe checkouts every 30 seconds, including recent payments whose customers closed the page. It releases inventory only after the reservation expires and Stripe confirms cancellation. It uses the same database/encryption secret and image. Stripe API credentials are configured in **Admin → Settings → Stripe payments**, not in environment files. Checkout verifies payments directly through Stripe; the webhook provides additional background updates and is not required to enable checkout. Configure its HTTPS URL and register the wallet domain as described in [Stripe setup](../docs/stripe.md). Migration `025_stripe_reconciliation.sql` is required by the updated application and worker and is applied by the deployment workflow. Stop both workers during database restores. Include `payment-worker` when rolling back to an image that supports Stripe; otherwise stop it.
+The `payment-worker` service reconciles unresolved Stripe checkouts every 30 seconds, including recent payments whose customers closed the page. It releases inventory only after the reservation expires and Stripe confirms cancellation. It uses the same database/encryption secret and image. Stripe API credentials are configured in **Admin → Settings → Stripe payments**, not in environment files. Checkout verifies payments directly through Stripe; the webhook provides additional background updates and is not required to enable checkout. Configure its HTTPS URL and register the wallet domain as described in [Stripe setup](../docs/stripe.md). Migration `025_stripe_reconciliation.sql` is required by the updated application and worker and is applied by the deployment workflow. Stop all workers during database restores. Include `payment-worker` when rolling back to an image that supports Stripe; otherwise stop it.
+
+The `meta-worker` service processes consented Meta events and retries using the same application image and secrets. Deployments stop and start it alongside the email and payment workers; images predating migration 028 do not support it.
