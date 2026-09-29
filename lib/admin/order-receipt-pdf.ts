@@ -104,7 +104,7 @@ export async function renderOrderReceipt(data: OrderReceiptData): Promise<Uint8A
   }
   tableHeader();
   for (const item of items) {
-    const nameLines = wrap(productNameWithCode(item.product_name, item.product_code, item.sku), 240);
+    const nameLines = wrap(productNameWithCode(item.product_name, item.product_code), 240);
     const detail = [item.variant_title, item.discount_pence ? `${money(item.discount_pence)} discount included` : null].filter(Boolean).join(" · ");
     const lines = [...nameLines.map(value => ({ value, detail: false })), ...wrap(detail, 240, 8).map(value => ({ value, detail: true }))];
     if (y + lines.length * 13 + 24 > bottom && lines.length * 13 + 24 < bottom - 170) { newPage(); tableHeader(); }

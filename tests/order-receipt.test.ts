@@ -3,7 +3,7 @@ import test from "node:test";
 import type Stripe from "stripe";
 import { stripeReceiptPayment, paymentProviderLabel } from "../lib/payments/receipt-details";
 import { receiptSummary } from "../lib/admin/order-receipt-summary";
-import { productNameWithCode } from "../lib/commerce/product-label";
+import { productIdentifier, productNameWithCode } from "../lib/commerce/product-label";
 import { renderOrderReceipt } from "../lib/admin/order-receipt-pdf";
 import type { OrderReceiptData } from "../lib/admin/order-receipt-data";
 
@@ -69,10 +69,12 @@ test("pending and failed orders never read as paid, and refunds show net payment
   assert.equal(receiptSummary("FAILED", 5000, 0, null, "CANCELLED").balance, 0, "Cancelled orders must not request payment.");
 });
 
-test("product labels prefer N7 codes with a SKU fallback for missing codes", () => {
-  assert.equal(productNameWithCode("Aventus", " 253 ", "INTERNAL-SKU"), "253 - Aventus");
-  assert.equal(productNameWithCode("Aventus", "", "N7-SKU"), "N7-SKU - Aventus");
-  assert.equal(productNameWithCode("Historical product", null, ""), "Historical product");
+test("product labels show only actual product codes and omit missing code labels", () => {
+  assert.equal(productNameWithCode("Aventus", " 253 "), "253 - Aventus");
+  for (const code of [undefined, null, "", "   "]) {
+    assert.equal(productNameWithCode("Devoir Elixer", code), "Devoir Elixer");
+    assert.equal(productIdentifier(code), null);
+  }
 });
 
 test("PDF receipts render with empty imported items and long multi-page orders", async () => {

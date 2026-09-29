@@ -35,7 +35,7 @@ export async function enqueueLowStockAlerts(): Promise<void> {
       WHERE v.status = 'ACTIVE' AND p.status = 'ACTIVE' AND p.track_inventory = 1 AND v.stock_on_hand <= v.low_stock_threshold ORDER BY v.id`, [], connection);
     for (const row of rows) {
       if (notified.has(row.id)) continue;
-      const email = storeAlertEmail(brand, "low-stock-team", [["Product", productNameWithCode(row.name, row.product_code, row.sku)], ["Variant", row.title], ["SKU", row.sku], ["Available", String(row.stock_on_hand)], ["Alert threshold", String(row.low_stock_threshold)]], `/admin/products/${row.product_id}`);
+      const email = storeAlertEmail(brand, "low-stock-team", [["Product", productNameWithCode(row.name, row.product_code)], ["Variant", row.title], ["SKU", row.sku], ["Available", String(row.stock_on_hand)], ["Alert threshold", String(row.low_stock_threshold)]], `/admin/products/${row.product_id}`);
       await enqueueStoreNotification(brand, "low_stock", { ...email, replyTo: brand.replyToEmail, templateKey: "low-stock-team" }, `variant:${row.id}:${randomUUID()}`, connection);
     }
     await executeMutation("UPDATE site_settings SET value_json = ? WHERE setting_key = 'email.low_stock_state'", [JSON.stringify(rows.map((row) => row.id))], connection);
