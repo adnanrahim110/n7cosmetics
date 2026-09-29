@@ -7,6 +7,8 @@ import type { CheckoutInput } from "./validation";
 import { saveCheckoutCustomer } from "./customers";
 import { getStripeSettings, PaymentUnavailableError } from "../payments/settings";
 import { saveCheckoutMarketingPreference } from "../email/newsletter";
+import { saveMetaOrderContext, type MetaCheckoutContext } from "../meta/orders";
+import { metaCommerceData } from "../meta/shared";
 
 export interface ExistingOrderRow extends RowDataPacket { id: string; order_number: string; total_pence: number; currency: string; request_hash: string; expired: number; inventory_state: string }
 interface CountRow extends RowDataPacket { redemption_count: number }
@@ -24,7 +26,7 @@ async function findIdempotentOrder(key: string): Promise<ExistingOrderRow | null
   return selectOne<ExistingOrderRow>(`SELECT CAST(o.id AS CHAR) AS id, o.order_number, o.total_pence, o.currency, c.request_hash, c.inventory_state, c.expires_at <= CURRENT_TIMESTAMP(3) AS expired FROM payments p INNER JOIN orders o ON o.id = p.order_id INNER JOIN stripe_checkouts c ON c.order_id = o.id WHERE p.idempotency_key = ? LIMIT 1`, [key]);
 }
 
-export async function createOrder(input: CheckoutInput, mode: "test" | "live", settingsRevision?: string): Promise<ExistingOrderRow> {
+export async function createOrder(input: CheckoutInput, mode: "test" | "live", settingsRevision?: string, metaContext?: MetaCheckoutContext): Promise<ExistingOrderRow> {
   const requestHash = createHash("sha256").update(JSON.stringify(input)).digest("hex");
   const checkExisting = (order: ExistingOrderRow) => {
     if (order.request_hash !== requestHash) throw new CommerceError("CHECKOUT_CHANGED", "Checkout details changed. Please try again.");
@@ -87,6 +89,7 @@ export async function createOrder(input: CheckoutInput, mode: "test" | "live", s
       }
 
       await saveCheckoutMarketingPreference(orderId, input.customer.email, input.marketingOptOut, connection);
+      if (metaContext) await saveMetaOrderContext(orderId, metaContext, metaCommerceData(quote.lines, quote.totalPence, quote.currency), input.customer.email, input.customer.phone, connection);
 
       return { id: orderId, order_number: number, total_pence: quote.totalPence, currency: quote.currency, request_hash: requestHash, expired: 0, inventory_state: "RESERVED" } as ExistingOrderRow;
     });

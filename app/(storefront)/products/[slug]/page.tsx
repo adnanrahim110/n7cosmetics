@@ -5,6 +5,7 @@ import ProductReviews from "@/components/commerce/ProductReviews";
 import RatingStars from "@/components/commerce/RatingStars";
 import RelatedProductsSlider from "@/components/commerce/RelatedProductsSlider";
 import ScentNotesAccordion from "@/components/commerce/ScentNotesAccordion";
+import ScentProfileCard from "@/components/commerce/ScentProfileCard";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import Title from "@/components/ui/Title";
 import {
@@ -193,6 +194,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </p>
 
               <ScentNotesAccordion groups={noteGroups} />
+              <ScentProfileCard profile={product.scentProfile} />
 
               <div className="mt-7 flex flex-wrap items-end gap-x-4 gap-y-2 border-b border-black/12 pb-7">
                 <span className="text-3xl font-normal sm:text-4xl">

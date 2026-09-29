@@ -59,6 +59,7 @@ export interface ProductFormRecord extends RowDataPacket {
   product_code: string | null;
   audience: "MEN" | "WOMEN" | "UNISEX" | "UNSPECIFIED";
   fragrance_notes_json: string[] | string | null;
+  scent_profile_json: unknown;
   featured: number;
   track_inventory: number;
   seo_title: string | null;
@@ -223,7 +224,7 @@ export async function getProductForEdit(id: string): Promise<ProductFormRecord |
     `SELECT
        CAST(p.id AS CHAR) AS id,
        p.name, p.slug, p.product_type, p.status, p.short_description, p.description,
-       p.brand, p.inspired_by, p.product_code, p.audience, p.fragrance_notes_json, p.featured,
+       p.brand, p.inspired_by, p.product_code, p.audience, p.fragrance_notes_json, p.scent_profile_json, p.featured,
        p.track_inventory, p.seo_title, p.seo_description,
        CAST(v.id AS CHAR) AS variant_id, v.title AS variant_title, v.sku,
        v.price_pence, v.compare_at_price_pence, v.cost_pence, v.stock_on_hand,

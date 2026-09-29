@@ -19,6 +19,7 @@ import {
   PackageSearch,
   PanelsTopLeft,
   Settings,
+  Radio,
   Star,
   TicketPercent,
   Truck,
@@ -109,6 +110,7 @@ const navigationGroups: readonly NavigationGroup[] = [
       { href: "/admin/sales", label: "Sales", icon: Flame },
       { href: "/admin/discounts", label: "Discounts", icon: BadgePercent },
       { href: "/admin/coupons", label: "Coupons", icon: TicketPercent },
+      { href: "/admin/meta", label: "Meta integration", icon: Radio },
     ],
   },
   {

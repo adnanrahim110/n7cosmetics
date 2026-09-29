@@ -1,6 +1,7 @@
 import type { NavigationItem } from "@/content/global";
+import type { ProductCardDetails } from "@/lib/commerce/product-card";
 
-export interface HomepageProduct {
+export interface HomepageProduct extends Partial<ProductCardDetails> {
   id: string;
   slug: string;
   href?: string;
@@ -148,6 +149,7 @@ export interface ReviewsContent {
 }
 
 export interface HomepageConfiguration {
+  intro: { title: string; description: string };
   hero: HeroContent;
   signature: SignatureContent;
   brandFilm: BrandFilmContent;
@@ -160,6 +162,7 @@ export interface HomepageConfiguration {
 }
 
 export interface HomepageStorefrontContent {
+  bestSellerProducts: HomepageProduct[];
   configuration: HomepageConfiguration;
   heroProducts: HomepageProduct[];
   signatureProducts: HomepageProduct[];

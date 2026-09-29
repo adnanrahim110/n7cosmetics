@@ -1,3 +1,4 @@
+import { productCardColumns, productCardDetails, type ProductCardRow } from "./product-card";
 import type { RowDataPacket } from "mysql2/promise";
 import type { CollectionProduct } from "@/content/collections";
 import { hasDatabaseConfig } from "@/lib/env";
@@ -20,7 +21,7 @@ interface SaleRow extends RowDataPacket {
   sort_order: number;
 }
 
-interface SaleProductRow extends RowDataPacket {
+interface SaleProductRow extends RowDataPacket, ProductCardRow {
   sale_id: string;
   id: string;
   slug: string;
@@ -80,6 +81,7 @@ function mapProduct(row: SaleProductRow): SaleProduct {
     compareAtPrice: row.compare_at_price_pence
       ? row.compare_at_price_pence / 100
       : undefined,
+    ...productCardDetails(row),
     rating: Number(row.average_rating) || 0,
     inspiredBy: row.inspired_by,
     productCode: row.product_code,
@@ -154,7 +156,7 @@ export async function getActiveSalePage(
         WHERE pc.product_id = p.id ORDER BY c.sort_order, c.name LIMIT 1) AS category,
        v.price_pence, v.compare_at_price_pence,
        (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.sort_order, i.id LIMIT 1) AS image_url,
-       COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating
+       COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating, ${productCardColumns}
      FROM sale_products sp
      INNER JOIN products p ON p.id = sp.product_id AND p.status = 'ACTIVE' AND p.product_type = 'STANDARD'
      INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 AND v.status = 'ACTIVE'

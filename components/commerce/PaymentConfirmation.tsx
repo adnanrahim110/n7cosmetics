@@ -5,19 +5,40 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
 import { useCommerce } from "./CommerceProvider";
 import Title from "../ui/Title";
+import { sendMetaBrowserEvent } from "@/lib/meta/client";
+import type { MetaBrowserEvent } from "@/lib/meta/shared";
 
-interface Receipt { orderNumber: string; totalPence: number; currency: string; status: "paid" | "pending" | "failed" | "expired" }
+interface Receipt { orderNumber: string; totalPence: number; currency: string; status: "paid" | "pending" | "failed" | "expired"; metaPurchase?: MetaBrowserEvent }
 export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: string }) {
   const { clearCart, hydrated } = useCommerce();
   const [receipt, setReceipt] = useState<Receipt>();
   const [message, setMessage] = useState("");
   const [retry, setRetry] = useState(0);
   useEffect(() => {
+    if (!receipt?.metaPurchase) return;
+    const send = () => { if (receipt.metaPurchase) sendMetaBrowserEvent(receipt.metaPurchase); };
+    send(); window.addEventListener("n7:meta-ready", send);
+    return () => window.removeEventListener("n7:meta-ready", send);
+  }, [receipt]);
+  useEffect(() => {
     if (!hydrated) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     let count = 0;
     const startedAt = Date.now();
+    // Keep the guest receipt credential out of analytics URLs. Session storage
+    // preserves receipt refresh in this tab; blocked storage leaves the URL intact
+    // and browser tracking deliberately skips it.
+    let effectiveKey = checkoutKey;
+    try {
+      effectiveKey ||= sessionStorage.getItem("n7-receipt-key") || "";
+      if (effectiveKey) {
+        sessionStorage.setItem("n7-receipt-key", effectiveKey);
+        const url = new URL(location.href);
+        for (const key of ["key", "payment_intent", "payment_intent_client_secret", "redirect_status"]) url.searchParams.delete(key);
+        window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}`);
+      }
+    } catch { /* CAPI still records a consented, verified purchase without the Pixel. */ }
     function schedule() {
       if (!controller.signal.aborted) timer = setTimeout(check, count < 10 ? 3000 : count < 30 ? 10000 : 30000);
     }
@@ -26,7 +47,7 @@ export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: stri
       try {
         const response = await fetch("/api/payments/stripe/status", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: checkoutKey }), cache: "no-store",
+          body: JSON.stringify({ key: effectiveKey }), cache: "no-store",
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]),
         });
         const data = await response.json();
@@ -38,7 +59,7 @@ export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: stri
         if (data.status === "paid") {
           try {
             const attempt = JSON.parse(sessionStorage.getItem("n7-stripe-attempt") || "null");
-            if (attempt?.key === checkoutKey) { clearCart(); sessionStorage.removeItem("n7-stripe-attempt"); }
+            if (attempt?.key === effectiveKey) { clearCart(); sessionStorage.removeItem("n7-stripe-attempt"); }
           } catch { /* Browser storage must not interrupt a verified receipt. */ }
         } else if (data.status === "pending") {
           if (Date.now() - startedAt > 60000) setMessage("Your payment is still being confirmed. We’ll keep checking automatically; please don’t pay again.");

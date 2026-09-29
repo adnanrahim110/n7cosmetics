@@ -6,6 +6,8 @@ import { getStripeSettings } from "@/lib/payments/settings";
 import { reconcileStripeCheckout } from "@/lib/payments/stripe";
 import { isPaymentRequestOrigin } from "@/lib/payments/request";
 import { kickEmailQueue } from "@/lib/email/kick";
+import { kickMetaQueue } from "@/lib/meta/kick";
+import { browserMetaPurchase } from "@/lib/meta/orders";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,7 +18,7 @@ function findOrder(key: string) {
   return selectOne<ReceiptRow>("SELECT CAST(o.id AS CHAR) AS id, o.order_number, o.total_pence, o.currency, o.payment_status, c.inventory_state FROM orders o JOIN payments p ON p.order_id = o.id JOIN stripe_checkouts c ON c.order_id = o.id WHERE p.idempotency_key = ? AND p.provider = 'STRIPE'", [key]);
 }
 
-async function receiptResponse(key: unknown, verify: boolean) {
+async function receiptResponse(key: unknown, verify: boolean, request: Request) {
   const parsed = z.uuid().safeParse(key);
   if (!parsed.success) return NextResponse.json({ error: "Invalid checkout." }, { status: 400, headers });
   try {
@@ -43,19 +45,21 @@ async function receiptResponse(key: unknown, verify: boolean) {
     // Keep polling until its current Stripe status has been checked.
     const status = row.inventory_state === "RELEASED" ? "expired" : row.inventory_state === "COMMITTED" ? "paid" : row.payment_status === "FAILED" && (!verify || reconciled) ? "failed" : "pending";
     // Return receipt details only; no customer data or Stripe credentials.
-    return NextResponse.json({ orderNumber: row.order_number, totalPence: row.total_pence, currency: row.currency, status }, { headers });
+    const metaPurchase = status === "paid" ? await browserMetaPurchase(row.id, request).catch(() => undefined) : undefined;
+    if (status === "paid") kickMetaQueue();
+    return NextResponse.json({ orderNumber: row.order_number, totalPence: row.total_pence, currency: row.currency, status, metaPurchase }, { headers });
   } catch {
     return NextResponse.json({ error: "Payment confirmation is temporarily unavailable. We’ll keep checking; please don’t pay again." }, { status: 503, headers });
   }
 }
 
 export async function GET(request: Request) {
-  return receiptResponse(new URL(request.url).searchParams.get("key"), false);
+  return receiptResponse(new URL(request.url).searchParams.get("key"), false, request);
 }
 
 export async function POST(request: Request) {
   if (!isPaymentRequestOrigin(request)) return NextResponse.json({ error: "Invalid origin." }, { status: 403, headers });
   if (Number(request.headers.get("content-length") ?? 0) > 4096) return NextResponse.json({ error: "Request too large." }, { status: 413, headers });
   const body = await request.json().catch(() => null);
-  return receiptResponse(body?.key, true);
+  return receiptResponse(body?.key, true, request);
 }

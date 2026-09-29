@@ -5,9 +5,9 @@ import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 
-import Title from "@/components/ui/Title";
-import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import { SoldOutBadge } from "@/components/commerce/ProductStockStatus";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
+import Title from "@/components/ui/Title";
 import type { HomepageProduct, WeeklyContent } from "@/lib/homepage/types";
 import { homeContent } from "../../content/home";
 
@@ -54,7 +54,7 @@ export default function FragranceOfWeek({
   });
 
   return (
-    <section className="relative isolate overflow-hidden bg-[#eee7da] py-12 text-[#1a1713] sm:py-16 md:py-20">
+    <section className="relative isolate overflow-hidden bg-primary-50 py-12 text-[#1a1713] sm:py-16 md:py-20">
       <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_75%_50%,rgba(191,145,82,0.22),transparent_38%)]" />
       <div className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-px bg-black/10 lg:block" />
       <div className="pointer-events-none absolute -left-8 top-1/2 -translate-y-1/2 font-kindred text-[clamp(9rem,21vw,22rem)] leading-none text-black/[0.035]">
@@ -82,8 +82,13 @@ export default function FragranceOfWeek({
               {...reveal(0.16)}
               className="mt-7 border-l border-[#a67c49]/60 pl-6"
             >
-              <ProductCodeBar code={selectedProduct?.productCode} className="mb-3" />
-              {selectedProduct ? <SoldOutBadge slug={selectedProduct.slug} /> : null}
+              <ProductCodeBar
+                code={selectedProduct?.productCode}
+                className="mb-3"
+              />
+              {selectedProduct ? (
+                <SoldOutBadge slug={selectedProduct.slug} />
+              ) : null}
               <h3 className="font-heading text-2xl uppercase tracking-[0.14em] text-[#1a1713] md:text-3xl">
                 <Link
                   className="transition-colors hover:text-[#a67c49]"

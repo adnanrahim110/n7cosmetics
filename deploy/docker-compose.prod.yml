@@ -90,6 +90,12 @@ services:
     container_name: n7-payment-worker
     command: [node, .scripts-dist/scripts/payment-worker.js]
 
+  meta-worker:
+    extends:
+      service: email-worker
+    container_name: n7-meta-worker
+    command: [node, .scripts-dist/scripts/meta-worker.js]
+
   database:
     image: mariadb:11.4
     container_name: n7-db

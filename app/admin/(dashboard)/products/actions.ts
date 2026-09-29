@@ -4,6 +4,7 @@ import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { scentProfileSchema, scentProfileFormInput } from "@/lib/commerce/scent-profile";
 import { formCheckbox, formString, formStringList, isDatabaseId, nullableFormString, poundsToPence, slugify } from "@/lib/admin/form";
 import { cleanupUnreferencedMediaUrls, MediaUploadError, mergeMediaSubmission, removeStoredMediaFiles, storeMediaFiles, submittedMediaFiles, type StoredMediaAsset } from "@/lib/admin/media";
 import { productListReturnToWithToast } from "@/lib/admin/product-navigation";
@@ -29,6 +30,7 @@ const productInputSchema = z.object({
   productCode: z.string().max(100).nullable(),
   audience: z.enum(["MEN", "WOMEN", "UNISEX", "UNSPECIFIED"]),
   fragranceNotes: z.object({ top: noteListSchema, heart: noteListSchema, base: noteListSchema }),
+  scentProfile: scentProfileSchema,
   featured: z.boolean(),
   seoTitle: z.string().max(70).nullable(),
   seoDescription: z.string().max(160).nullable(),
@@ -106,6 +108,7 @@ function parseProductForm(formData: FormData) {
       base: parseNoteList(formString(formData, "baseNotes")),
     },
     featured: formCheckbox(formData, "featured"),
+    scentProfile: scentProfileFormInput(formData),
     seoTitle: nullableFormString(formData, "seoTitle"),
     seoDescription: nullableFormString(formData, "seoDescription"),
     sizeLabel: formString(formData, "sizeLabel"),
@@ -218,10 +221,10 @@ export async function createProductAction(returnTo: string, _previousState: Prod
       const created = await executeMutation(
         `INSERT INTO products
            (name, slug, product_type, status, short_description, description, brand, inspired_by, product_code,
-            audience, fragrance_notes_json, featured, track_inventory, seo_title, seo_description, published_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, IF(? = 'ACTIVE', CURRENT_TIMESTAMP(3), NULL))`,
+            audience, fragrance_notes_json, scent_profile_json, featured, track_inventory, seo_title, seo_description, published_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, IF(? = 'ACTIVE', CURRENT_TIMESTAMP(3), NULL))`,
         [product.name, slug, product.productType, product.status, product.shortDescription, product.description,
-         product.brand, product.inspiredBy, product.productCode, product.audience, JSON.stringify(product.fragranceNotes), product.featured,
+         product.brand, product.inspiredBy, product.productCode, product.audience, JSON.stringify(product.fragranceNotes), JSON.stringify(product.scentProfile), product.featured,
          product.seoTitle, product.seoDescription, product.status],
         connection,
       );
@@ -309,12 +312,12 @@ export async function updateProductAction(productId: string, returnTo: string, _
       await executeMutation(
         `UPDATE products SET
            name = ?, slug = ?, product_type = ?, status = ?, short_description = ?, description = ?,
-           brand = ?, inspired_by = ?, product_code = ?, audience = ?, fragrance_notes_json = ?, featured = ?,
+           brand = ?, inspired_by = ?, product_code = ?, audience = ?, fragrance_notes_json = ?, scent_profile_json = ?, featured = ?,
            track_inventory = 1, seo_title = ?, seo_description = ?,
            published_at = CASE WHEN ? = 'ACTIVE' THEN COALESCE(published_at, CURRENT_TIMESTAMP(3)) ELSE published_at END
          WHERE id = ?`,
         [product.name, savedSlug, product.productType, product.status, product.shortDescription, product.description,
-         product.brand, product.inspiredBy, product.productCode, product.audience, JSON.stringify(product.fragranceNotes), product.featured,
+         product.brand, product.inspiredBy, product.productCode, product.audience, JSON.stringify(product.fragranceNotes), JSON.stringify(product.scentProfile), product.featured,
          product.seoTitle, product.seoDescription, product.status, productId],
         connection,
       );

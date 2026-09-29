@@ -5,6 +5,7 @@ import { useElements, useStripe } from "@stripe/react-stripe-js";
 import type { CheckoutInput } from "@/lib/commerce/validation";
 import { usePaymentConfig } from "./StripeProvider";
 import { useCommerce } from "./CommerceProvider";
+import { trackMeta } from "@/lib/meta/client";
 
 type PaymentInput = Omit<CheckoutInput, "idempotencyKey">;
 export function useStripePayment() {
@@ -21,6 +22,7 @@ export function useStripePayment() {
     try {
       const { error: submitError } = await elements.submit();
       if (submitError) throw new Error(submitError.message || "Check your payment details.");
+      if (window.location.pathname !== "/checkout") void trackMeta("InitiateCheckout", payload.items, { couponCode: payload.couponCode });
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
       const fingerprint = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
       let previous: { key: string; fingerprint: string } | null = null;
@@ -42,6 +44,7 @@ export function useStripePayment() {
         throw new Error(data.error || "Unable to start payment. Please try again.");
       }
       setReservationKey(key);
+      void trackMeta("AddPaymentInfo", payload.items, { couponCode: payload.couponCode, reservationKey: key });
       const returnUrl = `${window.location.origin}/checkout/confirmation?key=${encodeURIComponent(key)}`;
       if (data.paid) { router.push(`/checkout/confirmation?key=${encodeURIComponent(key)}`); return; }
       const address = payload.billingAddress;

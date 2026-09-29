@@ -8,6 +8,7 @@ import { showAdminToast } from "@/components/admin/AdminToastProvider";
 import CustomSelect from "@/components/admin/CustomSelect";
 import MediaDropzone from "@/components/admin/MediaDropzone";
 import type { CatalogOption, ProductFormRecord } from "@/lib/admin/products";
+import ScentProfileFields from "./ScentProfileFields";
 import { penceToPounds, slugify } from "@/lib/admin/form";
 
 interface ProductActionState {
@@ -153,6 +154,8 @@ export default function ProductForm({ product, categories, collections, action, 
               <label className={labelClass}>Base notes<textarea className={inputClass} defaultValue={notes.base} maxLength={500} name="baseNotes" placeholder="Oud, amber, musk" rows={3} /></label>
             </div>
             <p className="text-xs leading-5 text-zinc-500">Separate individual notes with commas. Empty fragrance groups are simply omitted.</p>
+            <ScentProfileFields value={product?.scent_profile_json} />
+            <FieldError name="scentProfile" state={state} />
           </section>
 
           <section className="space-y-5 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">

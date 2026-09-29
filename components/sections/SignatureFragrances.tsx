@@ -36,7 +36,7 @@ export default function SignatureFragrances({
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-14 flex flex-col items-start justify-between gap-7 md:mb-24 md:flex-row md:items-end md:gap-8">
-          <div className="max-w-2xl">
+          <div className="max-w-3xl">
             <motion.span
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -47,7 +47,7 @@ export default function SignatureFragrances({
               {content.eyebrow}
             </motion.span>
             <Title
-              className="uppercase"
+              className="uppercase lg:text-5xl"
               highlight={content.titleAccent}
               highlightClassName="lowercase"
               text={`${content.titleLead} ${content.titleAccent}`}
@@ -60,7 +60,7 @@ export default function SignatureFragrances({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, ease: customEase, delay: 0.2 }}
-            className="text-[#5A5A5A] font-light max-w-md md:text-right"
+            className="text-[#5A5A5A] font-light max-w-sm md:text-right"
           >
             {content.description}
           </motion.p>

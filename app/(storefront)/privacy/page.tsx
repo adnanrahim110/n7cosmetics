@@ -16,6 +16,7 @@ const navigation = [
   { href: "#who-we-are", label: "Who we are" },
   { href: "#comments", label: "Comments" },
   { href: "#media", label: "Media" },
+  { href: "#meta", label: "Marketing and Meta" },
   { href: "#cookies", label: "Cookies" },
   { href: "#embedded-content", label: "Embedded content" },
   { href: "#data-sharing", label: "Data sharing" },
@@ -95,7 +96,13 @@ export default async function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="cookies" number="04" title="Cookies">
+      <LegalSection id="meta" number="04" title="Marketing measurement and Meta">
+        <p>With your permission, we use Meta Pixel and Conversions API to measure advertising and understand product views, searches, basket additions, checkout activity and purchases. Marketing tracking stays off until you choose “Allow marketing”. You can withdraw this permission at any time using “Cookie preferences” in the footer. Your choice is separate from email newsletter preferences.</p>
+        <p>When enabled with your consent, browser cookies such as _fbp and _fbc help Meta match events to advertising interactions. We may share product identifiers, order amounts and currency, browser information, IP address and click identifiers. For confirmed purchases, we may also share your email address and phone number after normalising and SHA-256 hashing them. Hashing is not anonymisation. We do not send card details, delivery addresses, order notes or free-text searches through this integration.</p>
+        <p>We retain your cookie choice for up to 180 days. Meta browser/click cookies may last up to 90 days. Encrypted event data awaiting delivery is removed after delivery or within two days; local delivery records without event payloads are retained for 30 days. Withdrawing permission stops further tracking and cancels queued events associated with this browser; it cannot recall events already delivered to Meta. Learn more in <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noreferrer" className="underline underline-offset-4">Meta’s privacy policy</a>.</p>
+      </LegalSection>
+
+      <LegalSection id="cookies" number="05" title="Cookies">
         <p>
           If you select “Save my details for next time” at checkout, we
           save your name, email address, phone number, and billing and delivery
@@ -133,7 +140,7 @@ export default async function PrivacyPage() {
 
       <LegalSection
         id="embedded-content"
-        number="05"
+        number="06"
         title="Embedded content from other websites"
       >
         <p>
@@ -151,7 +158,7 @@ export default async function PrivacyPage() {
 
       <LegalSection
         id="data-sharing"
-        number="06"
+        number="07"
         title="Who we share your data with"
       >
         <p>
@@ -162,7 +169,7 @@ export default async function PrivacyPage() {
 
       <LegalSection
         id="data-retention"
-        number="07"
+        number="08"
         title="How long we retain your data"
       >
         <p>
@@ -181,7 +188,7 @@ export default async function PrivacyPage() {
 
       <LegalSection
         id="your-rights"
-        number="08"
+        number="09"
         title="What rights you have over your data"
       >
         <p>
@@ -203,7 +210,7 @@ export default async function PrivacyPage() {
 
       <LegalSection
         id="data-destination"
-        number="09"
+        number="10"
         title="Where your data is sent"
       >
         <p>
@@ -212,7 +219,7 @@ export default async function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="privacy-contact" number="10" title="Privacy requests">
+      <LegalSection id="privacy-contact" number="11" title="Privacy requests">
         <LegalContactCard
           description="To ask about this policy or exercise a data right, contact N7 Cosmetics using the current details below."
           settings={settings}

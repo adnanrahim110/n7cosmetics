@@ -29,6 +29,7 @@ import {
   saveReviewsAction,
   saveScentStoryAction,
   saveSignatureAction,
+  saveStorefrontIntroAction,
   saveWeeklyAction,
 } from "./actions";
 
@@ -155,6 +156,10 @@ export default async function HomepagePage({
         </Notice>
       ) : null}
       <div className="mt-5 space-y-3">
+        <Block action={saveStorefrontIntroAction} id="storefront-intro" title="Storefront introduction" description="The opening buying message above collections and editorial sections.">
+          <label className={`${label} sm:col-span-2`}>Headline<input className={input} name="title" defaultValue={configuration.intro.title} maxLength={190} required /></label>
+          <label className={`${label} sm:col-span-2`}>Description<textarea className={input} name="description" defaultValue={configuration.intro.description} maxLength={1000} rows={3} required /></label>
+        </Block>
         <Block
           action={saveHeaderAction}
           defaultOpen

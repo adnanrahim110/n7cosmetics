@@ -19,6 +19,11 @@ export const quoteInputSchema = cartPricingInputSchema.extend({
   shippingMethodId: z.string().regex(/^[1-9]\d*$/).optional(),
 });
 
+export const cartDeliveryInputSchema = cartPricingInputSchema.extend({
+  postalCode: z.string().trim().toUpperCase().transform(value => value.replace(/\s/g, ""))
+    .refine(value => !value || /^(?:[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}|GIR0AA)$/.test(value), "Enter a full UK postcode.").optional(),
+});
+
 const phoneSchema = z.string().trim().min(5).max(50).regex(/^[+\d\s().-]+$/);
 export const checkoutAddressSchema = z.object({
   fullName: z.string().trim().min(2).max(190),

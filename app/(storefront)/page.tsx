@@ -1,4 +1,5 @@
 import AudienceCollections from "@/components/sections/AudienceCollections";
+import BestSellers from "@/components/sections/BestSellers";
 import BrandFilmSection from "@/components/sections/BrandFilmSection";
 import FeaturesStrip from "@/components/sections/FeaturesStrip";
 import FragranceOfWeek from "@/components/sections/FragranceOfWeek";
@@ -15,25 +16,26 @@ export default async function Home() {
   return (
     <>
       <BrandFilmSection film={configuration.brandFilm} />
+      <BestSellers products={content.bestSellerProducts} />
       <SignatureFragrances
         content={configuration.signature}
         products={content.signatureProducts}
-      />
-      <HeroSection
-        content={configuration.hero}
-        products={content.heroProducts}
       />
       <RecreationsSlider
         content={configuration.recreations}
         products={content.recreationProducts}
       />
+      <AudienceCollections content={configuration.audience} />
       <FragranceOfWeek
         content={configuration.weekly}
         product={content.weeklyProduct}
       />
-      <ScentStorySection story={configuration.scentStory} />
-      <AudienceCollections content={configuration.audience} />
+      <HeroSection
+        content={configuration.hero}
+        products={content.heroProducts}
+      />
       <ReviewsSection content={configuration.reviews} />
+      <ScentStorySection story={configuration.scentStory} />
       <FeaturesStrip content={configuration.features} />
     </>
   );

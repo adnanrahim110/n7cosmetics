@@ -1,6 +1,8 @@
+import { productCardColumns, productCardDetails, type ProductCardRow, type ProductCardDetails } from "./product-card";
 import type { RowDataPacket } from "mysql2/promise";
 import { selectOne, selectRows } from "@/lib/db/query";
 import { hasDatabaseConfig } from "@/lib/env";
+import { readScentProfile, type ScentProfile } from "./scent-profile";
 
 export interface ProductNoteGroups {
   top: string[];
@@ -34,6 +36,7 @@ export interface StorefrontProduct {
   audience: string;
   notes: string[];
   noteGroups: ProductNoteGroups;
+  scentProfile: ScentProfile;
   seoTitle: string | null;
   seoDescription: string | null;
   pricePence: number;
@@ -49,7 +52,7 @@ export interface StorefrontProduct {
   collectionSlug: string | null;
 }
 
-export interface StorefrontRelatedProduct {
+export interface StorefrontRelatedProduct extends ProductCardDetails {
   id: string;
   slug: string;
   name: string;
@@ -80,6 +83,7 @@ interface StorefrontProductRow extends RowDataPacket {
   product_code: string | null;
   audience: string;
   fragrance_notes_json: unknown;
+  scent_profile_json: unknown;
   seo_title: string | null;
   seo_description: string | null;
   price_pence: number;
@@ -107,7 +111,7 @@ export async function getStorefrontProductLabels(): Promise<Record<string, Store
   return Object.fromEntries(rows.map((row) => [row.slug, { productCode: row.product_code, inspiredBy: row.inspired_by }]));
 }
 
-interface RelatedProductRow extends RowDataPacket {
+interface RelatedProductRow extends RowDataPacket, ProductCardRow {
   id: string;
   slug: string;
   name: string;
@@ -143,7 +147,7 @@ export async function getStorefrontProduct(slug: string, expectedType: "STANDARD
     const row = await selectOne<StorefrontProductRow>(
       `SELECT CAST(p.id AS CHAR) AS id, CAST(v.id AS CHAR) AS variant_id, p.product_type, p.slug, p.name,
          p.short_description, p.description, p.brand, p.inspired_by, p.product_code, p.audience,
-         p.fragrance_notes_json, p.seo_title, p.seo_description, p.track_inventory,
+         p.fragrance_notes_json, p.scent_profile_json, p.seo_title, p.seo_description, p.track_inventory,
          (SELECT col.slug
           FROM product_collections pc
           INNER JOIN collections col ON col.id = pc.collection_id AND col.status = 'ACTIVE'
@@ -184,6 +188,7 @@ export async function getStorefrontProduct(slug: string, expectedType: "STANDARD
       audience: row.audience,
       notes: [...noteGroups.top, ...noteGroups.heart, ...noteGroups.base],
       noteGroups,
+      scentProfile: readScentProfile(row.scent_profile_json),
       seoTitle: row.seo_title,
       seoDescription: row.seo_description,
       pricePence: row.price_pence,
@@ -213,7 +218,7 @@ export async function getRelatedStorefrontProducts(
     `SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name, p.inspired_by, p.product_code, p.brand, p.audience,
        v.title AS variant_title, v.price_pence, v.compare_at_price_pence,
        image.url AS image_url, image.alt_text AS image_alt,
-       COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating,
+       COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating, ${productCardColumns},
        (
          (SELECT COUNT(*)
           FROM product_collections current_pc
@@ -247,6 +252,7 @@ export async function getRelatedStorefrontProducts(
     variantTitle: row.variant_title,
     pricePence: Number(row.price_pence),
     compareAtPricePence: row.compare_at_price_pence === null ? null : Number(row.compare_at_price_pence),
+    ...productCardDetails(row),
     rating: Number(row.average_rating) || 0,
     image: row.image_url,
     imageAlt: row.image_alt ?? `${row.name} product image`,

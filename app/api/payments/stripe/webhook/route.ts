@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStripeSettings, stripeClient } from "@/lib/payments/settings";
 import { applyPaymentIntent } from "@/lib/payments/stripe";
 import { kickEmailQueue } from "@/lib/email/kick";
+import { kickMetaQueue } from "@/lib/meta/kick";
 import type Stripe from "stripe";
 
 export const runtime = "nodejs";
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
     try {
       await applyPaymentIntent(event.data.object as Stripe.PaymentIntent, event);
       kickEmailQueue();
+      kickMetaQueue();
     } catch {
       console.error(`Stripe webhook ${event.id} could not be applied; awaiting retry.`);
       return NextResponse.json({ error: "Unable to process payment event." }, { status: 500 });

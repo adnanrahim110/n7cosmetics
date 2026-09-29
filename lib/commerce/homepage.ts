@@ -1,3 +1,4 @@
+import { productCardColumns, productCardDetails, type ProductCardRow } from "./product-card";
 import type { RowDataPacket } from "mysql2/promise";
 import { productsContent } from "@/content/products";
 import { homeContent } from "@/content/home";
@@ -9,7 +10,7 @@ import type { FooterContent, HeaderContent, HomepageConfiguration, HomepageProdu
 import { getAvailableSaleNavigationItems } from "@/lib/commerce/sales";
 
 interface SectionRow extends RowDataPacket { page_key: string; section_key: string; content_json: unknown }
-interface ProductRow extends RowDataPacket { id: string; slug: string; name: string; product_type: string; short_description: string | null; description: string | null; brand: string | null; inspired_by: string | null; product_code: string | null; audience: string; fragrance_notes_json: unknown; price_pence: number; variant_title: string | null; image_url: string | null; average_rating: number | string }
+interface ProductRow extends RowDataPacket, ProductCardRow { id: string; slug: string; name: string; product_type: string; short_description: string | null; description: string | null; brand: string | null; inspired_by: string | null; product_code: string | null; audience: string; fragrance_notes_json: unknown; price_pence: number; variant_title: string | null; image_url: string | null; average_rating: number | string }
 interface ProductIdRow extends RowDataPacket { id: string }
 
 function object(value: unknown): Record<string, unknown> | null {
@@ -54,6 +55,7 @@ export async function getGlobalStorefrontContent(): Promise<{ header: HeaderCont
 export async function getHomepageConfiguration(): Promise<HomepageConfiguration> {
   const rows = await sectionRows("home");
   const config: HomepageConfiguration = {
+    intro: merge(defaultHomepageConfiguration.intro, rows.get("storefront-intro")),
     hero: merge(defaultHomepageConfiguration.hero, rows.get("hero")),
     signature: merge(defaultHomepageConfiguration.signature, rows.get("signature-fragrances")),
     brandFilm: merge(defaultHomepageConfiguration.brandFilm, rows.get("brand-film")),
@@ -93,8 +95,8 @@ async function productsByIds(ids: string[]): Promise<HomepageProduct[]> {
   const unique = [...new Set(ids.filter((id) => /^[1-9]\d*$/.test(id)))];
   if (!unique.length) return [];
   const placeholders = unique.map(() => "?").join(",");
-  const rows = await selectRows<ProductRow>(`SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name, p.product_type, p.short_description, p.description, p.brand, p.inspired_by, p.product_code, p.audience, p.fragrance_notes_json, v.price_pence, v.title AS variant_title, i.url AS image_url, COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating FROM products p INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 LEFT JOIN product_images i ON i.id = (SELECT pi.id FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) WHERE p.id IN (${placeholders}) AND p.status = 'ACTIVE'`, unique);
-  const mapped = new Map<string, HomepageProduct>(rows.map((row) => [row.id, { id: row.id, slug: row.slug, href: row.product_type === "BUNDLE" ? `/bundles/${row.slug}` : `/products/${row.slug}`, name: row.name, type: row.brand || (row.product_type === "BUNDLE" ? "Bundle" : "Perfume"), price: money(row.price_pence), pricePence: row.price_pence, rating: Number(row.average_rating) || 0, inspiredBy: row.inspired_by, productCode: row.product_code, audience: row.audience, image: row.image_url || "/imgs/products/5.png", description: row.description || row.short_description || "A distinctive N7 fragrance composed to leave a memorable signature.", tagline: row.inspired_by ? `Inspired by ${row.inspired_by}` : row.brand || "N7 Cosmetics", notes: notes(row.fragrance_notes_json), size: row.variant_title && row.variant_title !== "Default" ? row.variant_title : "100 ml" }]));
+  const rows = await selectRows<ProductRow>(`SELECT CAST(p.id AS CHAR) AS id, p.slug, p.name, p.product_type, p.short_description, p.description, p.brand, p.inspired_by, p.product_code, p.audience, p.fragrance_notes_json, v.price_pence, v.title AS variant_title, i.url AS image_url, COALESCE((SELECT AVG(pr.rating) FROM product_reviews pr WHERE pr.product_id = p.id AND pr.status = 'PUBLISHED'), 0) AS average_rating, ${productCardColumns} FROM products p INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 LEFT JOIN product_images i ON i.id = (SELECT pi.id FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) WHERE p.id IN (${placeholders}) AND p.status = 'ACTIVE'`, unique);
+  const mapped = new Map<string, HomepageProduct>(rows.map((row) => [row.id, { ...productCardDetails(row), id: row.id, slug: row.slug, href: row.product_type === "BUNDLE" ? `/bundles/${row.slug}` : `/products/${row.slug}`, name: row.name, type: row.brand || (row.product_type === "BUNDLE" ? "Bundle" : "Perfume"), price: money(row.price_pence), pricePence: row.price_pence, rating: Number(row.average_rating) || 0, inspiredBy: row.inspired_by, productCode: row.product_code, audience: row.audience, image: row.image_url || "/imgs/products/5.png", description: row.description || row.short_description || "A distinctive N7 fragrance composed to leave a memorable signature.", tagline: row.inspired_by ? `Inspired by ${row.inspired_by}` : row.brand || "N7 Cosmetics", notes: notes(row.fragrance_notes_json), size: productCardDetails(row).size ?? "" }]));
   return ids.map((id) => mapped.get(id)).filter((product): product is HomepageProduct => Boolean(product));
 }
 
@@ -102,8 +104,24 @@ function fallbackProducts(source: typeof productsContent.signature): HomepagePro
 
 export async function getHomepageStorefrontContent(): Promise<HomepageStorefrontContent> {
   const configuration = await getHomepageConfiguration();
+  // Paid standalone bottle sales in the last 90 days. Exclude refunded,
+  // cancelled, returned and test orders; bundle components are not double-counted.
+  const bestSellers = hasDatabaseConfig() ? await selectRows<ProductIdRow>(
+    `SELECT CAST(p.id AS CHAR) AS id FROM order_items oi
+     INNER JOIN orders o ON o.id = oi.order_id
+     INNER JOIN products p ON p.id = oi.product_id AND p.status = 'ACTIVE' AND p.product_type = 'STANDARD'
+     INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 AND v.status = 'ACTIVE'
+     WHERE o.payment_status = 'PAID' AND o.status NOT IN ('CANCELLED','REFUNDED','FAILED')
+       AND o.fulfillment_status != 'RETURNED' AND o.placed_at >= DATE_SUB(CURRENT_TIMESTAMP(3), INTERVAL 90 DAY)
+       AND o.placed_at <= CURRENT_TIMESTAMP(3)
+       AND NOT EXISTS (SELECT 1 FROM stripe_checkouts sc WHERE sc.order_id = o.id AND sc.stripe_mode = 'test')
+       AND EXISTS (SELECT 1 FROM product_images image WHERE image.product_id = p.id)
+     GROUP BY p.id HAVING SUM(oi.quantity) > 0 ORDER BY SUM(oi.quantity) DESC, p.id LIMIT 8`,
+  ) : [];
+  const bestSellerProducts = (await productsByIds(bestSellers.map(product => product.id))).map(product => ({ ...product, bestSeller: true }));
   const [heroProducts, signatureProducts, recreationProducts, weeklyProducts] = await Promise.all([productsByIds(configuration.hero.productIds), productsByIds(configuration.signature.productIds), productsByIds(configuration.recreations.productIds), productsByIds(configuration.weekly.productId ? [configuration.weekly.productId] : [])]);
   return {
+    bestSellerProducts,
     configuration,
     heroProducts: heroProducts.length ? applyHeroProductPresentations(heroProducts, configuration.hero.products) : homeContent.hero.products.map((product, index) => ({ id: `hero-${index}`, slug: product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), name: product.name, type: "Perfume", price: "£0", pricePence: 0, rating: 0, inspiredBy: null, audience: "UNSPECIFIED", image: product.image, description: product.description, tagline: product.tagline, notes: [], size: "100 ml" })),
     signatureProducts: signatureProducts.length ? signatureProducts : fallbackProducts(productsContent.signature),

@@ -1,0 +1,39 @@
+# Storefront CRO implementation plan
+
+Based on the CRO blueprint and the local storefront code/content review of 29 September 2026. The following code changes retain the agreed priority order. This file records planned work; implementation and live deployment have not been verified by creating it.
+
+Admin-managed copy, catalogue corrections, fragrance-note entry, and Stripe/Meta configuration are separate tasks.
+
+| Priority | Planned change | Main implementation guideline |
+| --- | --- | --- |
+| 1 | Enrich product card details | Extend the shared product card and its data sources with review count, actual bottle size and scent family. Preserve existing ratings, gender labels, stock handling and quick add. Show bestseller/new badges only when supported by real data. |
+| 2 | Add sticky mobile purchasing | Add a mobile product-page bar with product name, current price and Add to Bag when the main purchase control leaves view. Reuse existing cart and stock validation; avoid overlapping consent controls and other overlays. |
+| 3 | Show free delivery progress | Add a live amount-to-free-delivery message and progress indicator to the cart page and drawer. Derive eligibility from the same shipping rules as checkout, including discount basis, destination and eligible delivery method; do not hardcode the threshold. |
+| 4 | Improve homepage section order | Adjust homepage composition to place the buying proposition, trust strip and useful product discovery before long editorial sections. Preserve admin-managed content. Provide early access to bestsellers and clearly separated Originals/Inspired collections. |
+| 5 | Add structured scent profiles | Extend product storage, admin editing and storefront rendering with scent family, mood, occasion, season and optional performance information. Render a compact decision card alongside existing note sections. Omit unavailable fields and publish performance claims only with supporting evidence. |
+| 6 | Connect homepage product reviews | Populate the homepage review section from published product reviews instead of default testimonial content. Include product name/link and rating; show verified-purchase labels only when substantiated. Any aggregate must use genuine published review data. |
+| 7 | Optimise homepage video loading | Review the opening video's automatic preload/play behaviour. Add an appropriate poster and lightweight loading strategy, preserve reduced-motion support, and defer below-the-fold media. Keep the opening message and shopping action usable before video loads. |
+| 8 | Expand collection filters and sorting | Extend current category/price filters with supported scent family, wearer, occasion, season, stock and rating options. Add newest and sales-based bestseller sorting. Provide a mobile filter drawer and clear reset controls; only expose filters backed by populated data. |
+| 9 | Complete shopping funnel tracking | Reuse existing consent-aware Meta tracking and avoid duplicate events. Add missing cart views, product selection, shipping-step, filter, review, offer-selection and coupon success/failure measurements. Include scent-finder events when that feature ships; keep transaction values authoritative. |
+| 10 | Simplify checkout navigation | Introduce a focused checkout shell that removes shopping navigation and promotional footer clutter while retaining branding, support, policy links and the order summary. Preserve guest checkout, express payments and existing payment handling. Use measured drop-off to guide further changes. |
+| 11 | Add address lookup | Add a UK postcode/address lookup service to checkout, with manual entry always available. Preserve existing browser autofill, validation and saved details. Handle unavailable services and unmatched addresses without blocking checkout. |
+| 12 | Show checkout delivery estimates | Display each delivery method's configured estimated time beside its price before payment. Update the information when postcode or delivery method changes. Use actual fulfilment settings and avoid turning estimates into unsupported guarantees. |
+| 13 | Collapse checkout coupon entry | Place the coupon input behind a clear Have a code? control. Keep applied discounts, removal controls and errors visible. Preserve current server pricing and sale/coupon precedence rules. |
+| 14 | Add relevant cart recommendations | Show at most one to three relevant, available products in the cart without obscuring checkout. Reuse quick-add and stock validation, update totals after additions, and avoid duplicate or unavailable recommendations. |
+| 15 | Match recommendations by scent | Extend existing collection/category/audience-based recommendations with populated scent-family and note data. Support complementary daily/evening/occasion suggestions, exclude the current product and unavailable items, and retain a sensible fallback when scent data is missing. |
+| 16 | Add review sorting and tags | Extend the current review system with newest/highest/lowest sorting and structured tags such as longevity, projection, value and delivery. Add most-helpful sorting only with a real helpfulness mechanism. Preserve rating distribution, media and verified-purchase handling. |
+| 17 | Rank bestsellers using sales data | Create a reusable bestseller query based on eligible paid sales over a defined period, with consistent cancellation/refund treatment. Use it for a dedicated discovery page, homepage selection, sorting and factual badges. Define how bundles count before implementation. |
+| 18 | Improve empty search results | Add bestsellers, useful collection links and a support link when predictive search returns no matches. Preserve existing typo tolerance and product-code matching. Keep prices visible on mobile suggestions and add actual bottle size where available. |
+| 19 | Build targeted campaign pages | Create reusable landing-page layouts for Yusuf Bhai UK, inspired fragrances, oud and fresh scents. Match campaign promises to accurate product, delivery and offer information. Reuse the existing sale selector for bundle campaigns instead of rebuilding it. |
+| 20 | Automate customer retention emails | Extend the existing email queue/templates with browse/cart recovery, review requests, cross-sell, replenishment and VIP flows. Use appropriate consent, unsubscribe checks, purchase suppression and duplicate prevention. Derive replenishment timing from actual purchasing behaviour. |
+| 21 | Build interactive scent finder | Create a short quiz using populated scent family, wearer, occasion and intensity preferences. Return available products with clear recommendation reasons and track starts/completions. Support restarting and skipping uncertain answers. |
+| 22 | Add A/B testing infrastructure | Add stable experiment assignment, exposure tracking and funnel outcomes for controlled variants. Begin with one meaningful hypothesis at a time. Judge results using adequate samples and purchase/revenue outcomes, with refunds and cancellations as quality checks. |
+
+## Implementation dependencies and checks
+
+- Reuse existing reviews, predictive search, sale selection, checkout, email and Meta foundations.
+- Populate verified catalogue data through admin alongside items 1 and 5; scent filters, recommendations and the quiz depend on that data.
+- Use item 17's shared sales definition wherever bestseller labels, sorting or recommendations are introduced.
+- Add relevant measurement from item 9 before evaluating checkout changes or running item 22 experiments.
+- Read the relevant installed Next.js guides in `node_modules/next/dist/docs/` before implementing code changes, as required by `AGENTS.md`.
+- Validate changes with appropriate lint, type checks, builds and meaningful non-browser tests. Browser testing requires the user's explicit request for the current implementation task.

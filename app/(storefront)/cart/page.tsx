@@ -7,6 +7,7 @@ import { commerceProductHref, useCommerce } from "@/components/commerce/Commerce
 import Title from "@/components/ui/Title";
 import CartProductLabels from "@/components/commerce/CartProductLabels";
 import CartPriceSummary from "@/components/commerce/CartPriceSummary";
+import FreeDeliveryProgress from "@/components/commerce/FreeDeliveryProgress";
 import CartLinePrice from "@/components/commerce/CartLinePrice";
 import CartExpressPayment from "@/components/commerce/CartExpressPayment";
 
@@ -95,6 +96,7 @@ export default function CartPage() {
 
             <aside className="h-fit border border-black/10 bg-white/45 p-5 sm:p-6">
               <Title text="Summary" tone="ink" variant="small" />
+              <div className="mt-5"><FreeDeliveryProgress /></div>
               <div className="mt-5"><CartPriceSummary /></div>
               <Link
                 className="mt-6 flex items-center justify-between bg-[#1c1814] px-5 py-4 text-xs font-semibold uppercase tracking-[0.17em] text-white"

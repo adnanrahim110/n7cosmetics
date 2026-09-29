@@ -6,6 +6,7 @@ import { shippingOptions, type ShippingOption } from "./shipping";
 import { getShippingConfiguration } from "./shipping-data";
 import { getStockProducts } from "./stock-data";
 import { inspectStock } from "./stock";
+import type { FreeDeliveryProgress } from "./free-delivery";
 
 export type CommerceErrorCode = "CART_CHANGED" | "OUT_OF_STOCK" | "INVALID_COUPON" | "COUPON_LIMIT" | "DELIVERY_UNAVAILABLE" | "CHECKOUT_CHANGED" | "CHECKOUT_EXPIRED";
 export class CommerceError extends Error { constructor(public readonly code: CommerceErrorCode, message: string) { super(message); this.name = "CommerceError"; } }
@@ -18,6 +19,7 @@ interface CountRow extends RowDataPacket { redemption_count: number }
 export interface BundleStockRequirement { variantId: string; name: string; quantity: number; trackInventory: boolean }
 export interface QuoteLine { productId: string; variantId: string; productType: "STANDARD" | "BUNDLE"; slug: string; name: string; variantTitle: string; sku: string; image: string | null; unitPricePence: number; quantity: number; subtotalPence: number; discountPence: number; freeQuantity: number; totalPence: number; stockOnHand: number; trackInventory: boolean; categoryIds: string[]; collectionIds: string[]; bundleComponents: BundleStockRequirement[] }
 export interface CartPricing {
+  deliveryProgress?: FreeDeliveryProgress | null;
   lines: QuoteLine[];
   subtotalPence: number;
   discountPence: number;

@@ -115,7 +115,7 @@ const HeroSection = ({
             <div className="relative w-full">
               <ProductCodeBar code={activeProduct.productCode} className="mb-3" />
               <SoldOutBadge slug={activeProduct.slug} />
-              <motion.h1
+              <motion.h2
                 aria-label={activeProduct.name}
                 className="block w-full leading-none"
                 initial={{
@@ -177,7 +177,7 @@ const HeroSection = ({
                     {activeProduct.name.toUpperCase()}
                   </text>
                 </svg>
-              </motion.h1>
+              </motion.h2>
             </div>
 
             <motion.div

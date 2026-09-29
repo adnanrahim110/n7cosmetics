@@ -23,6 +23,10 @@ export const defaultFooterContent: FooterContent = {
 };
 
 export const defaultHomepageConfiguration: HomepageConfiguration = {
+  intro: {
+    title: "Yusuf Bhai fragrances, delivered in the UK.",
+    description: "Discover original compositions and inspired creations by Dubai’s Perfume Doctor, available from N7 Cosmetics — authorised UK distributor.",
+  },
   hero: {
     ctaLabel: homeContent.hero.cta,
     backgroundImage: "/imgs/hero-bg.png",

@@ -1,3 +1,5 @@
+import type { ProductCardDetails } from "@/lib/commerce/product-card";
+
 export type CollectionSlug =
   | "n7"
   | "yusuf-bhai-originals"
@@ -6,7 +8,7 @@ export type CollectionSlug =
   | "sale"
   | "bundles";
 
-export interface CollectionProduct {
+export interface CollectionProduct extends Partial<ProductCardDetails> {
   id?: string;
   slug?: string;
   productType?: "STANDARD" | "BUNDLE";

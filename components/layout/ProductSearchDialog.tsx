@@ -1,4 +1,5 @@
 "use client";
+import { trackMeta } from "@/lib/meta/client";
 
 import { ArrowRight, LoaderCircle, Search, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -127,6 +128,7 @@ export default function ProductSearchDialog({
           throw new Error(payload.error ?? "Products could not be searched.");
         }
         setResults(Array.isArray(payload.results) ? payload.results : []);
+        void trackMeta("Search");
         setError("");
       } catch (requestError) {
         if (controller.signal.aborted) return;

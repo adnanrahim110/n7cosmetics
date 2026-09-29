@@ -66,6 +66,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <div>
       <PageHeader eyebrow="Configuration" title="Global settings" description="Contact details, storefront information, social profiles, inventory defaults, and project-wide email delivery." />
+      <p className="mt-4 text-sm text-zinc-600">Website tracking and advertising connections: <Link href="/admin/meta" className="font-medium text-amber-800 underline underline-offset-4">Meta integration</Link></p>
       {query.saved ? <Notice type="success">Global settings saved.</Notice> : null}
       {query.error ? <Notice>Check the email, field lengths, and inventory threshold.</Notice> : null}
       {query["social-saved"] ? <Notice type="success">Social media profiles saved and published across the storefront.</Notice> : null}

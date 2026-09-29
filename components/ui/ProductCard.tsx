@@ -1,6 +1,8 @@
 "use client";
 
-import { Check, Heart, ShoppingBag } from "lucide-react";
+import { cn } from "@/lib/cn";
+import type { ProductCardDetails } from "@/lib/commerce/product-card";
+import { Check, Heart, ShoppingBag, Sparkles, Tag } from "lucide-react";
 import { motion, useMotionValue, useTransform } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,7 +11,7 @@ import CartAction from "../commerce/CartAction";
 import { useCommerce } from "../commerce/CommerceProvider";
 import RatingStars from "../commerce/RatingStars";
 
-export interface ProductCardProduct {
+export interface ProductCardProduct extends Partial<ProductCardDetails> {
   slug: string;
   href?: string;
   name: string;
@@ -20,6 +22,84 @@ export interface ProductCardProduct {
   inspiredBy?: string | null;
   productCode?: string | null;
   audience?: string | null;
+}
+
+interface ProductTagProps {
+  bestSeller?: boolean;
+  isNew?: boolean;
+  className?: string;
+}
+
+function ProductTag({ bestSeller, isNew, className }: ProductTagProps) {
+  if (!bestSeller && !isNew) return null;
+
+  return (
+    <div
+      className={cn(
+        "pointer-events-none flex flex-col items-start gap-1 select-none",
+        className,
+      )}
+    >
+      {bestSeller ? (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#967C55]/35 bg-[#FAF7F2]/95 px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-[#7A5D38] shadow-xs backdrop-blur-md sm:px-3 sm:py-0.5 sm:text-[8.5px]">
+          <Tag
+            aria-hidden="true"
+            className="size-2.5 text-[#967C55]"
+            strokeWidth={2.2}
+          />
+          Best seller
+        </span>
+      ) : null}
+      {isNew ? (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-[#1C1814]/95 px-2.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-[#FAF7F2] shadow-xs backdrop-blur-md sm:px-3 sm:py-0.5 sm:text-[8.5px]">
+          <Sparkles
+            aria-hidden="true"
+            className="size-2.5 text-primary-300"
+            strokeWidth={2.2}
+          />
+          New
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function ProductCardSummary({
+  product,
+  align = "center",
+}: {
+  product: ProductCardProduct;
+  align?: "left" | "center";
+}) {
+  const isLeft = align === "left";
+  return (
+    <div
+      className={cn("my-2 space-y-1.5", isLeft ? "text-left" : "text-center")}
+    >
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-1.5",
+          isLeft ? "justify-start" : "justify-center",
+        )}
+      >
+        <RatingStars rating={product.rating} size={13} />
+        {product.reviewCount !== undefined ? (
+          <span className="text-[11px] text-black/55">
+            ({product.reviewCount}{" "}
+            {product.reviewCount === 1 ? "review" : "reviews"})
+          </span>
+        ) : null}
+      </div>
+      {product.scentFamilies?.length ? (
+        <p className="text-xs leading-5 text-[#7a5d38]">
+          {product.scentFamilies.join(" · ")}
+        </p>
+      ) : null}
+      {product.size ? (
+        <p className="text-xs text-black/55">{product.size}</p>
+      ) : null}
+    </div>
+  );
 }
 
 const genderBadges = {
@@ -83,8 +163,8 @@ function GenderBadge({
   return (
     <span
       aria-label={`${badge.label} fragrance`}
-      className={`flex shrink-0 items-center justify-center text-center text-[7px] font-bold uppercase leading-none tracking-[0.04em] text-white ${
-        vertical ? "h-14 w-6 px-1 py-2" : "px-3 py-1"
+      className={`flex shrink-0 items-center justify-center rounded-xs text-center text-[7px] font-bold uppercase leading-none tracking-[0.04em] text-white ${
+        vertical ? "h-14 w-6 px-1 py-2" : "px-2.5 py-1"
       } ${badge.color} ${className}`}
       style={style}
       title={`${badge.label} fragrance`}
@@ -162,10 +242,10 @@ export default function ProductCard({
             className="absolute inset-0 z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#967C55]"
             href={href}
           />
-          <GenderBadge
-            audience={product.audience}
-            className="pointer-events-none absolute left-1 top-1 z-20"
-          />
+          <div className="pointer-events-none absolute left-2 top-2 z-20 flex flex-col items-start gap-1">
+            <ProductTag bestSeller={product.bestSeller} isNew={product.isNew} />
+            <GenderBadge audience={product.audience} />
+          </div>
           <div className="pointer-events-none absolute inset-x-[14%] bottom-[7%] h-[12%] rounded-full bg-black/10 blur-xl" />
           <Image
             src={product.image}
@@ -209,7 +289,7 @@ export default function ProductCard({
               {product.name}
             </h3>
           </Link>
-          <RatingStars className="mt-1.5" rating={product.rating} size={13} />
+          <ProductCardSummary align="left" product={product} />
           <span className="mt-1 text-[15px] font-bold text-[#1A1A1A]">
             {product.price}
           </span>
@@ -284,7 +364,7 @@ export default function ProductCard({
               style={{ transform: "translateZ(80px)" }}
             >
               <div
-                className={`relative w-[80%] ${soldOut ? "" : "transition-transform duration-700 ease-[0.65,0,0.35,1] group-hover:scale-110 group-hover:-translate-y-4"} ${productCode ? "h-[90%]" : "h-[80%]"}`}
+                className={`relative w-[80%] ${soldOut ? "" : "transition-transform duration-700 ease-[0.65,0,0.35,1] group-hover:scale-110 group-hover:-translate-y-4"} ${productCode ? "h-[82%]" : "h-[80%]"}`}
               >
                 <Image
                   src={product.image}
@@ -314,6 +394,11 @@ export default function ProductCard({
         </motion.div>
 
         <div className="pointer-events-none absolute inset-x-0 top-0 z-40 aspect-3/4">
+          <ProductTag
+            bestSeller={product.bestSeller}
+            isNew={product.isNew}
+            className="absolute left-1/2 -translate-x-1/2 top-2"
+          />
           <div className="absolute inset-y-0 right-0 w-16 overflow-hidden pointer-events-none">
             <div className="pointer-events-auto absolute right-0 lg:right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
               <button
@@ -354,7 +439,7 @@ export default function ProductCard({
           <h3 className="font-heading text-xl md:text-xl text-[#1A1A1A] tracking-wide mb-1 transition-colors duration-300 line-clamp-1">
             {product.name}
           </h3>
-          <RatingStars className="mb-1.5" rating={product.rating} size={14} />
+          <ProductCardSummary product={product} />
           <span className="text-[#1A1A1A] font-bold text-base mb-3">
             {product.price}
           </span>

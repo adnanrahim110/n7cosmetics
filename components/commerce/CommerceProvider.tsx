@@ -8,6 +8,7 @@ import type { CartPricing } from "@/lib/commerce/quote";
 import type { StorefrontProductLabels } from "@/lib/commerce/catalog";
 import { MAX_CART_ITEM_QUANTITY, MAX_CART_LINES } from "@/lib/commerce/cart-limits";
 import { unavailableStock, type StockAvailability, type StockIssue, type StockSnapshot } from "@/lib/commerce/stock";
+import { trackMeta } from "@/lib/meta/client";
 
 export interface CommerceProduct {
   slug: string;
@@ -33,6 +34,8 @@ interface CommerceContextValue {
   pricingLoading: boolean;
   pricingError: string | null;
   couponCode: string;
+  deliveryPostcode: string;
+  setDeliveryPostcode: (postcode: string) => void;
   setCouponCode: (code: string) => void;
   reservationKey: string | undefined;
   setReservationKey: (key: string | undefined) => void;
@@ -111,11 +114,12 @@ export default function CommerceProvider({ children, productLabels, initialStock
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [couponCode, setCouponCode] = useState("");
+  const [deliveryPostcode, setDeliveryPostcode] = useState("");
   const [reservationKey, setReservationKey] = useState<string>();
   const [pricingState, setPricingState] = useState<{ key: string; data?: CartPricing; error?: string } | null>(null);
   const stockRequest = stockKey(cart, reservationKey);
   const currentStock = stockState.key === stockRequest ? stockState.snapshot : null;
-  const pricingRequest = JSON.stringify({ items: cart.map(({ slug, quantity }) => ({ slug, quantity })), couponCode: couponCode || undefined, reservationKey });
+  const pricingRequest = JSON.stringify({ items: cart.map(({ slug, quantity }) => ({ slug, quantity })), couponCode: couponCode || undefined, reservationKey, postalCode: deliveryPostcode || undefined });
   const currentPricing = cart.length && pricingState?.key === pricingRequest ? pricingState : null;
   const cartPricing = currentPricing?.data ?? null;
   const pricingError = stockError ?? currentStock?.issues[0]?.message ?? currentPricing?.error ?? null;
@@ -223,7 +227,9 @@ export default function CommerceProvider({ children, productLabels, initialStock
       if (snapshot.issues.length) { toast.error(snapshot.issues[0].message); return false; }
       // A removal or payment completion during the request must never be undone.
       if (revision !== cartRevision.current) return false;
+      const additions = next.map(item => ({ slug: item.slug, quantity: item.quantity - (cartRef.current.find(old => old.slug === item.slug)?.quantity ?? 0) })).filter(item => item.quantity > 0);
       replaceCart(next);
+      if (additions.length) void trackMeta("AddToCart", additions);
       if (open) setIsCartOpen(true);
       return true;
     } catch { toast.error("Unable to check stock. Your cart hasn’t changed. Please try again."); return false; }
@@ -286,6 +292,8 @@ export default function CommerceProvider({ children, productLabels, initialStock
     getCartLimit,
     getStockIssue,
     setCouponCode,
+    deliveryPostcode,
+    setDeliveryPostcode,
     addToCart,
     addItemsToCart,
     updateQuantity,
@@ -296,7 +304,7 @@ export default function CommerceProvider({ children, productLabels, initialStock
     isInCart,
     toggleWishlist,
     isWishlisted,
-  }), [addItemsToCart, addToCart, cart, clearCart, closeCart, isCartOpen, isInCart, isWishlisted, openCart, removeFromCart, toggleWishlist, updateQuantity, wishlist, hydrated, cartPricing, pricingLoading, pricingError, couponCode, reservationKey, cartBusy, getStock, getCartLimit, getStockIssue]);
+  }), [addItemsToCart, addToCart, cart, clearCart, closeCart, isCartOpen, isInCart, isWishlisted, openCart, removeFromCart, toggleWishlist, updateQuantity, wishlist, hydrated, cartPricing, pricingLoading, pricingError, couponCode, deliveryPostcode, reservationKey, cartBusy, getStock, getCartLimit, getStockIssue]);
   return <CommerceContext.Provider value={value}>{children}<Toaster position="bottom-center" /></CommerceContext.Provider>;
 }
 

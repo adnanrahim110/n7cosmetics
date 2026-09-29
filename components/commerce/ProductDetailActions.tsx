@@ -1,20 +1,23 @@
 "use client";
 
 import { Check, Heart, ShoppingBag } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import StickyProductPurchase from "./StickyProductPurchase";
 import CartAction from "./CartAction";
 import type { CommerceProduct } from "./CommerceProvider";
 import { useCommerce } from "./CommerceProvider";
 
 export default function ProductDetailActions({ product }: { product: CommerceProduct }) {
   const [quantity, setQuantity] = useState(1);
+  const actionsRef = useRef<HTMLDivElement>(null);
   const { isWishlisted, toggleWishlist, getStock, getCartLimit } = useCommerce();
   const soldOut = getStock(product.slug).soldOut;
   const maximum = getCartLimit(product.slug);
   const selectedQuantity = Math.min(quantity, Math.max(1, maximum));
   const wishlisted = isWishlisted(product.slug);
   return (
-    <div className="mt-8">
+    <>
+    <div className="mt-8" ref={actionsRef}>
       <div className="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-3 sm:flex sm:items-center">
         <label className="flex min-h-11 items-center justify-between border border-black/20 px-3 py-2 text-sm sm:block sm:min-h-0">
           Qty
@@ -56,5 +59,7 @@ export default function ProductDetailActions({ product }: { product: CommercePro
         </button>
       </div>
     </div>
+    <StickyProductPurchase product={product} quantity={selectedQuantity} target={actionsRef} />
+    </>
   );
 }

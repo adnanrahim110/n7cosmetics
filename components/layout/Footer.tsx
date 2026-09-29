@@ -182,6 +182,7 @@ export default function Footer({
                   <span className="absolute left-0 bottom-0 w-full h-px bg-[#967C55] scale-x-0 origin-right transition-transform duration-500 ease-[cubic-bezier(0.86,0,0.07,1)] group-hover:scale-x-100 group-hover:origin-left" />
                 </Link>
               ))}
+              <button type="button" onClick={() => window.dispatchEvent(new Event("n7:cookie-preferences"))} className="pb-1 text-[10px] uppercase tracking-widest text-white/60 transition-colors hover:text-white">Cookie preferences</button>
             </div>
           </div>
 

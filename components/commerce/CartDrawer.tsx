@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 import Title from "@/components/ui/Title";
 import CartLinePrice from "./CartLinePrice";
 import CartPriceSummary from "./CartPriceSummary";
+import FreeDeliveryProgress from "./FreeDeliveryProgress";
 import CartProductLabels from "./CartProductLabels";
 import { commerceProductHref, useCommerce } from "./CommerceProvider";
 
@@ -120,6 +121,7 @@ export default function CartDrawer() {
 
             {cart.length ? (
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 sm:px-7">
+                <div className="pt-4"><FreeDeliveryProgress /></div>
                 <div className="divide-y divide-black/10">
                   {cart.map((item) => (
                     <article
