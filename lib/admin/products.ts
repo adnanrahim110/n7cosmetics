@@ -10,6 +10,8 @@ export interface ProductListRow extends RowDataPacket {
   product_type: "STANDARD" | "BUNDLE";
   brand: string | null;
   inspired_by: string | null;
+  product_code: string | null;
+  sku: string | null;
   audience: "MEN" | "WOMEN" | "UNISEX" | "UNSPECIFIED";
   featured: number;
   price_pence: number | null;
@@ -104,6 +106,7 @@ function productListWhere(filters: ProductListFilters): { sql: string; values: A
       OR p.slug LIKE ?
       OR p.brand LIKE ?
       OR p.inspired_by LIKE ?
+      OR p.product_code LIKE ?
       OR EXISTS (
         SELECT 1 FROM product_variants search_variant
         WHERE search_variant.product_id = p.id AND search_variant.is_default = 1 AND search_variant.sku LIKE ?
@@ -121,7 +124,7 @@ function productListWhere(filters: ProductListFilters): { sql: string; values: A
         WHERE search_pc.product_id = p.id AND search_collection.name LIKE ?
       )
     )`);
-    values.push(term, term, term, term, term, term, term);
+    values.push(term, term, term, term, term, term, term, term);
   }
   if (filters.status) {
     clauses.push("p.status = ?");
@@ -172,6 +175,8 @@ export async function listProducts(filters: ProductListFilters, requestedPage: n
        p.product_type,
        p.brand,
        p.inspired_by,
+       p.product_code,
+       v.sku,
        p.audience,
        p.featured,
        v.price_pence,

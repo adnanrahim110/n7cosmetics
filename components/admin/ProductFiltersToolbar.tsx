@@ -189,7 +189,7 @@ export default function ProductFiltersToolbar({ initialFilters, categories, coll
                   applyFilter("q", "");
                 }
               }}
-              placeholder="Search name, brand, category, or collection"
+              placeholder="Search code, name, brand, category, or collection"
               type="search"
               value={filters.q}
             />

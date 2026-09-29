@@ -1,3 +1,4 @@
+import { productNameWithCode } from "../commerce/product-label";
 import { randomUUID } from "node:crypto";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { executeMutation, selectOne, selectRows } from "../db/query";
@@ -16,7 +17,7 @@ export async function enqueuePaymentFailureAlert(orderId: string, connection: Po
   await enqueueStoreNotification(brand, "payment_failure", { ...email, replyTo: order.customer_email, templateKey: "payment-failure-team" }, `order:${orderId}`, connection);
 }
 
-interface LowStockRow extends RowDataPacket { id: string; product_id: string; name: string; title: string; sku: string; stock_on_hand: number; low_stock_threshold: number }
+interface LowStockRow extends RowDataPacket { id: string; product_id: string; name: string; product_code: string | null; title: string; sku: string; stock_on_hand: number; low_stock_threshold: number }
 
 export async function enqueueLowStockAlerts(): Promise<void> {
   const preferences = await getEmailPreferences();
@@ -29,12 +30,12 @@ export async function enqueueLowStockAlerts(): Promise<void> {
     if (!notificationRecipients(brand.notifications, "low_stock").length) return;
     const state = readSetting(saved?.value_json);
     const notified = new Set(Array.isArray(state) ? state.filter((id): id is string => typeof id === "string") : []);
-    const rows = await selectRows<LowStockRow>(`SELECT CAST(v.id AS CHAR) AS id, CAST(v.product_id AS CHAR) AS product_id, p.name, v.title, v.sku, v.stock_on_hand, v.low_stock_threshold
+    const rows = await selectRows<LowStockRow>(`SELECT CAST(v.id AS CHAR) AS id, CAST(v.product_id AS CHAR) AS product_id, p.name, p.product_code, v.title, v.sku, v.stock_on_hand, v.low_stock_threshold
       FROM product_variants v JOIN products p ON p.id = v.product_id
       WHERE v.status = 'ACTIVE' AND p.status = 'ACTIVE' AND p.track_inventory = 1 AND v.stock_on_hand <= v.low_stock_threshold ORDER BY v.id`, [], connection);
     for (const row of rows) {
       if (notified.has(row.id)) continue;
-      const email = storeAlertEmail(brand, "low-stock-team", [["Product", row.name], ["Variant", row.title], ["SKU", row.sku], ["Available", String(row.stock_on_hand)], ["Alert threshold", String(row.low_stock_threshold)]], `/admin/products/${row.product_id}`);
+      const email = storeAlertEmail(brand, "low-stock-team", [["Product", productNameWithCode(row.name, row.product_code, row.sku)], ["Variant", row.title], ["SKU", row.sku], ["Available", String(row.stock_on_hand)], ["Alert threshold", String(row.low_stock_threshold)]], `/admin/products/${row.product_id}`);
       await enqueueStoreNotification(brand, "low_stock", { ...email, replyTo: brand.replyToEmail, templateKey: "low-stock-team" }, `variant:${row.id}:${randomUUID()}`, connection);
     }
     await executeMutation("UPDATE site_settings SET value_json = ? WHERE setting_key = 'email.low_stock_state'", [JSON.stringify(rows.map((row) => row.id))], connection);

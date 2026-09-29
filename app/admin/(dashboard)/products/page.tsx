@@ -11,6 +11,7 @@ import StatusBadge from "@/components/admin/StatusBadge";
 import { hasActiveProductFilters, parseProductListFilters, productListFilterQuery } from "@/lib/admin/product-list-filters";
 import { productFormPath, productListPath, type ProductListSearchParams } from "@/lib/admin/product-navigation";
 import { getProductListFilterOptions, listProducts } from "@/lib/admin/products";
+import { productIdentifier } from "@/lib/commerce/product-label";
 import { archiveProductAction } from "./actions";
 
 interface ProductsPageProps { searchParams: Promise<ProductListSearchParams> }
@@ -87,6 +88,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     <div className="flex items-center gap-3">
                       <AdminThumbnail alt={product.name} src={product.image_url} />
                       <div className="min-w-0">
+                        <p className="mb-1 text-xs font-semibold text-amber-800">{productIdentifier(product.product_code, product.sku) || "Code not recorded"}</p>
                         <Link className="block max-w-60 truncate font-medium text-zinc-950 hover:text-amber-700" href={productFormPath(`/admin/products/${product.id}`, returnTo)}>{product.name}</Link>
                         <p className="mt-0.5 max-w-60 truncate text-xs text-zinc-500">{product.brand ?? "Brand not set"}</p>
                         {product.inspired_by ? <p className="mt-0.5 max-w-60 truncate text-xs text-zinc-400">Inspired by {product.inspired_by}</p> : null}

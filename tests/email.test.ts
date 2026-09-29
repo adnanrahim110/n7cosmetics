@@ -12,6 +12,17 @@ import { emailCopy, emailCopyDefinition, emailCopyTemplates, readEmailCopy, spli
 const brand = { appUrl: "https://n7.example.com", contactEmail: "care@n7.example.com" };
 const order: OrderEmailData = { number: "N7-TEST", name: "Alex <script>alert(1)</script>", email: "alex@example.com", currency: "GBP", status: "NEW", paymentStatus: "UNPAID", fulfillmentStatus: "UNFULFILLED", paymentMethod: "BANK_TRANSFER", subtotal: 10000, discount: 1000, shipping: 500, tax: 0, total: 9500, address: '12 Test Road\n<svg onload="alert(1)">', bankInstructions: "Test bank instructions", items: [{ name: 'Oud <img src=x onerror="alert(1)">', variant: "100 ml", quantity: 2, unitPrice: 5000, total: 9000 }] };
 
+test("every order email includes escaped product codes and SKU fallbacks in HTML and text", () => {
+  for (const kind of ["confirmation", "update", "team", "team-update"] as const) {
+    const email = orderEmail(brand, { ...order, items: [{ ...order.items[0], name: "Aventus", productCode: "253<script>", sku: "INTERNAL" }, { ...order.items[0], name: "Oud", sku: "N7-SKU" }] }, kind);
+    assert.match(email.text, /253<script> - Aventus/);
+    assert.match(email.html, /253&lt;script&gt; - Aventus/);
+    assert.match(email.text, /N7-SKU - Oud/);
+    assert.match(email.html, /N7-SKU - Oud/);
+    assert.doesNotMatch(email.html, /253<script>/);
+  }
+});
+
 test("all transactional and subscription templates have complete HTML and plain text", () => {
   const previews = emailPreviews(brand);
   assert.equal(previews.length, 13);

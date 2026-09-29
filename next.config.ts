@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingIncludes: {
     "/admin/customers/export": ["./public/fonts/export/*"],
+    "/admin/orders/*/receipt": ["./public/fonts/export/*", "./public/imgs/logo-w.png"],
   },
   reactCompiler: true,
   experimental: {
