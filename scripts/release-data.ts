@@ -6,14 +6,22 @@ import mysql, { type Connection, type RowDataPacket } from "mysql2";
 import { getDatabaseConfig } from "../lib/env";
 
 interface Fingerprint { columns: string[]; count: number; digest: string }
-interface Snapshot { tables: Record<string, Fingerprint>; shipping: RowDataPacket[] | null }
+interface Snapshot { tables: Record<string, Fingerprint>; shipping: RowDataPacket[] | null; orderProductCodeCleanup?: Fingerprint }
+const productCodeMigration = "030_remove_order_product_code_fallbacks.sql";
 const identifier = (value: string) => `\`${value.replaceAll("`", "``")}\``;
 const modulus = 1n << 256n;
 
-async function fingerprint(db: Connection, table: string, columns: string[], excludeSetting?: string): Promise<Fingerprint> {
+export async function fingerprintReleaseTable(db: Connection, table: string, columns: string[], excludeSetting?: string, cleanProductCodes = false): Promise<Fingerprint> {
   let count = 0, sum = 0n;
+  // Project precisely migration 030's expected values before changing any data.
+  // All other columns and rows remain part of the same fingerprint.
+  const selection = cleanProductCodes ? columns.map(column => column === "product_code"
+    ? `CASE WHEN NULLIF(TRIM(oi.product_code), '') = NULLIF(TRIM(oi.sku), '')
+        AND NOT (NULLIF(TRIM(oi.product_code), '') <=> NULLIF(TRIM(p.product_code), ''))
+      THEN NULLIF(TRIM(p.product_code), '') ELSE oi.product_code END AS product_code`
+    : `oi.${identifier(column)}`).join(",") : columns.map(identifier).join(",");
   const stream = db.query(
-    `SELECT ${columns.map(identifier).join(",")} FROM ${identifier(table)}${excludeSetting ? " WHERE setting_key <> ?" : ""}`,
+    `SELECT ${selection} FROM ${identifier(table)}${cleanProductCodes ? " oi LEFT JOIN products p ON p.id = oi.product_id" : ""}${excludeSetting ? " WHERE setting_key <> ?" : ""}`,
     excludeSetting ? [excludeSetting] : [],
   ).stream();
   for await (const row of stream) {
@@ -21,6 +29,11 @@ async function fingerprint(db: Connection, table: string, columns: string[], exc
     count++;
   }
   return { columns, count, digest: sum.toString(16).padStart(64, "0") };
+}
+
+async function productCodeMigrationApplied(db: Connection): Promise<boolean> {
+  const [rows] = await db.promise().query<RowDataPacket[]>("SELECT migration_name FROM schema_migrations WHERE migration_name = ?", [productCodeMigration]);
+  return rows.length > 0;
 }
 
 export async function snapshotReleaseData(db: Connection): Promise<Snapshot> {
@@ -31,7 +44,10 @@ export async function snapshotReleaseData(db: Connection): Promise<Snapshot> {
   for (const { name } of tables) {
     if (name === "schema_migrations" || name === "product_reviews" || (name === "shipping_methods" && migratingShipping)) continue;
     const [columns] = await db.promise().query<RowDataPacket[]>(`SHOW COLUMNS FROM ${identifier(name)}`);
-    snapshot.tables[name] = await fingerprint(db, name, columns.map(column => String(column.Field)));
+    snapshot.tables[name] = await fingerprintReleaseTable(db, name, columns.map(column => String(column.Field)));
+    if (name === "order_items" && snapshot.tables[name].columns.includes("product_code") && !await productCodeMigrationApplied(db)) {
+      snapshot.orderProductCodeCleanup = await fingerprintReleaseTable(db, name, snapshot.tables[name].columns, undefined, true);
+    }
   }
   if (migratingShipping) [snapshot.shipping] = await db.promise().query<RowDataPacket[]>("SELECT * FROM shipping_methods ORDER BY id");
   return snapshot;
@@ -39,7 +55,13 @@ export async function snapshotReleaseData(db: Connection): Promise<Snapshot> {
 
 export async function verifyReleaseData(db: Connection, snapshot: Snapshot) {
   for (const [table, before] of Object.entries(snapshot.tables)) {
-    let after = await fingerprint(db, table, before.columns);
+    let after = await fingerprintReleaseTable(db, table, before.columns);
+    let expected = before;
+    if (table === "order_items" && snapshot.orderProductCodeCleanup && await productCodeMigrationApplied(db)) {
+      assert.deepEqual(snapshot.orderProductCodeCleanup.columns, before.columns, "Order cleanup columns changed");
+      assert.equal(snapshot.orderProductCodeCleanup.count, before.count, "Order cleanup row count changed");
+      expected = snapshot.orderProductCodeCleanup;
+    }
     if (table === "site_settings" && after.count === before.count + 1) {
       // Migration 028 adds this default. Excluding it must reproduce the entire
       // original fingerprint, so existing settings (including Meta) stay protected.
@@ -50,11 +72,11 @@ export async function verifyReleaseData(db: Connection, snapshot: Snapshot) {
       const added = rows[0];
       if (added?.setting_group === "meta" && added.is_public === 0 && added.updated_by === null
         && JSON.stringify(typeof added.value_json === "string" ? JSON.parse(added.value_json) : added.value_json) === "{}") {
-        after = await fingerprint(db, table, before.columns, "meta.configuration");
+        after = await fingerprintReleaseTable(db, table, before.columns, "meta.configuration");
       }
     }
     assert.equal(after.count, before.count, `Row count changed in ${table}`);
-    assert.equal(after.digest, before.digest, `Existing values changed in ${table}`);
+    assert.equal(after.digest, expected.digest, `Existing values changed in ${table}`);
   }
   if (snapshot.shipping) {
     const [methods] = await db.promise().query<RowDataPacket[]>("SELECT * FROM shipping_methods ORDER BY id");
