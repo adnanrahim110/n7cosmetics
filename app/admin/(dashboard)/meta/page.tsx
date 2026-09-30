@@ -346,8 +346,8 @@ export default async function MetaSettingsPage() {
             <p>
               Events use <code>n7_variant_&lt;variant ID&gt;</code>, including
               the purchasable bundle variant. The future catalogue export will
-              use those same IDs. The dashboard and catalogue export are
-              separate upcoming phases.
+              use those same IDs. The main dashboard shows store and advertising
+              performance; detailed dashboard pages and catalogue export will follow.
             </p>
           </li>
         </ol>

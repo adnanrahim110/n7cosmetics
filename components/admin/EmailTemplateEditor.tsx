@@ -1,5 +1,7 @@
 "use client";
 
+import CustomSelect from "@/components/admin/CustomSelect";
+
 import { LockKeyhole, LoaderCircle } from "lucide-react";
 import { Fragment, useId, useRef, useState, type FormEvent } from "react";
 import { saveEmailTemplateAction } from "@/app/admin/(dashboard)/emails/templates/actions";
@@ -66,11 +68,7 @@ export default function EmailTemplateEditor({ templateKey, label, brand, initial
   return <>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm font-medium">Subject: {sample.email.subject}</p>
-      {templateKey.startsWith("order-") || templateKey === "new-order-team" ? <label className="flex items-center gap-2 text-sm text-zinc-600">Sample order
-        <select className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm" onChange={(event) => setScenario(event.target.value)} value={scenario}>
-          <option value="default">Default example</option><option value="new">New / bank transfer</option><option value="confirmed">Confirmed</option><option value="processing">Processing / paid</option><option value="shipped">Shipped / Royal Mail</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option><option value="refunded">Refunded</option><option value="cash">Cash on delivery</option><option value="bankMissing">Bank instructions missing</option><option value="other">On hold / payment pending</option>
-        </select>
-      </label> : null}
+      {templateKey.startsWith("order-") || templateKey === "new-order-team" ? <CustomSelect className="min-w-56" label="Sample order" value={scenario} onChange={([value]) => setScenario(value)} options={[{"value": "default", "label": "Default example"}, {"value": "new", "label": "New / bank transfer"}, {"value": "confirmed", "label": "Confirmed"}, {"value": "processing", "label": "Processing / paid"}, {"value": "shipped", "label": "Shipped / Royal Mail"}, {"value": "delivered", "label": "Delivered"}, {"value": "cancelled", "label": "Cancelled"}, {"value": "refunded", "label": "Refunded"}, {"value": "cash", "label": "Cash on delivery"}, {"value": "bankMissing", "label": "Bank instructions missing"}, {"value": "other", "label": "On hold / payment pending"}]} /> : null}
     </div>
     <iframe className="h-[1000px] w-full rounded-xl border border-zinc-200 bg-[#eee8de]" sandbox="" srcDoc={sample.email.html} title={`${label} email preview`} />
     <details className="mt-5 rounded-xl border border-zinc-200 bg-white p-5" open>

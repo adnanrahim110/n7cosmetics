@@ -4,7 +4,7 @@
 
 1. Apply migration `028_meta_integration.sql` with `pnpm db:migrate`.
 2. Open `/admin/meta` as an owner. Managers can inspect configuration and delivery records; fulfilment accounts cannot access this page.
-3. A Pixel/dataset ID enables browser events independently. Add a Conversions API token for server events. An ad account ID and a separate `ads_read` token prepare reporting access for the dashboard phase.
+3. A Pixel/dataset ID enables browser events independently. Add a Conversions API token for server events. An ad account ID and a separate `ads_read` token enable advertising reports on the main dashboard.
 4. Tokens use the existing `APP_ENCRYPTION_KEY` AES-256-GCM encryption. Blank token inputs preserve saved tokens; removal checkboxes delete them. No token or ciphertext is passed to the browser. A failed connection check does not falsely mark configuration as verified.
 5. Keep `pnpm meta:worker:deploy` running in production (after `pnpm build:deploy`). The Docker Compose deployment includes `meta-worker`. For local development use `pnpm meta:worker`. Request completion also attempts prompt delivery; the durable worker recovers missed callbacks and verifies paid orders independently of checkout requests.
 
@@ -42,7 +42,7 @@ Browser purchase deduplication markers expire after 47 hours and are cleaned on 
 
 For an authorised live check, save a Test Events code and select **Send server test event**. Only a synthetic `PageView` with that code is sent. Test payments are server-only and require this code; they never trigger browser Purchase events. Browser activity still uses the saved Pixel, so use a dedicated test dataset when testing the complete browser journey. Remove the code before production server reporting. Review Meta Test Events, Diagnostics, Event Match Quality, and browser/server deduplication yourself before launch.
 
-Meta API errors are reduced to safe messages/numeric codes. Transient failures retry with exponential backoff. Invalid credentials/permissions require an owner to fix the connection. Delivery statuses indicate whether Meta accepted a request, not whether it attributed a purchase to an ad. Reporting permission checks are read-only; campaign statistics and catalogue export are the next phases.
+Meta API errors are reduced to safe messages/numeric codes. Transient failures retry with exponential backoff. Invalid credentials/permissions require an owner to fix the connection. Delivery statuses indicate whether Meta accepted a request, not whether it attributed a purchase to an ad. The dashboard's Traffic and Meta ads tabs read account, daily, campaign and delivery-breakdown reports, with one-minute caching and explicit attribution. Catalogue export remains future work. See [dashboard definitions](dashboard.md).
 
 Source references (checked 2026-09-29):
 - https://developers.facebook.com/docs/marketing-api/conversions-api/best-practices/

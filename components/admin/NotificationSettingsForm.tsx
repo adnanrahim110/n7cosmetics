@@ -1,5 +1,7 @@
 "use client";
 
+import CustomSelect from "@/components/admin/CustomSelect";
+
 import { useActionState, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { saveNotificationSettingsAction, sendNotificationTestAction } from "@/app/admin/(dashboard)/settings/email-actions";
@@ -50,7 +52,7 @@ export default function NotificationSettingsForm({ saved, replyTo, contactEmail,
             <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={route.enabled} onChange={(event) => setSettings((current) => ({ ...current, routes: { ...current.routes, [type]: { ...current.routes[type], enabled: event.target.checked } } }))} />{notificationLabels[type]}</label>
             <p className="mt-2 text-xs leading-5 text-zinc-500">{notificationDescriptions[type]}</p>
             {route.enabled ? <div className="mt-4 space-y-3">
-              <label className="block text-xs font-medium text-zinc-600">Recipient list<select className={`${input} mt-1`} value={route.useDefault ? "default" : "custom"} onChange={(event) => setSettings((current) => ({ ...current, routes: { ...current.routes, [type]: { ...current.routes[type], useDefault: event.target.value === "default" } } }))}><option value="default">Use default store recipients</option><option value="custom">Use a custom recipient list</option></select></label>
+              <CustomSelect label="Recipient list" disabled={pending} value={route.useDefault ? "default" : "custom"} onChange={([value]) => setSettings((current) => ({ ...current, routes: { ...current.routes, [type]: { ...current.routes[type], useDefault: value === "default" } } }))} options={[{value: "default", label: "Use default store recipients"}, {value: "custom", label: "Use a custom recipient list"}]} searchable={false} />
               {!route.useDefault ? <RecipientList label={notificationLabels[type]} values={route.recipients} onChange={(recipients) => setSettings((current) => ({ ...current, routes: { ...current.routes, [type]: { ...current.routes[type], recipients } } }))} /> : <p className={`break-words text-xs leading-5 ${effective.length ? "text-zinc-500" : "text-amber-800"}`}>{effective.length ? effective.join(", ") : "Add at least one default recipient before enabling this notification."}</p>}
             </div> : null}
           </div>;
@@ -63,7 +65,7 @@ export default function NotificationSettingsForm({ saved, replyTo, contactEmail,
       <div className="mt-4 flex justify-end"><EmailSubmitButton label="Save notification settings" pendingLabel="Saving settings…" /></div>
     </form>
     {testable.length ? <form action={sendNotificationTestAction} className="mt-6 flex flex-wrap items-end gap-3 border-t border-zinc-100 pt-5">
-      <label className="min-w-0 flex-1 text-sm font-medium text-zinc-700">Test saved recipients<select className={`${input} mt-1.5`} name="notificationType">{testable.map((type) => <option value={type} key={type}>{notificationLabels[type]} ({notificationRecipients(saved, type).length})</option>)}</select></label>
+      <CustomSelect className="min-w-0 flex-1" label="Test saved recipients" name="notificationType" defaultValue={testable[0]} options={testable.map((type) => ({value: type, label: `${notificationLabels[type]} (${notificationRecipients(saved, type).length})`}))} />
       <EmailSubmitButton label="Send group test" pendingLabel="Queuing tests…" />
       <p className="w-full text-xs text-zinc-500">Uses saved lists. Save changes first, then check Email & enquiries for each recipient’s result.</p>
     </form> : null}

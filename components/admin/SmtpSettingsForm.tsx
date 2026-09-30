@@ -1,5 +1,7 @@
 "use client";
 
+import CustomSelect from "@/components/admin/CustomSelect";
+
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { saveSmtpSettingsAction, sendTestEmailAction } from "@/app/admin/(dashboard)/settings/email-actions";
@@ -27,17 +29,17 @@ export default function SmtpSettingsForm({ saved, adminEmail }: { saved: SavedSm
     <form action={action} className="mt-5">
       <input type="hidden" name="revision" value={saved.revision} />
       <fieldset className="grid gap-5 sm:grid-cols-2" disabled={pending}>
-        <label className="text-sm font-medium text-zinc-700 sm:col-span-2">Provider<select className={input} name="provider" value={fields.provider} onChange={(event) => {
-          const provider = event.target.value as SmtpInput["provider"];
+        <CustomSelect className="sm:col-span-2" label="Provider" name="provider" disabled={pending} value={fields.provider} onChange={([value]) => {
+          const provider = value as SmtpInput["provider"];
           setFields((current) => ({ ...current, provider, ...(provider === "gmail" ? { host: "smtp.gmail.com", port: 465, security: "tls" as const } : current.provider === "gmail" ? { host: "", port: 465, security: "tls" as const } : {}) }));
-        }}><option value="custom">Custom SMTP</option><option value="gmail">Gmail / Google Workspace</option><option value="hosted">Hosted mailbox / Webmail</option></select></label>
+        }} options={[{value: "custom", label: "Custom SMTP"}, {value: "gmail", label: "Gmail / Google Workspace"}, {value: "hosted", label: "Hosted mailbox / Webmail"}]} searchable={false} />
         <p className="text-sm leading-6 text-zinc-500 sm:col-span-2">{fields.provider === "gmail" ? <>Use your full mailbox address and a <a className="text-amber-800 underline" href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noreferrer">Google app password</a>. Your sender must be an address this account can send from.</> : fields.provider === "hosted" ? "Copy the outgoing SMTP server, port and username from your hosting provider’s mail-client settings. Enter the mailbox password, not the hosting control-panel password or webmail URL." : "Use your provider’s SMTP hostname and credentials. The username may differ from your email address. OAuth-only accounts require a separate integration."}</p>
         <label className="text-sm font-medium text-zinc-700">SMTP hostname<input className={input} name="host" value={fields.host} onChange={(e) => set("host", e.target.value)} placeholder="mail.example.com" maxLength={253} required autoComplete="off" /></label>
         <label className="text-sm font-medium text-zinc-700">Port<input className={input} name="port" type="number" min={1} max={65535} value={fields.port || ""} onChange={(e) => set("port", Number(e.target.value))} required /></label>
-        <label className="text-sm font-medium text-zinc-700">Encryption<select className={input} name="security" value={fields.security} onChange={(e) => {
-          const security = e.target.value as SmtpInput["security"];
+        <CustomSelect label="Encryption" name="security" disabled={pending} value={fields.security} onChange={([value]) => {
+          const security = value as SmtpInput["security"];
           setFields((current) => ({ ...current, security, port: [465, 587].includes(current.port) ? security === "tls" ? 465 : 587 : current.port }));
-        }}><option value="tls">SSL/TLS — normally port 465</option><option value="starttls">STARTTLS — normally port 587</option></select></label>
+        }} options={[{value: "tls", label: "SSL/TLS — normally port 465"}, {value: "starttls", label: "STARTTLS — normally port 587"}]} searchable={false} />
         <label className="text-sm font-medium text-zinc-700">SMTP username<input className={input} name="user" value={fields.user} onChange={(e) => set("user", e.target.value)} maxLength={255} required autoComplete="off" /></label>
         <PasswordInput label="SMTP password" name="password" autoComplete="new-password" maxLength={500} required={passwordRequired} hint={passwordRequired ? "Required for a new server or username." : "A password is saved. Leave blank to keep it for this account."} />
         <label className="text-sm font-medium text-zinc-700">Sender name<input className={input} name="fromName" value={fields.fromName} onChange={(e) => set("fromName", e.target.value)} maxLength={120} required /></label>

@@ -105,7 +105,7 @@ export default function MetaTracking() {
     {error ? <p role="alert" className="mt-3 text-sm text-red-800">{error}</p> : null}
     <div className="mt-4 flex flex-wrap gap-3">
       <button type="button" disabled={busy} onClick={() => void choose(false)} className="min-h-11 flex-1 rounded-lg border border-[#1c1814] px-4 py-2.5 text-sm font-semibold disabled:opacity-50">Essential only</button>
-      <button type="button" disabled={busy} onClick={() => void choose(true)} className="min-h-11 flex-1 rounded-lg bg-[#1c1814] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Allow marketing</button>
+      <button type="button" disabled={busy} onClick={() => void choose(true)} className="min-h-11 flex-1 rounded-lg bg-[#1c1814] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">Allow all</button>
       {open && config?.consent !== "unknown" ? <button type="button" onClick={() => setOpen(false)} className="px-3 text-sm underline">Close</button> : null}
     </div>
   </section>;

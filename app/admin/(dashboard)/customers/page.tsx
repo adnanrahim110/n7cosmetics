@@ -1,3 +1,4 @@
+import CustomSelect from "@/components/admin/CustomSelect";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import CustomerExport from "@/components/admin/CustomerExport";
@@ -17,7 +18,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
     <PageHeader eyebrow="Sales" title="Customers" description="Contact details, purchase history and customer records." actions={<CustomerExport query={q} source={source} />} />
     <form className="mt-7 flex flex-wrap gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
       <label className="flex min-w-44 flex-1 items-center rounded-lg border border-zinc-300 px-3"><Search size={16} className="text-zinc-400" /><input aria-label="Search customers" className="w-full px-2 py-2 text-sm outline-none" name="q" defaultValue={q} maxLength={100} placeholder="Name, email or phone" /></label>
-      <select aria-label="Customer origin" name="source" defaultValue={source} className="rounded-lg border border-zinc-300 px-3 text-sm"><option value="ALL">All customers</option><option value="LEGACY">Historical</option><option value="LIVE">New website</option></select>
+      <CustomSelect aria-label="Customer origin" name="source" defaultValue={source} className="min-w-40" triggerClassName="min-h-10" options={[{ value: "ALL", label: "All customers" }, { value: "LEGACY", label: "Historical" }, { value: "LIVE", label: "New website" }]} searchable={false} />
       <button className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white">Search</button>
     </form>
     <p className="mt-4 text-sm text-zinc-500">{totalItems.toLocaleString("en-GB")} customers. Export includes all matching records. Spend is GBP payments less refunds.</p>

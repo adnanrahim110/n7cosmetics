@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronDown, LoaderCircle, Search, SlidersHorizontal, X } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState, useTransition } from "react";
+import { LoaderCircle, Search, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import CustomSelect, { type CustomSelectOption } from "./CustomSelect";
 import {
   hasActiveProductFilters,
   productListFilterQuery,
@@ -29,7 +30,7 @@ interface FilterSelectProps {
   label: string;
   value: string;
   widthClass: string;
-  children: ReactNode;
+  options: CustomSelectOption[];
   onChange: (value: string) => void;
   visibleLabel?: boolean;
 }
@@ -38,23 +39,8 @@ const filterParamNames = ["q", "status", "type", "audience", "category", "collec
 const debounceMilliseconds = 400;
 const emptyFilters: ProductListFilters = { q: "", status: "", productType: "", audience: "", categoryId: "", collectionId: "", featured: "" };
 
-function FilterSelect({ label, value, widthClass, children, onChange, visibleLabel = false }: FilterSelectProps) {
-  return (
-    <label className={`shrink-0 ${widthClass}`}>
-      <span className={visibleLabel ? "mb-1.5 block text-xs font-semibold text-zinc-700" : "sr-only"}>{label}</span>
-      <span className="relative block">
-        <select
-          aria-label={label}
-          className="min-h-10 w-full appearance-none rounded-lg border border-zinc-300 bg-white py-2 pl-3 pr-8 text-sm text-zinc-700 outline-none transition hover:border-zinc-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-100"
-          onChange={(event) => onChange(event.target.value)}
-          value={value}
-        >
-          {children}
-        </select>
-        <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400" size={15} />
-      </span>
-    </label>
-  );
+function FilterSelect({ label, value, widthClass, options, onChange, visibleLabel = false }: FilterSelectProps) {
+  return <CustomSelect aria-label={label} label={visibleLabel ? label : undefined} className={`shrink-0 ${widthClass}`} triggerClassName="min-h-10" value={value} options={options} onChange={([value]) => onChange(value)} />;
 }
 
 function optionLabel(option: FilterOption, activeStatus: string): string {
@@ -196,20 +182,9 @@ export default function ProductFiltersToolbar({ initialFilters, categories, coll
             {isWorking ? <LoaderCircle aria-hidden="true" className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-amber-700" size={16} /> : null}
           </label>
 
-          <FilterSelect label="Filter by status" onChange={(value) => applyFilter("status", value as ProductStatusFilter)} value={filters.status} widthClass="hidden w-36 md:block">
-            <option value="">All statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="DRAFT">Draft</option>
-            <option value="ARCHIVED">Archived</option>
-          </FilterSelect>
-          <FilterSelect label="Filter by category" onChange={(value) => applyFilter("categoryId", value)} value={filters.categoryId} widthClass="hidden w-44 lg:block">
-            <option value="">All categories</option>
-            {categories.map((option) => <option key={option.id} value={option.id}>{optionLabel(option, "ACTIVE")}</option>)}
-          </FilterSelect>
-          <FilterSelect label="Filter by collection" onChange={(value) => applyFilter("collectionId", value)} value={filters.collectionId} widthClass="hidden w-44 xl:block">
-            <option value="">All collections</option>
-            {collections.map((option) => <option key={option.id} value={option.id}>{optionLabel(option, "ACTIVE")}</option>)}
-          </FilterSelect>
+          <FilterSelect label="Filter by status" onChange={(value) => applyFilter("status", value as ProductStatusFilter)} value={filters.status} widthClass="hidden w-36 md:block" options={[{ value: "", label: "All statuses" }, { value: "ACTIVE", label: "Active" }, { value: "DRAFT", label: "Draft" }, { value: "ARCHIVED", label: "Archived" }]} />
+          <FilterSelect label="Filter by category" onChange={(value) => applyFilter("categoryId", value)} value={filters.categoryId} widthClass="hidden w-44 lg:block" options={[{ value: "", label: "All categories" }, ...categories.map(option => ({ value: option.id, label: optionLabel(option, "ACTIVE") }))]} />
+          <FilterSelect label="Filter by collection" onChange={(value) => applyFilter("collectionId", value)} value={filters.collectionId} widthClass="hidden w-44 xl:block" options={[{ value: "", label: "All collections" }, ...collections.map(option => ({ value: option.id, label: optionLabel(option, "ACTIVE") }))]} />
           <div className="hidden w-24 shrink-0 items-center justify-center text-xs text-zinc-500 2xl:flex" aria-live="polite">
             {isWorking ? <span className="inline-flex items-center gap-1.5"><LoaderCircle aria-hidden="true" className="animate-spin text-amber-700" size={14} />Updating</span> : <span>{resultCount} {resultCount === 1 ? "result" : "results"}</span>}
           </div>
@@ -261,34 +236,13 @@ export default function ProductFiltersToolbar({ initialFilters, categories, coll
 
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
             <div className="grid gap-4">
-              <FilterSelect label="Status" onChange={(value) => updateAdvancedFilter("status", value as ProductStatusFilter)} value={advancedFilters.status} visibleLabel widthClass="w-full">
-                <option value="">All statuses</option>
-                <option value="ACTIVE">Active</option>
-                <option value="DRAFT">Draft</option>
-                <option value="ARCHIVED">Archived</option>
-              </FilterSelect>
+              <FilterSelect label="Status" onChange={(value) => updateAdvancedFilter("status", value as ProductStatusFilter)} value={advancedFilters.status} visibleLabel widthClass="w-full" options={[{ value: "", label: "All statuses" }, { value: "ACTIVE", label: "Active" }, { value: "DRAFT", label: "Draft" }, { value: "ARCHIVED", label: "Archived" }]} />
             </div>
-            <FilterSelect label="Category" onChange={(value) => updateAdvancedFilter("categoryId", value)} value={advancedFilters.categoryId} visibleLabel widthClass="w-full">
-              <option value="">All categories</option>
-              {categories.map((option) => <option key={option.id} value={option.id}>{optionLabel(option, "ACTIVE")}</option>)}
-            </FilterSelect>
-            <FilterSelect label="Collection" onChange={(value) => updateAdvancedFilter("collectionId", value)} value={advancedFilters.collectionId} visibleLabel widthClass="w-full">
-              <option value="">All collections</option>
-              {collections.map((option) => <option key={option.id} value={option.id}>{optionLabel(option, "ACTIVE")}</option>)}
-            </FilterSelect>
+            <FilterSelect label="Category" onChange={(value) => updateAdvancedFilter("categoryId", value)} value={advancedFilters.categoryId} visibleLabel widthClass="w-full" options={[{ value: "", label: "All categories" }, ...categories.map(option => ({ value: option.id, label: optionLabel(option, "ACTIVE") }))]} />
+            <FilterSelect label="Collection" onChange={(value) => updateAdvancedFilter("collectionId", value)} value={advancedFilters.collectionId} visibleLabel widthClass="w-full" options={[{ value: "", label: "All collections" }, ...collections.map(option => ({ value: option.id, label: optionLabel(option, "ACTIVE") }))]} />
             <div className="grid gap-4 sm:grid-cols-2">
-              <FilterSelect label="Audience" onChange={(value) => updateAdvancedFilter("audience", value as ProductAudienceFilter)} value={advancedFilters.audience} visibleLabel widthClass="w-full">
-                <option value="">All audiences</option>
-                <option value="MEN">Men</option>
-                <option value="WOMEN">Women</option>
-                <option value="UNISEX">Unisex</option>
-                <option value="UNSPECIFIED">Unspecified</option>
-              </FilterSelect>
-              <FilterSelect label="Featured state" onChange={(value) => updateAdvancedFilter("featured", value as ProductFeaturedFilter)} value={advancedFilters.featured} visibleLabel widthClass="w-full">
-                <option value="">All products</option>
-                <option value="yes">Featured</option>
-                <option value="no">Not featured</option>
-              </FilterSelect>
+              <FilterSelect label="Audience" onChange={(value) => updateAdvancedFilter("audience", value as ProductAudienceFilter)} value={advancedFilters.audience} visibleLabel widthClass="w-full" options={[{ value: "", label: "All audiences" }, { value: "MEN", label: "Men" }, { value: "WOMEN", label: "Women" }, { value: "UNISEX", label: "Unisex" }, { value: "UNSPECIFIED", label: "Unspecified" }]} />
+              <FilterSelect label="Featured state" onChange={(value) => updateAdvancedFilter("featured", value as ProductFeaturedFilter)} value={advancedFilters.featured} visibleLabel widthClass="w-full" options={[{ value: "", label: "All products" }, { value: "yes", label: "Featured" }, { value: "no", label: "Not featured" }]} />
             </div>
           </div>
 

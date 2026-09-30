@@ -1,3 +1,4 @@
+import CustomSelect from "@/components/admin/CustomSelect";
 import { readScentProfile } from "@/lib/commerce/scent-profile";
 
 export default function ScentProfileFields({ value }: { value: unknown }) {
@@ -13,7 +14,7 @@ export default function ScentProfileFields({ value }: { value: unknown }) {
         ["occasions", "Occasions", "Everyday, Office"],
         ["seasons", "Seasons", "Spring, Summer"],
       ] as const).map(([key, label, placeholder]) => <label key={key} className="text-sm font-medium text-zinc-700">{label}<input className={input} name={`scent.${key}`} defaultValue={profile[key].join(", ")} maxLength={500} placeholder={placeholder} /></label>)}
-      {(["intensity", "projection"] as const).map(key => <label key={key} className="text-sm font-medium capitalize text-zinc-700">{key}<select className={input} name={`scent.${key}`} defaultValue={profile[key] ?? ""}><option value="">Not specified</option>{[1, 2, 3, 4, 5].map(level => <option key={level} value={level}>{level} / 5</option>)}</select></label>)}
+      {(["intensity", "projection"] as const).map(key => <CustomSelect key={key} label={key === "intensity" ? "Intensity" : "Projection"} name={`scent.${key}`} defaultValue={String(profile[key] ?? "")} options={[{value: "", label: "Not specified"}, ...[1, 2, 3, 4, 5].map(level => ({value: String(level), label: `${level} / 5`}))]} searchable={false} />)}
       <label className="text-sm font-medium text-zinc-700">Longevity<input className={input} name="scent.longevity" defaultValue={profile.longevity} maxLength={150} placeholder="Only a tested or surveyed range" /></label>
       <label className="text-sm font-medium text-zinc-700 sm:col-span-2">Performance source<textarea className={input} name="scent.evidence" defaultValue={profile.evidence} maxLength={500} rows={3} placeholder="Describe the test or survey, date and conditions. Displayed to customers." /><span className="mt-1 block text-xs font-normal text-zinc-500">Required when publishing intensity, projection or longevity. Do not include private information.</span></label>
     </div>

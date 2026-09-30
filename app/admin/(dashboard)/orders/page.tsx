@@ -98,7 +98,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
           <input aria-label="Search orders" className="w-full px-2 py-2 text-sm outline-none" defaultValue={q} name="q" placeholder="Order, customer, email" />
         </label>
         <CustomSelect defaultValue={status} name="status" options={statuses.map((value) => ({ value, label: value === "ALL" ? "All statuses" : value.toLowerCase() }))} searchable={false} />
-        <select aria-label="Order origin" name="source" defaultValue={source} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"><option value="ALL">All orders</option><option value="LEGACY">Historical</option><option value="LIVE">New website</option></select>
+        <CustomSelect aria-label="Order origin" name="source" defaultValue={source} className="min-w-40" triggerClassName="min-h-10" options={[{ value: "ALL", label: "All orders" }, { value: "LEGACY", label: "Historical" }, { value: "LIVE", label: "New website" }]} searchable={false} />
         <button className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800" type="submit">Filter</button>
       </form>
 

@@ -38,7 +38,7 @@ export default function MetaSettingsForm({ values, canEdit }: { values: MetaForm
       </section>
       <section className={card}>
         <h2 className="font-body text-base font-semibold text-zinc-950">Advertising reporting connection</h2>
-        <p className="mt-1 text-sm leading-6 text-zinc-500">Prepare access to your ad account for the next dashboard phase. This connection is independent of website tracking.</p>
+        <p className="mt-1 text-sm leading-6 text-zinc-500">Connect your ad account to the main dashboard. Advertising reporting is independent of website tracking.</p>
         <label className="mt-4 flex items-center gap-3 text-sm text-zinc-700"><input type="checkbox" name="reportingEnabled" defaultChecked={values.reportingEnabled} className="size-4 accent-amber-800" />Enable reporting access</label>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <label className="text-sm font-medium text-zinc-700">Ad account ID<input className={input} name="adAccountId" defaultValue={values.adAccountId} maxLength={34} placeholder="123456789012345 or act_123456789012345" /><span className="mt-1 block text-xs font-normal leading-5 text-zinc-500">This is an ad account ID, not a Business Portfolio or Page ID.</span></label>

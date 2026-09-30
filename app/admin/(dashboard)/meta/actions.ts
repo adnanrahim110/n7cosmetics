@@ -194,7 +194,7 @@ export async function checkMetaConnection(
         metaToken(s, "reporting"),
       );
       message =
-        "Ad account reporting access verified. Advertising charts will be added with the dashboard phase.";
+        "Ad account reporting access verified. Open the main dashboard to view advertising performance.";
     }
     success = true;
   } catch (error) {

@@ -1,3 +1,4 @@
+import CustomSelect from "@/components/admin/CustomSelect";
 import PasswordInput from "./PasswordInput";
 import Notice from "./Notice";
 import { selectRows } from "@/lib/db/query";
@@ -30,7 +31,7 @@ export default async function StripeSettings({ saved, error }: { saved?: string;
     {error ? <Notice>{error === "pending" ? "Existing payments are still pending. Wait for them to settle or expire before changing account keys or mode." : error === "changed" ? "Stripe settings changed in another session. Review them and save again." : "Enter matching Stripe API keys before enabling payments. If you enter a webhook signing secret, use the whsec_ value from Stripe."}</Notice> : null}
     <form action={saveStripeSettingsAction} className="mt-5 grid gap-5 sm:grid-cols-2">
       <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" name="stripeEnabled" defaultChecked={settings["stripe.enabled"] === true || settings["stripe.enabled"] === "true"} />Enable Stripe checkout</label>
-      <label className="text-sm font-medium text-zinc-700">Mode<select className={input} name="stripeMode" defaultValue={String(settings["stripe.mode"] || "test")}><option value="test">Test</option><option value="live">Live</option></select></label>
+      <CustomSelect label="Mode" name="stripeMode" defaultValue={String(settings["stripe.mode"] || "test")} options={[{value: "test", label: "Test"}, {value: "live", label: "Live"}]} searchable={false} />
       <label className="text-sm font-medium text-zinc-700">Publishable key<input className={input} name="stripePublishableKey" defaultValue={String(settings["stripe.publishable_key"] || "")} placeholder="pk_test_… or pk_live_…" maxLength={500} autoComplete="off" /></label>
       <PasswordInput autoComplete="new-password" label="Secret key" name="stripeSecretKey" maxLength={500} placeholder="sk_test_… or sk_live_…" hint={settings["stripe.secret_key_encrypted"] ? "Saved securely. Leave blank to keep." : "Add the secret key from your Stripe account."} />
       <PasswordInput autoComplete="new-password" label="Webhook signing secret" name="stripeWebhookSecret" maxLength={500} placeholder="whsec_…" hint={settings["stripe.webhook_secret_encrypted"] ? "Saved securely. Leave blank to keep." : "Used to verify background payment updates from Stripe."} />

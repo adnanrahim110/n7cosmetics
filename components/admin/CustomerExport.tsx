@@ -1,5 +1,7 @@
 "use client";
 
+import CustomSelect from "@/components/admin/CustomSelect";
+
 import { Check, Download, FileDown, LoaderCircle, RotateCcw, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { customerExportFilename, customerExportLimit, customerExportParams, customerExportSchema, defaultCustomerExport, exportColumns, exportFormats, exportSorts, type CustomerExportOptions } from "@/lib/admin/customer-export-options";
@@ -52,7 +54,7 @@ function ExportDialog({ query, source, close }: { query: string; source: string;
     setOptions(previous => ({ ...previous, [key]: value })); setError("");
   }
   function select(key: SelectKey, label: string, choices: readonly { value: string; label: string }[]) {
-    return <Field label={label}><select className={inputClass} value={options[key]} onChange={e => update(key, e.target.value as CustomerExportOptions[typeof key])}>{choices.map(choice => <option key={choice.value} value={choice.value}>{choice.label}</option>)}</select></Field>;
+    return <CustomSelect label={label} disabled={busy} value={options[key]} onChange={([value]) => update(key, value as CustomerExportOptions[typeof key])} options={choices} />;
   }
   function dismiss() { download.current?.abort(); dialog.current?.close(); close(); }
   function reset() { setOptions(defaultCustomerExport(query, source)); setScope("current"); setError(""); setRetry(v => v+1); }
@@ -88,7 +90,7 @@ function ExportDialog({ query, source, close }: { query: string; source: string;
 
         <section className="border-t border-zinc-100 pt-5" aria-label="Customer selection"><div className="mb-3 flex items-center justify-between gap-3"><h3 className="font-body text-sm font-semibold tracking-normal text-zinc-900">Customer selection</h3><span className="text-[11px] text-zinc-400">Includes all matching pages</span></div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Start with"><select className={inputClass} value={scope} onChange={e => { const current = e.target.value === "current"; setScope(e.target.value); setOptions(v => ({ ...v, q: current ? query : "", source: current && (source === "LIVE" || source === "LEGACY") ? source : "ALL" })); }}><option value="current">Current search & origin</option><option value="all">All customers</option></select></Field>
+            <CustomSelect label="Start with" disabled={busy} value={scope} onChange={([value]) => { const current = value === "current"; setScope(value); setOptions(v => ({ ...v, q: current ? query : "", source: current && (source === "LIVE" || source === "LEGACY") ? source : "ALL" })); }} options={[{value: "current", label: "Current search & origin"}, {value: "all", label: "All customers"}]} searchable={false} />
             {select("source", "Origin", [{ value: "ALL", label: "All origins" }, { value: "LIVE", label: "New website" }, { value: "LEGACY", label: "Historical" }])}
             <Field label="Search name, email or phone"><input className={inputClass} maxLength={100} value={options.q} onChange={e => update("q", e.target.value)} placeholder="Any customer" /></Field>
             {select("orders", "Purchase history", [{ value: "all", label: "All customers" }, { value: "with", label: "With orders" }, { value: "without", label: "Without orders" }])}
