@@ -6,6 +6,7 @@ import FeaturesStrip from "@/components/sections/FeaturesStrip";
 import { getHomepageStorefrontContent } from "@/lib/commerce/homepage";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/about" },
   title: "About N7 Cosmetics | The Essence of Elegance",
   description:
     "Discover N7 Cosmetics, the first UK company to officially introduce the exquisite fragrances of Yusuf Bhai from the UAE.",

@@ -2,7 +2,7 @@
 
 ## Setup
 
-1. Apply migration `028_meta_integration.sql` with `pnpm db:migrate`.
+1. Apply all migrations, including `028_meta_integration.sql` and `031_meta_delivery_diagnostics.sql`, with `pnpm db:migrate`.
 2. Open `/admin/meta` as an owner. Managers can inspect configuration and delivery records; fulfilment accounts cannot access this page.
 3. A Pixel/dataset ID enables browser events independently. Add a Conversions API token for server events. An ad account ID and a separate `ads_read` token enable advertising reports on the main dashboard.
 4. Tokens use the existing `APP_ENCRYPTION_KEY` AES-256-GCM encryption. Blank token inputs preserve saved tokens; removal checkboxes delete them. No token or ciphertext is passed to the browser. A failed connection check does not falsely mark configuration as verified.
@@ -30,19 +30,27 @@ Optional attribution writes use a database savepoint so a Meta storage/encryptio
 
 No Meta script, click cookie, tracking request or server event is enabled before explicit marketing consent. The footer provides a permanent preference control. Newsletter permission is separate. The server stores an opaque HttpOnly preference cookie and verifies consent again at collection, purchase processing and delivery. Withdrawal cancels pending events and removes order tracking contexts. Already transmitted/in-flight events cannot be recalled.
 
-Only email and phone are used for hashed purchase matching; GB local phone numbers are normalised to the country calling code. IP, browser user agent, `_fbp` and `_fbc` are passed unhashed per Meta's field definitions. `_fbc` is only derived from an actual `fbclid` after consent. No notes, addresses, card data or search text are sent. Browser automatic configuration is disabled; do not enable additional automatic events/advanced matching in another Pixel installation.
+Consenting checkouts supply normalized SHA-256 hashes of email, phone, billing first/last name, city, region when supplied, postcode and ISO country. GB local phone numbers are normalized to the country calling code; one-word names omit the unknown surname. A hashed visitor ID derived from the opaque consent ID stays consistent across browsing, checkout and Purchase, including manual Pixel matching. Only the encrypted, already hashed checkout profile is retained with this browser's valid consent for up to 180 days. Subsequent consenting server events, including ViewContent, can reuse it. Anonymous visitors do not supply invented contact fields; withdrawal or expiry removes the profile, and renewal does not revive expired details.
 
-Queued events and checkout attribution snapshots are encrypted. Accepted/failed/cancelled job payloads are erased. Delivery retries expire at 47 hours to stay inside the 48-hour browser/server deduplication window. Checkout attribution snapshots expire after two days. Delivery metadata expires after 30 days. The worker performs cleanup; it must remain running even when tracking is paused.
+IP, browser user agent, `_fbp` and `_fbc` are passed unhashed per Meta's field definitions. Traefik trusts forwarding only from Cloudflare's published IPv4/IPv6 ranges. The application accepts Cloudflare's client-IP headers only when the final proxy in Traefik's forwarding chain is a verified Cloudflare edge; genuine `CF-Connecting-IPv6` takes precedence when Pseudo IPv4 overwrites the normal headers. Direct-origin spoofed Cloudflare headers are ignored. Keep the ranges in `lib/http/client-ip.ts` and the production compose file synchronized with https://www.cloudflare.com/ips/.
+
+The actual landing `fbclid` and arrival time are held in tab memory across storefront navigation; `_fbc` is written only after consent. Denial clears that memory. A temporary settings-fetch failure pauses tracking without discarding the landing click. Street addresses, notes, card data and search text are excluded. Gender and date of birth are not collected. Browser automatic configuration is disabled; do not enable additional automatic events/advanced matching in another Pixel installation.
+
+Queued events and checkout attribution snapshots are encrypted. Accepted/failed/cancelled job payloads are erased. Delivery retries expire at 47 hours to stay inside the 48-hour browser/server deduplication window. Checkout attribution snapshots expire after two days. Queue metadata expires after 30 days. Minimal per-order status/reasons and timestamps remain with the order, without cookies, matching data or event payloads; deleting the order cascades its diagnostic record. The worker performs cleanup; it must remain running even when tracking is paused.
 
 Browser purchase deduplication markers expire after 47 hours and are cleaned on the next settings refresh, or immediately when consent is withdrawn. A local opt-out takes precedence over stale server consent, including when local storage is unavailable; failed withdrawal requests are retried on subsequent settings refreshes.
 
 ## Testing and operation
+
+Order detail pages show server Purchase status, the actual capture/skip reason, attempt count and delivery timestamps. The migration preserves existing checkout contexts and retained Purchase proof; reasons for older untracked orders remain unknown. `/admin/meta` shows a five-minute worker heartbeat, recent credential/delivery errors and an explicit server-test-mode warning. Browser event requests retry transient failures up to three attempts using the same ID and stop when consent changes. Pixel script loading makes at most two attempts. Common campaign parameters are allowed; receipt/payment credentials still suppress browser Pixel activity.
 
 `pnpm test:unit`, `pnpm meta:verify-flow` and `pnpm payments:verify-flow` are non-browser checks. The integration scripts use disposable local databases and mock outbound API calls; they do not send real events or charge cards.
 
 For an authorised live check, save a Test Events code and select **Send server test event**. Only a synthetic `PageView` with that code is sent. Test payments are server-only and require this code; they never trigger browser Purchase events. Browser activity still uses the saved Pixel, so use a dedicated test dataset when testing the complete browser journey. Remove the code before production server reporting. Review Meta Test Events, Diagnostics, Event Match Quality, and browser/server deduplication yourself before launch.
 
 Meta API errors are reduced to safe messages/numeric codes. Transient failures retry with exponential backoff. Invalid credentials/permissions require an owner to fix the connection. Delivery statuses indicate whether Meta accepted a request, not whether it attributed a purchase to an ad. The dashboard's Traffic and Meta ads tabs read account, daily, campaign and delivery-breakdown reports, with one-minute caching and explicit attribution. Catalogue export remains future work. See [dashboard definitions](dashboard.md).
+
+Both tabs include matching-parameter coverage filtered by their applied report period and account timezone. Only accepted live events for the configured dataset count; tests, failures and other datasets are excluded. The report retains boolean field-presence flags with queue metadata, never the values. Percentages exclude older accepted events whose coverage was not recorded, displaying the measured and accepted counts. Queue retention still limits historical coverage to 30 days. These percentages are not Meta Event Match Quality scores.
 
 Source references (checked 2026-09-29):
 - https://developers.facebook.com/docs/marketing-api/conversions-api/best-practices/
@@ -54,4 +62,4 @@ Source references (checked 2026-09-29):
 - https://github.com/facebook/facebook-nodejs-business-sdk/blob/main/src/objects/serverside/user-data.js
 - https://github.com/facebook/facebook-nodejs-business-sdk/blob/main/src/objects/serverside/event-request.js
 
-Meta's documentation endpoints returned rate-limit errors during implementation; the current official SDK source was available and used to verify event fields, hashing conventions, test events, deduplication keys and API version. No live Meta credentials were supplied or tested.
+The parameter update was checked against Meta's current customer-information documentation on 2026-10-01: https://developers.facebook.com/documentation/ads-commerce/conversions-api/parameters/customer-information-parameters.md. Production delivery and ad reporting were inspected read-only; no synthetic live purchases were submitted.

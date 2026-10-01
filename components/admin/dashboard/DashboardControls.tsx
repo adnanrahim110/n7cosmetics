@@ -49,7 +49,7 @@ export default function DashboardControls({
   const controls = useRef<HTMLDivElement>(null);
   // Synchronize server navigation (including Back) without remounting the inputs.
   if (draft.key !== key) setDraft({ key, ...selection(range) });
-  const today = calendarDate(new Date(updatedAt));
+  const today = calendarDate(new Date(updatedAt), range.timeZone);
   const error =
     draft.preset === "custom"
       ? customRangeError(draft.start, draft.end, today)
@@ -241,12 +241,12 @@ export default function DashboardControls({
             <>
               Page refreshed{" "}
               {new Intl.DateTimeFormat("en-GB", {
-                timeZone: "Europe/London",
+                timeZone: range.timeZone ?? "Europe/London",
                 hour: "2-digit",
                 minute: "2-digit",
                 second: "2-digit",
               }).format(new Date(updatedAt))}{" "}
-              UK time{automatic ? " · every minute" : ""}
+              {ads ? range.timeZone ?? "Europe/London" : "UK time"}{automatic ? " · every minute" : ""}
             </>
           )}
         </p>

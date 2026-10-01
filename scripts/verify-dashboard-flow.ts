@@ -18,6 +18,7 @@ import {
   getOrderAnalytics,
   getProductAnalytics,
   getTrackingHealth,
+  getMetaMatchingReport,
 } from "../lib/admin/dashboard-reports";
 
 async function run() {
@@ -487,7 +488,7 @@ async function run() {
         lifetimeMeta.details?.days?.at(-1)?.date === "2026-09-30" &&
         lifetimeMeta.previous === undefined &&
         lifetimeMeta.details?.previousDays === undefined &&
-        calls === 14,
+        calls === 13,
       "All-time Meta uses its own available history for totals and daily reports, without comparison requests",
     );
     let emptyMetaCalls = 0;
@@ -524,6 +525,26 @@ async function run() {
       (await getTrackingHealth(emptyHistory))[0]?.value === 1,
       "All-time tracking includes all retained live event records, even before the store start",
     );
+    await executeMutation("INSERT INTO meta_event_jobs (pixel_id,event_id,event_name,status,event_time) VALUES ('123456789','before-la','PageView','FAILED','2026-09-30 06:59:59.999'),('123456789','start-la','PageView','SENT','2026-09-30 07:00:00'),('123456789','end-la','PageView','SENT','2026-10-01 06:59:59.999'),('123456789','after-la','PageView','CANCELLED','2026-10-01 07:00:00')");
+    const laDay = dashboardRange({ range: "custom", start: "2026-09-30", end: "2026-09-30" }, new Date("2026-10-01T12:00:00Z"), undefined, "America/Los_Angeles");
+    const laTracking = await getTrackingHealth(laDay);
+    check(laTracking.length === 1 && laTracking[0].status === "SENT" && laTracking[0].value === 2, "Traffic counts include the selected account day at both boundaries, excluding adjacent days");
+    const ukTracking = await getTrackingHealth({ ...laDay, timeZone: "Europe/London" });
+    check(ukTracking.length === 2 && ukTracking.find(row => row.status === "FAILED")?.value === 1 && ukTracking.find(row => row.status === "SENT")?.value === 1, "Changing the calendar changes the event boundaries rather than reusing a stale report");
+    await executeMutation(`INSERT INTO meta_event_jobs (pixel_id,event_id,event_name,status,test_event_code,event_time,matching_fields_json) VALUES
+      ('123456789','coverage-start','ViewContent','SENT','','2026-09-30 07:00:00','{"em":true,"external_id":true}'),
+      ('123456789','coverage-legacy','ViewContent','SENT','','2026-10-01 06:59:59.999',NULL),
+      ('123456789','coverage-after','ViewContent','SENT','','2026-10-01 07:00:00','{"ph":true}'),
+      ('123456789','coverage-before','ViewContent','SENT','','2026-09-30 06:59:59.999','{"ph":true}'),
+      ('123456789','coverage-test','Purchase','SENT','TEST123','2026-09-30 12:00:00','{"em":true}'),
+      ('123456789','coverage-failed','Purchase','FAILED','','2026-09-30 12:00:00','{"em":true}'),
+      ('987654321','coverage-other-pixel','Purchase','SENT','','2026-09-30 12:00:00','{"em":true}')`);
+    const matching = await getMetaMatchingReport(laDay);
+    const views = matching.find(row => row.name === "ViewContent");
+    check(views?.total === 2 && views.known === 1 && views.fields.em === 1 && views.fields.ph === 0 && views.fields.external_id === 1, "Matching coverage obeys the exact selected day and excludes unknown legacy coverage from percentages");
+    check(!matching.some(row => row.name === "Purchase"), "Coverage excludes failed jobs, test events and other datasets");
+    const ukMatching = (await getMetaMatchingReport({ ...laDay, timeZone: "Europe/London" })).find(row => row.name === "ViewContent");
+    check(ukMatching?.known === 2 && ukMatching.fields.ph === 1, "Coverage date filtering changes with the account calendar");
     denyDetails = true;
     const partialMeta = await getMetaOverview({
       ...range,

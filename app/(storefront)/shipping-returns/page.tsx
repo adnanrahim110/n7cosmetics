@@ -13,6 +13,7 @@ import {
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/shipping-returns" },
   title: "Shipping & Returns | N7 Cosmetics",
   description:
     "Read N7 Cosmetics delivery times, shipping charges, returns conditions, and customer support information.",

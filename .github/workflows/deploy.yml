@@ -49,14 +49,20 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:unit
-      - name: Verify migration data preservation
-        run: pnpm release:verify-flow
+      - name: Verify migration preservation, Meta delivery and dashboard reports
+        run: |
+          pnpm release:verify-flow
+          pnpm meta:verify-flow
+          pnpm dashboard:verify-flow
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: "3306"
           DB_NAME: n7_release_test
           DB_USER: root
           DB_PASSWORD: release-test-only
+          APP_URL: https://n7.test
+          APP_ENCRYPTION_KEY: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+          MEDIA_STORAGE_DIR: /tmp/n7-verification-media
 
   build:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

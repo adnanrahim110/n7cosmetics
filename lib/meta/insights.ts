@@ -11,6 +11,8 @@ import {
 import {
   shiftDate,
   validDate,
+  dashboardRange,
+  type DashboardQuery,
   type DashboardRange,
 } from "../admin/dashboard-dates";
 
@@ -60,6 +62,7 @@ export type MetaOverview = {
   testMode: boolean;
   details?: MetaDetails;
   coverage?: { start: string; end: string };
+  period?: DashboardRange;
 };
 function numeric(value: unknown): number {
   if (value === undefined || value === null) return 0;
@@ -71,6 +74,14 @@ function numeric(value: unknown): number {
   )
     throw new Error("Invalid Meta metric");
   return Number(value);
+}
+function validateReportDates(payload: Record<string, unknown>, start: string, end: string): void {
+  if (!Array.isArray(payload.data)) throw new Error("Invalid Meta report");
+  for (const row of payload.data) {
+    if ((row.date_start !== undefined && (!validDate(row.date_start) || row.date_start < start || row.date_start > end)) ||
+        (row.date_stop !== undefined && (!validDate(row.date_stop) || row.date_stop < start || row.date_stop > end)) ||
+        (row.date_start && row.date_stop && row.date_start > row.date_stop)) throw new Error("Meta returned dates outside the applied filter");
+  }
 }
 function actionValue(values: unknown, name: string): number {
   if (values === undefined) return 0;
@@ -135,7 +146,7 @@ export function insightsPath(
     level: "account",
     time_range: JSON.stringify({ since: start, until: end }),
     action_report_time: "conversion",
-    action_attribution_windows: JSON.stringify(["7d_click", "1d_view"]),
+    use_unified_attribution_setting: "true",
     limit: "1",
   });
   if (allTime) {
@@ -144,6 +155,34 @@ export function insightsPath(
     query.set("fields", `${query.get("fields")},date_start,date_stop`);
   }
   return `act_${accountId}/insights?${query}`;
+}
+// Every widget uses the same applied period and the account's calendar, including presets.
+export function metaReportingRange(range: DashboardRange, timeZone: string, now = new Date()): DashboardRange {
+  // Keep the exact period already applied by the controls, even if midnight passes during fetch.
+  if (range.timeZone === timeZone) return range;
+  return dashboardRange({ range: range.preset, source: range.source, start: range.start, end: range.end }, now, range.preset === "all" ? range.start : undefined, timeZone);
+}
+const accounts = new Map<string, { expires: number; value: Promise<Record<string, unknown>> }>();
+async function metaAccount(settings: MetaSettings): Promise<Record<string, unknown>> {
+  const key = createHash("sha256").update(`${settings.adAccountId}:${settings.reportingTokenEncrypted}`).digest("hex");
+  const cached = accounts.get(key);
+  if (cached && cached.expires > Date.now()) return cached.value;
+  if (accounts.size >= 32) accounts.delete(accounts.keys().next().value!);
+  const value = metaRequest(`act_${settings.adAccountId}?fields=name,currency,timezone_name`, metaToken(settings, "reporting"));
+  accounts.set(key, { expires: Date.now() + 60000, value });
+  try { return await value; } catch (error) { accounts.delete(key); throw error; }
+}
+export async function getMetaDashboardRange(query: DashboardQuery, now = new Date()): Promise<DashboardRange> {
+  const fallback = dashboardRange(query, now);
+  try {
+    const settings = await getMetaSettings();
+    if (!reportingReady(settings)) return fallback;
+    const account = await metaAccount(settings);
+    if (typeof account.timezone_name !== "string") throw new Error("Missing account time zone");
+    return dashboardRange(query, now, undefined, account.timezone_name);
+  } catch {
+    return { ...fallback, warning: "Meta's account time zone could not be loaded. Refresh to retry; date controls currently use UK time." };
+  }
 }
 export function parseAdCoverage(payload: Record<string, unknown>) {
   if (!Array.isArray(payload.data) || payload.data.length > 1)
@@ -274,6 +313,7 @@ async function fetchDetails(
         token,
         request,
       );
+      validateReportDates({ data: rows }, start, end);
       if (kind === "daily") return { key, days: parseAdDays(rows, start, end) };
       const field =
         kind === "campaigns"
@@ -315,6 +355,7 @@ export async function fetchMetaOverview(
   settings: MetaSettings,
   range: DashboardRange,
   request = metaRequest,
+  now = new Date(),
 ): Promise<MetaOverview> {
   const state = {
     pixelConfigured: pixelReady(settings),
@@ -336,14 +377,13 @@ export async function fetchMetaOverview(
     };
   try {
     const token = metaToken(settings, "reporting");
-    const allTime = range.preset === "all";
-    const [account, current, previous] = await Promise.all([
+    const account = request === metaRequest ? await metaAccount(settings) : await request(`act_${settings.adAccountId}?fields=name,currency,timezone_name`, token);
+    if (typeof account.timezone_name !== "string") throw new Error("Missing account time zone");
+    const period = metaReportingRange(range, account.timezone_name, now);
+    const allTime = period.preset === "all";
+    const [current, previous] = await Promise.all([
       request(
-        `act_${settings.adAccountId}?fields=name,currency,timezone_name`,
-        token,
-      ),
-      request(
-        insightsPath(settings.adAccountId, range.start, range.end, allTime),
+        insightsPath(settings.adAccountId, period.start, period.end, allTime),
         token,
       ),
       allTime
@@ -351,8 +391,8 @@ export async function fetchMetaOverview(
         : request(
             insightsPath(
               settings.adAccountId,
-              range.previousStart,
-              range.previousEnd,
+              period.previousStart,
+              period.previousEnd,
             ),
             token,
           ),
@@ -365,16 +405,20 @@ export async function fetchMetaOverview(
     )
       throw new Error("Incomplete Meta account details");
     new Intl.DateTimeFormat("en-GB", { timeZone: account.timezone_name });
+    if (!allTime) validateReportDates(current, period.start, period.end);
+    if (previous) validateReportDates(previous, period.previousStart, period.previousEnd);
     const currentMetrics = parseAdMetrics(current),
       previousMetrics = previous ? parseAdMetrics(previous) : undefined;
     const coverage = allTime ? parseAdCoverage(current) : undefined;
+    if (coverage && coverage.end > period.end) throw new Error("Meta returned future report dates");
+    const reportedPeriod = coverage ? { ...period, ...coverage, days: Math.round((Date.parse(coverage.end) - Date.parse(coverage.start)) / 86400000) + 1 } : period;
     const details: MetaDetails =
       allTime && !coverage
         ? { days: [], campaigns: [], platforms: [], devices: [], errors: [] }
         : await fetchDetails(
             settings.adAccountId,
             token,
-            coverage ? { ...range, ...coverage } : range,
+            reportedPeriod,
             request,
           );
     return {
@@ -388,6 +432,7 @@ export async function fetchMetaOverview(
       previous: previousMetrics,
       details,
       coverage,
+      period: reportedPeriod,
       fetchedAt: new Date().toISOString(),
     };
   } catch (error) {
@@ -417,11 +462,12 @@ export async function getMetaOverview(
     .update(
       [
         settings.revision,
-        range.preset === "all" ? "maximum" : "range",
+        range.preset,
         range.start,
         range.end,
         range.previousStart,
         range.previousEnd,
+        range.timeZone ?? "Europe/London",
       ].join(":"),
     )
     .digest("hex");

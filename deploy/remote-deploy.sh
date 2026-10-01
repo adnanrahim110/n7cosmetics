@@ -88,6 +88,7 @@ if [[ "$pending" -gt 0 ]]; then
   compose run --rm --no-deps -v "$APP_DIR/backups:/app/release-backups:ro" app node .scripts-dist/scripts/release-data.js verify "$snapshot"
 fi
 compose run --rm --no-deps app node scripts/verify-media.cjs
+compose up -d --no-deps --wait --wait-timeout 90 proxy
 compose up -d --no-deps --wait --wait-timeout 180 app
 docker exec -e EXPECTED_SHA="$EXPECTED_SHA" n7-app node -e '
 fetch("http://127.0.0.1:3000/api/health",{signal:AbortSignal.timeout(10000)})

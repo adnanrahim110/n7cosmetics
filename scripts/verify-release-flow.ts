@@ -73,11 +73,21 @@ async function run() {
       SELECT o.id, p.id, p.name, '100 ml', 'N7-P-OLD', 'OLD-CODE', 3400, 1, 3400 FROM orders o JOIN products p ON p.slug = 'release-coded-fixture' WHERE o.order_number = 'RELEASE-FIXTURE'`);
     await setup.query(`INSERT INTO order_items (order_id, product_name, variant_title, sku, product_code, unit_price_pence, quantity, line_total_pence)
       SELECT id, 'Deleted product', '100 ml', 'N7-P-DELETED', 'N7-P-DELETED', 3400, 1, 3400 FROM orders WHERE order_number = 'RELEASE-FIXTURE'`);
+    await setup.query("INSERT INTO meta_consents (id,granted,expires_at) VALUES ('12345678-1234-1234-1234-123456789abc',1,DATE_ADD(CURRENT_TIMESTAMP(3),INTERVAL 1 DAY))");
+    await setup.query("INSERT INTO meta_event_jobs (pixel_id,event_id,event_name,event_time,status) VALUES ('123456789','preserved-event','PageView',CURRENT_TIMESTAMP(3),'SENT')");
     const beforeCleanup = JSON.parse(JSON.stringify(await snapshotReleaseData(db)));
     assert.ok(beforeCleanup.orderProductCodeCleanup);
     await verifyReleaseData(db, beforeCleanup); checks++;
     await rejectsChange("UPDATE order_items SET product_code = NULL WHERE sku = 'N7-P-PLAIN'", beforeCleanup);
-    for (const name of migrations.filter(name => name >= "030")) await applyMigration(name);
+    for (const name of migrations.filter(name => name >= "030")) {
+      if (name.startsWith("032")) {
+        const beforeMatching = await snapshotReleaseData(db);
+        await applyMigration(name);
+        await verifyReleaseData(db, beforeMatching); checks++;
+        const [rows] = await setup.query<mysql.RowDataPacket[]>("SELECT matching_fields_json FROM meta_event_jobs WHERE event_id = 'preserved-event'");
+        assert.equal(rows[0].matching_fields_json, null); checks++;
+      } else await applyMigration(name);
+    }
     await verifyReleaseData(db, beforeCleanup); checks++;
     const [codes] = await setup.query<mysql.RowDataPacket[]>("SELECT product_code FROM order_items ORDER BY id");
     assert.deepEqual(codes.map(row => row.product_code), [null, '253', 'OLD-CODE', null]); checks++;

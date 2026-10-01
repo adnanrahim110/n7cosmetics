@@ -4,6 +4,7 @@ import { collectionDesigns } from "@/components/collections/collection-config";
 import { getCollectionPage } from "@/lib/commerce/collections";
 
 export const metadata = {
+  alternates: { canonical: "/bundles" },
   title: "Fragrance Bundles | N7 Cosmetics",
   description: "Shop six curated N7 Cosmetics fragrance trios, bringing together signature Yusuf Bhai originals and recreation favourites.",
 };

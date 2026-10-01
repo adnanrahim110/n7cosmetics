@@ -3,12 +3,22 @@ import { notFound } from "next/navigation";
 import SaleExperience from "@/components/sales/SaleExperience";
 import Title from "@/components/ui/Title";
 import { getActiveSalePage } from "@/lib/commerce/sales";
+import type { Metadata } from "next";
+import { cache } from "react";
+import { storefrontUrl } from "@/lib/commerce/seo";
 
-export const metadata = {
-  title: "Fragrance Sale | N7 Cosmetics",
-  description:
-    "Explore a limited-time fragrance offer from N7 Cosmetics, available only while stock lasts.",
-};
+const loadSale = cache(getActiveSalePage);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const sale = await loadSale(slug);
+  if (!sale) notFound();
+  const title = `${sale.saleName} | N7 Cosmetics`;
+  const description = sale.intro || "Explore a limited-time fragrance offer from N7 Cosmetics, available only while stock lasts.";
+  const image = sale.heroProducts?.[0]?.image || sale.products[0]?.image;
+  return { title, description, alternates: { canonical: `/sale/${slug}` },
+    openGraph: { title, description, url: `/sale/${slug}`, type: "website", ...(image ? { images: [storefrontUrl(image)] } : {}) },
+    twitter: { card: "summary_large_image", title, description, ...(image ? { images: [storefrontUrl(image)] } : {}) } };
+}
 
 export default async function SalePage({
   params,
@@ -16,7 +26,7 @@ export default async function SalePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const sale = await getActiveSalePage(slug);
+  const sale = await loadSale(slug);
   if (!sale) notFound();
 
   if (sale.products.length) return <SaleExperience sale={sale} />;

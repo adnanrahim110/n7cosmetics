@@ -4,6 +4,7 @@ import { collectionDesigns } from "@/components/collections/collection-config";
 import { getCollectionPage } from "@/lib/commerce/collections";
 
 export const metadata = {
+  alternates: { canonical: "/premium-collection" },
   title: "Premium Fragrance Collection | N7 Cosmetics",
   description:
     "Discover a private edit of distinctive Yusuf Bhai originals and elevated fragrance recreations, selected by N7 Cosmetics for lasting character.",

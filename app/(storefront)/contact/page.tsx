@@ -13,6 +13,7 @@ import Title from "@/components/ui/Title";
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/contact" },
   title: "Contact N7 Cosmetics | Customer Care",
   description:
     "Contact N7 Cosmetics for order support, delivery and return questions, product advice, or business enquiries.",

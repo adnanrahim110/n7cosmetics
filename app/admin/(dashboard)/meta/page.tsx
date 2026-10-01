@@ -2,6 +2,7 @@ import MetaSettingsForm, {
   MetaConnectionCheck,
 } from "@/components/admin/MetaSettingsForm";
 import PageHeader from "@/components/admin/PageHeader";
+import MetaDeliveryHealth from "@/components/admin/MetaDeliveryHealth";
 import { requireAdministrator } from "@/lib/auth/session";
 import { selectRows } from "@/lib/db/query";
 import {
@@ -86,6 +87,7 @@ export default async function MetaSettingsPage() {
         title="Meta integration"
         description="Connect N7’s website activity to Meta and prepare your advertising reporting. Configure each feature independently."
       />
+      {s.testEventCode ? <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm leading-6 text-amber-950"><strong>Server test mode is active.</strong> Purchases are sent as test events and do not count as live campaign conversions. Clear the Test Events code and save settings before accepting live orders.</div> : null}
       <div className="grid gap-4 lg:grid-cols-3">
         {statuses.map(({ label, enabled, icon: Icon, hint }) => (
           <section key={label} className={card}>
@@ -118,6 +120,7 @@ export default async function MetaSettingsPage() {
           hasReportingToken: Boolean(s.reportingTokenEncrypted),
         }}
       />
+      <MetaDeliveryHealth />
       <section className={card}>
         <h2 className="font-body text-base font-semibold text-zinc-950">
           Connection checks

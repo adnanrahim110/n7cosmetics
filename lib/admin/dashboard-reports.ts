@@ -9,6 +9,7 @@ import {
 } from "./dashboard-dates";
 import type { RecentOrder } from "./dashboard";
 import { getMetaSettings } from "../meta/settings";
+import { metaMatchingFields, type MetaMatchingKey } from "../meta/matching-coverage";
 
 export function realOrders(alias = "o") {
   return `(${alias}.source='LEGACY' OR EXISTS (SELECT 1 FROM stripe_checkouts sc WHERE sc.order_id=${alias}.id AND sc.stripe_mode='live'))`;
@@ -242,13 +243,27 @@ export async function getTrackingHealth(range: DashboardRange) {
     [
       settings.pixelId,
       range.preset,
-      dayStartUtc(range.start),
-      dayStartUtc(shiftDate(range.end, 1)),
+      dayStartUtc(range.start, range.timeZone),
+      dayStartUtc(shiftDate(range.end, 1), range.timeZone),
     ],
   );
   return rows.map((row) => ({
     label: row.label,
     status: row.status,
     value: Number(row.value),
+  }));
+}
+
+export async function getMetaMatchingReport(range: DashboardRange) {
+  const settings = await getMetaSettings();
+  type CoverageRow = RowDataPacket & { event_name: string; total: number; known: number } & Record<MetaMatchingKey, number>;
+  // Fixed field names come from our schema, never from report/filter input.
+  const columns = metaMatchingFields.map(({ key }) => `SUM(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(matching_fields_json, '$.${key}')) = 'true' THEN 1 ELSE 0 END) AS ${key}`).join(",");
+  const rows = await selectRows<CoverageRow>(`SELECT event_name, COUNT(*) total, COUNT(matching_fields_json) known, ${columns}
+    FROM meta_event_jobs WHERE pixel_id = ? AND test_event_code = '' AND status = 'SENT'
+    AND (? = 'all' OR event_time >= ?) AND event_time < ? GROUP BY event_name`,
+  [settings.pixelId, range.preset, dayStartUtc(range.start, range.timeZone), dayStartUtc(shiftDate(range.end, 1), range.timeZone)]);
+  return rows.map(row => ({ name: row.event_name, total: Number(row.total), known: Number(row.known),
+    fields: Object.fromEntries(metaMatchingFields.map(({ key }) => [key, Number(row[key])])) as Record<MetaMatchingKey, number>,
   }));
 }

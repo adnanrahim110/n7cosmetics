@@ -6,6 +6,7 @@ import {
   type AdDay,
 } from "@/lib/meta/insights";
 import { getTrackingHealth } from "@/lib/admin/dashboard-reports";
+import MetaMatchingCoverage from "./MetaMatchingCoverage";
 import type { DashboardRange } from "@/lib/admin/dashboard-dates";
 import { metricValue, type ValueFormat } from "@/lib/admin/dashboard-display";
 import MetricCard from "./MetricCard";
@@ -150,6 +151,7 @@ export default async function MetaOverview({
   }));
   const current = report.current,
     previous = report.previous;
+  const period = report.period ?? range;
   const definitions = mode === "traffic" ? traffic : advertising;
   const points = (days: AdDay[] | undefined, key: keyof AdMetrics) =>
     days?.map((day) => ({ date: day.date, value: day[key] }));
@@ -192,12 +194,14 @@ export default async function MetaOverview({
             {new Intl.DateTimeFormat("en-GB", {
               dateStyle: "medium",
               timeStyle: "medium",
-              timeZone: "Europe/London",
+              timeZone: report.timezone ?? "Europe/London",
             }).format(new Date(report.fetchedAt!))}{" "}
-            UK time. Automatic refresh checks every minute. Meta may report
+            {report.timezone}. Automatic refresh checks every minute. Meta may report
             conversions later or revise attribution.
             <br />
-            Attribution: 7-day click / 1-day view, using conversion date. Store
+            Period: {period.start} to {period.end} ({report.timezone}). Every card, chart and campaign report below uses this selection.
+            <br />
+            Attribution: each ad set’s settings, using conversion date. Store
             revenue and Meta attribution are never added together.
             {range.preset === "all" ? (
               <>
@@ -389,7 +393,8 @@ export default async function MetaOverview({
       ) : (
         <MetaState report={report} />
       )}
-      {mode === "traffic" ? <TrackingHealth range={range} /> : null}
+      {mode === "traffic" ? <TrackingHealth range={period} /> : null}
+      <MetaMatchingCoverage range={period} />
     </div>
   );
 }
@@ -415,7 +420,7 @@ async function TrackingHealth({ range }: { range: DashboardRange }) {
         <>
           <BreakdownChart
             title="Server events received by Meta"
-            description="Consented live Conversions API events acknowledged by Meta, using UK dates. Delivery records are retained for 30 days; older ranges are incomplete. These are not deduplicated visitor or purchase totals."
+            description={`${range.preset === "all" ? `All retained consented live events through ${range.end}` : `Consented live events from ${range.start} to ${range.end}`} acknowledged by Meta, using ${range.timeZone ?? "Europe/London"} dates. Delivery records are retained for 30 days; older ranges are incomplete. These are event deliveries, not visitor totals.`}
             rows={received}
             emptyMessage="No acknowledged live events in the retained records for this period."
           />

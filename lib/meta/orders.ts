@@ -3,34 +3,47 @@ import { executeMutation, selectOne } from "../db/query";
 import { encryptSecret, decryptSecret } from "../security/encryption";
 import { getMetaSettings, capiReady, pixelReady, type MetaSettings } from "./settings";
 import { consentId, consentGranted } from "./consent";
-import { metaMatchData, requestUserData, readCookie } from "./identity";
+import { metaExternalId, metaMatchData, requestUserData, readCookie, type MetaCustomerProfile } from "./identity";
 import { makeMetaEvent, queueMetaEvent } from "./events";
 import { purchaseEventId, type MetaCustomData, type MetaBrowserEvent } from "./shared";
+import type { MetaCaptureReason } from "./delivery-status";
 
 export interface MetaCheckoutContext { consentId: string; settings: MetaSettings; userData: Record<string, string>; }
 interface StoredContext { userData: Record<string, string | string[]>; data: MetaCustomData }
 export async function readMetaCheckoutContext(request: Request): Promise<MetaCheckoutContext | undefined> {
-  if (readCookie(request, "n7_marketing_optout") === "1") return;
-  const id = consentId(request);
-  if (!await consentGranted(id)) return;
-  const settings = await getMetaSettings();
-  if (!pixelReady(settings) && !capiReady(settings)) return;
-  return { consentId: id, settings, userData: requestUserData(request) };
+  return (await readMetaCheckoutCapture(request)).context;
 }
-export async function saveMetaOrderContext(orderId: string, context: MetaCheckoutContext, data: MetaCustomData, email: string, phone: string, connection: PoolConnection): Promise<void> {
+export async function readMetaCheckoutCapture(request: Request): Promise<{ context?: MetaCheckoutContext; reason: MetaCaptureReason }> {
+  try {
+    if (readCookie(request, "n7_marketing_optout") === "1") return { reason: "CONSENT_DENIED" };
+    const id = consentId(request);
+    if (!await consentGranted(id)) return { reason: "NO_CONSENT" };
+    const settings = await getMetaSettings();
+    if (!settings.pixelEnabled && !settings.capiEnabled) return { reason: "TRACKING_DISABLED" };
+    if (!pixelReady(settings) && !capiReady(settings)) return { reason: "NOT_CONFIGURED" };
+    return { reason: capiReady(settings) ? "ELIGIBLE" : "SERVER_DISABLED", context: { consentId: id, settings, userData: requestUserData(request) } };
+  } catch { return { reason: "CAPTURE_FAILED" }; }
+}
+export async function saveMetaOrderContext(orderId: string, context: MetaCheckoutContext, data: MetaCustomData, email: string, phone: string, connection: PoolConnection, profile?: MetaCustomerProfile): Promise<MetaCaptureReason> {
+  let reason: MetaCaptureReason = "CONSENT_WITHDRAWN";
   await connection.query("SAVEPOINT meta_checkout_context");
   try {
     if (await consentGranted(context.consentId, connection)) {
-      const stored: StoredContext = { userData: capiReady(context.settings) ? { ...context.userData, ...metaMatchData(email, phone) } : {}, data };
+      const matching = metaMatchData(email, phone, profile);
+      const stored: StoredContext = { userData: capiReady(context.settings) ? { ...context.userData, ...matching, external_id: [metaExternalId(context.consentId)] } : {}, data };
+      if (capiReady(context.settings)) await executeMutation("UPDATE meta_consents SET matching_data_encrypted = ? WHERE id = ?", [encryptSecret(JSON.stringify(matching)), context.consentId], connection);
       await executeMutation("INSERT IGNORE INTO meta_order_contexts (order_id, consent_id, pixel_id, server_enabled, test_event_code, payload_encrypted) VALUES (?, ?, ?, ?, ?, ?)", [orderId, context.consentId, context.settings.pixelId, capiReady(context.settings), context.settings.testEventCode, encryptSecret(JSON.stringify(stored))], connection);
+      reason = capiReady(context.settings) ? "ELIGIBLE" : "SERVER_DISABLED";
     }
   } catch {
     // Optional attribution must not undo a valid order. If the database already
     // aborted the transaction, rollback-to-savepoint fails and checkout also aborts.
     await connection.query("ROLLBACK TO SAVEPOINT meta_checkout_context");
     console.warn("Meta checkout attribution unavailable; continuing without tracking context.");
+    reason = "CAPTURE_FAILED";
   }
   await connection.query("RELEASE SAVEPOINT meta_checkout_context");
+  return reason;
 }
 interface ContextRow extends RowDataPacket { consent_id: string; pixel_id: string; server_enabled: number; test_event_code: string; payload_encrypted: string; stripe_mode: string; paid_at: Date; payment_status: string }
 async function purchaseContext(orderId: string, connection?: PoolConnection) {

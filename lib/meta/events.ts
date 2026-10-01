@@ -6,6 +6,7 @@ import { getApplicationConfig } from "../env";
 import { calculateCartPricing } from "../commerce/quote";
 import { metaCommerceData, metaEventSchema, safeEventPath, type MetaCustomData } from "./shared";
 import { capiReady, type MetaSettings } from "./settings";
+import { metaMatchingCoverage } from "./matching-coverage";
 
 export interface MetaServerEvent {
   event_name: string; event_id: string; event_time: number; action_source: "website";
@@ -17,8 +18,8 @@ export function makeMetaEvent(name: string, id: string, path: string, userData: 
 export async function queueMetaEvent(event: MetaServerEvent, settings: MetaSettings, consent: string | null, connection?: PoolConnection): Promise<void> {
   if (!capiReady(settings)) return;
   if (Date.now() - event.event_time * 1000 >= 47 * 60 * 60 * 1000) return;
-  await executeMutation(`INSERT IGNORE INTO meta_event_jobs (pixel_id, event_id, event_name, consent_id, test_event_code, payload_encrypted, event_time)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`, [settings.pixelId, event.event_id, event.event_name, consent, settings.testEventCode, encryptSecret(JSON.stringify(event)), new Date(event.event_time * 1000)], connection);
+  await executeMutation(`INSERT IGNORE INTO meta_event_jobs (pixel_id, event_id, event_name, consent_id, test_event_code, payload_encrypted, event_time, matching_fields_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [settings.pixelId, event.event_id, event.event_name, consent, settings.testEventCode, encryptSecret(JSON.stringify(event)), new Date(event.event_time * 1000), JSON.stringify(metaMatchingCoverage(event.user_data))], connection);
 }
 export async function resolveEventData(input: z.infer<typeof metaEventSchema>): Promise<MetaCustomData> {
   if (["PageView", "Search"].includes(input.name)) return {}; // Never forward free-text searches or URL query strings.

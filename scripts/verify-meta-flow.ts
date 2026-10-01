@@ -13,6 +13,10 @@ import { saveConsent } from "../lib/meta/consent";
 import { browserMetaPurchase, readMetaCheckoutContext, queueMetaPurchase } from "../lib/meta/orders";
 import { makeMetaEvent, queueMetaEvent, resolveEventData } from "../lib/meta/events";
 import { processMetaQueue } from "../lib/meta/queue";
+import { getMetaOrderDelivery, recordMetaWorkerHealth, syncMetaDeliveryDiagnostics } from "../lib/meta/diagnostics";
+import { readMetaCheckoutCapture } from "../lib/meta/orders";
+import { visitorMetaUserData } from "../lib/meta/visitor";
+import { hashMetaValue, metaExternalId } from "../lib/meta/identity";
 import { createOrder } from "../lib/commerce/orders";
 import { applyPaymentIntent, type PaymentIntentSnapshot } from "../lib/payments/stripe";
 import type { CheckoutInput } from "../lib/commerce/validation";
@@ -52,20 +56,36 @@ async function run() {
     check(await readMetaCheckoutContext(new Request("https://n7.test")) === undefined, "No consent means no checkout attribution");
     const optedOut = new Request(request, { headers: { cookie: `n7_marketing_consent=${consent}; n7_marketing_optout=1` } });
     check(await readMetaCheckoutContext(optedOut) === undefined, "An immediate local opt-out overrides a stale server consent record");
+    check((await readMetaCheckoutCapture(optedOut)).reason === "CONSENT_DENIED", "Declined tracking has an explicit diagnostic reason");
+    check((await readMetaCheckoutCapture(new Request("https://n7.test"))).reason === "NO_CONSENT", "Missing consent is distinguished from a tracking error");
     const context = await readMetaCheckoutContext(request);
     assert.ok(context);
+    const anonymous = await visitorMetaUserData(request, consent);
+    check(!anonymous.em && !anonymous.ph && anonymous.external_id?.[0] === metaExternalId(consent), "Anonymous consenting events share the visitor ID without invented contact data");
     const product = await executeMutation("INSERT INTO products (name, slug, status, track_inventory) VALUES ('Meta test', 'meta-test', 'ACTIVE', 1)");
     const variant = await executeMutation("INSERT INTO product_variants (product_id, title, sku, price_pence, stock_on_hand, is_default) VALUES (?, '100 ml', 'META-TEST', 4500, 50, 1)", [product.insertId]);
     const zone = await executeMutation("INSERT INTO shipping_zones (name) VALUES ('UK test')");
     await executeMutation("INSERT INTO shipping_zone_countries (zone_id, country_code) VALUES (?, 'GB')", [zone.insertId]);
     const delivery = await executeMutation("INSERT INTO shipping_methods (name, method_type, price_pence) VALUES ('Delivery', 'DELIVERY', 299)");
     await executeMutation("INSERT INTO shipping_method_rates (method_id,zone_id,price_pence) VALUES (?,?,299)", [delivery.insertId, zone.insertId]);
-    const address = { fullName: "Meta Test", line1: "1 Test Street", city: "London", postalCode: "SW1A 1AA", countryCode: "GB" as const, phone: "02079460000" };
+    const address = { fullName: "Meta Test", line1: "1 Test Street", city: "London", region: "Greater London", postalCode: "SW1A 1AA", countryCode: "GB" as const, phone: "02079460000" };
     const input: CheckoutInput = { idempotencyKey: randomUUID(), expectedTotalPence: 4799, items: [{ slug: "meta-test", quantity: 1 }], customer: { name: address.fullName, email: "private@example.com", phone: address.phone }, countryCode: "GB", billingAddress: address, shippingAddress: address, paymentMethod: "STRIPE", shippingMethodId: String(delivery.insertId) };
     const paidIntent = (orderId: string, live = true): PaymentIntentSnapshot => ({ id: `pi_fixture_${orderId}`, amount: 4799, amount_received: 4799, currency: "gbp", livemode: live, status: "succeeded", metadata: { n7_order_id: orderId } });
     const order = await createOrder(input, "live", undefined, context);
     const stored = await selectOne<RowDataPacket>("SELECT payload_encrypted FROM meta_order_contexts WHERE order_id = ?", [order.id]);
     check(stored && !decryptSecret(stored.payload_encrypted).includes("private@example.com"), "Stored matching data contains hashes, not email addresses");
+    const purchaseUser = JSON.parse(decryptSecret(stored!.payload_encrypted)).userData;
+    check(["em", "ph", "fn", "ln", "ct", "st", "zp", "country", "external_id"].every(key => /^[a-f0-9]{64}$/.test(purchaseUser[key]?.[0])), "Purchase contains all available normalized hashed matching fields");
+    check(purchaseUser.fn[0] === hashMetaValue("meta") && purchaseUser.zp[0] === hashMetaValue("sw1a1aa") && !JSON.stringify(purchaseUser).includes(address.line1), "Matching uses billing names and locality without street addresses");
+    const recognized = await visitorMetaUserData(request, consent);
+    check(recognized.em?.[0] === purchaseUser.em[0] && recognized.ph?.[0] === purchaseUser.ph[0] && recognized.external_id?.[0] === anonymous.external_id?.[0], "Known consenting views reuse checkout hashes and the original visitor ID");
+    const otherVisitor = await saveConsent(new Request("https://n7.test"), true);
+    check(!(await visitorMetaUserData(request, otherVisitor)).em, "Matching profiles do not leak across consenting browsers");
+    await executeMutation("UPDATE meta_consents SET matching_data_encrypted = ?, expires_at = DATE_SUB(CURRENT_TIMESTAMP(3), INTERVAL 1 SECOND) WHERE id = ?", [encryptSecret(JSON.stringify({ em: purchaseUser.em })), otherVisitor]);
+    const expiredRequest = new Request("https://n7.test", { headers: { cookie: `n7_marketing_consent=${otherVisitor}` } });
+    check(Object.keys(await visitorMetaUserData(expiredRequest, otherVisitor)).length === 0, "Expired consent cannot disclose known matching fields");
+    await saveConsent(expiredRequest, true);
+    check(!(await visitorMetaUserData(expiredRequest, otherVisitor)).em, "Renewing an expired choice does not revive a stale matching profile");
     await processMetaQueue(); check(sent.length === 0, "An unpaid order is never a purchase event");
     await applyPaymentIntent(paidIntent(order.id));
     await Promise.all([processMetaQueue(), processMetaQueue()]);
@@ -78,6 +98,16 @@ async function run() {
     check(!await browserMetaPurchase(order.id, new Request("https://n7.test")), "A shared receipt is not permission to track another browser");
     await applyPaymentIntent(paidIntent(order.id)); await processMetaQueue(); check(sent.length === 1, "Webhook replays cannot create duplicate conversions");
     check((await selectOne<RowDataPacket>("SELECT payload_encrypted FROM meta_event_jobs WHERE event_name = 'Purchase'"))?.payload_encrypted === null, "Accepted payloads are removed");
+    const coverage = await selectOne<RowDataPacket>("SELECT matching_fields_json FROM meta_event_jobs WHERE event_name = 'Purchase'");
+    const flags = typeof coverage!.matching_fields_json === "string" ? JSON.parse(coverage!.matching_fields_json) : coverage!.matching_fields_json;
+    check(flags.em && flags.fn && flags.ln && flags.country && flags.external_id && Object.values(flags).every(value => typeof value === "boolean"), "Accepted events retain only matching-presence flags after payload erasure");
+    const delivered = await getMetaOrderDelivery(order.id);
+    check(delivered?.status === "Sent" && delivered.attempts === 1 && delivered.sentAt && delivered.lastAttemptAt, "Order diagnostics show Meta acceptance, attempts and timestamps");
+    await recordMetaWorkerHealth(true);
+    check(Boolean((await selectOne<RowDataPacket>("SELECT last_success_at FROM meta_worker_health WHERE id = 1"))?.last_success_at), "Worker success produces an observable heartbeat");
+    const noConsent = await createOrder({ ...input, idempotencyKey: randomUUID() }, "live", undefined, undefined, "NO_CONSENT");
+    await applyPaymentIntent(paidIntent(noConsent.id));
+    check((await getMetaOrderDelivery(noConsent.id))?.reason === "Marketing consent was not granted at checkout.", "Paid untracked orders retain their actual skip reason");
     const view = await resolveEventData({ name: "ViewContent", eventId: randomUUID(), path: "/products/meta-test", items: [{ slug: "meta-test", quantity: 1 }] });
     check(view.content_ids?.[0] === browser?.data.content_ids?.[0] && view.value === 45, "View and purchase catalogue IDs match");
     await assert.rejects(resolveEventData({ name: "AddToCart", eventId: randomUUID(), path: "/", items: [{ slug: "not-found", quantity: 1 }] })); checks++;
@@ -102,14 +132,19 @@ async function run() {
     const testPurchase = await createOrder({ ...input, idempotencyKey: randomUUID() }, "test", undefined, testContext);
     await applyPaymentIntent(paidIntent(testPurchase.id, false)); await processMetaQueue();
     check(sent.at(-1)?.body.test_event_code === "TEST123" && !await browserMetaPurchase(testPurchase.id, request), "Test payments use CAPI Test Events only");
+    check((await getMetaOrderDelivery(testPurchase.id))?.testMode, "Accepted test purchases stay visibly marked as test events");
     await save(settings);
     const revokedId = randomUUID();
     await queueMetaEvent(makeMetaEvent("PageView", revokedId, "/", { client_user_agent: "Test" }, {}), settings, consent);
     await saveConsent(request, false);
     check(!await consentGranted(consent), "Withdrawal persists");
+    check((await selectOne<RowDataPacket>("SELECT matching_data_encrypted FROM meta_consents WHERE id = ?", [consent]))?.matching_data_encrypted === null, "Withdrawal erases the recognized visitor matching profile");
+    check(Object.keys(await visitorMetaUserData(request, consent)).length === 0, "Withdrawn visitors receive no server matching data");
     check((await selectOne<RowDataPacket>("SELECT status, payload_encrypted FROM meta_event_jobs WHERE event_id = ?", [revokedId]))?.status === "CANCELLED", "Withdrawal cancels pending events");
     check((await selectRows("SELECT order_id FROM meta_order_contexts WHERE consent_id = ?", [consent])).length === 0, "Withdrawal removes pending order attribution");
     check(!await browserMetaPurchase(order.id, request), "Receipt cannot track after withdrawal");
+    await syncMetaDeliveryDiagnostics();
+    check((await getMetaOrderDelivery(order.id))?.status === "Sent", "Consent withdrawal does not erase the safe historical acceptance record");
     await withTransaction(connection => queueMetaPurchase(order.id, connection));
     const expiryId = randomUUID();
     await queueMetaEvent(makeMetaEvent("PageView", expiryId, "/", { client_user_agent: "Test" }, {}), settings, null);
@@ -121,9 +156,19 @@ async function run() {
     try {
       const untrackedOrder = await createOrder({ ...input, idempotencyKey: randomUUID() }, "live", undefined, context);
       check(Boolean(await selectOne("SELECT id FROM orders WHERE id = ?", [untrackedOrder.id])), "Tracking storage failure cannot roll back a valid order");
+      check((await selectOne<RowDataPacket>("SELECT capture_reason FROM meta_order_diagnostics WHERE order_id = ?", [untrackedOrder.id]))?.capture_reason === "CAPTURE_FAILED", "Context storage failures are recorded without failing checkout");
     } finally {
       await executeMutation("RENAME TABLE meta_order_contexts_unavailable TO meta_order_contexts");
     }
+    await executeMutation("RENAME TABLE meta_order_diagnostics TO meta_order_diagnostics_unavailable");
+    try {
+      const unobserved = await createOrder({ ...input, idempotencyKey: randomUUID() }, "live", undefined, context);
+      check(Boolean(await selectOne("SELECT id FROM orders WHERE id = ?", [unobserved.id])), "Diagnostic storage failure cannot roll back checkout");
+      check(Boolean(await selectOne("SELECT order_id FROM meta_order_contexts WHERE order_id = ?", [unobserved.id])), "Diagnostic storage failure preserves eligible tracking context");
+    } finally { await executeMutation("RENAME TABLE meta_order_diagnostics_unavailable TO meta_order_diagnostics"); }
+    await executeMutation("UPDATE meta_event_jobs SET created_at = DATE_SUB(CURRENT_TIMESTAMP(3), INTERVAL 31 DAY) WHERE event_id = ?", [`n7_purchase_${order.id}`]);
+    await processMetaQueue();
+    check((await getMetaOrderDelivery(order.id))?.status === "Sent", "Order acceptance remains visible after queue metadata expires");
     console.log(`${checks} Meta integration checks passed; no real Meta or Stripe calls, charges or emails.`);
   } finally {
     globalThis.fetch = originalFetch;

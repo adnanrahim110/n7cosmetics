@@ -7,6 +7,7 @@ import Title from "@/components/ui/Title";
 import RatingStars from "@/components/commerce/RatingStars";
 import { getStorefrontBundle } from "@/lib/commerce/bundles";
 import { getProductReviewSummary } from "@/lib/commerce/reviews";
+import { productStructuredData, structuredDataJson } from "@/lib/commerce/seo";
 import { ArrowLeft, BadgeCheck, Check, ChevronDown, Clock3, PackageCheck, ShieldCheck, Truck } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -75,6 +76,7 @@ export default async function BundlePage({ params }: BundlePageProps) {
 
   return (
     <div className="min-h-screen bg-[#f3eee5] text-[#1c1814]">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredDataJson(productStructuredData(bundle, reviewSummary)) }} />
       <main className="pb-16 pt-36 sm:pb-24 sm:pt-44">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-black/38">

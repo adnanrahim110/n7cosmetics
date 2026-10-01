@@ -7,6 +7,7 @@ import {
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/privacy" },
   title: "Privacy Policy | N7 Cosmetics",
   description:
     "Learn how N7 Cosmetics collects, uses, retains, and protects personal information and how to exercise your data rights.",
@@ -98,8 +99,8 @@ export default async function PrivacyPage() {
 
       <LegalSection id="meta" number="04" title="Marketing measurement and Meta">
         <p>With your permission, we use Meta Pixel and Conversions API to measure advertising and understand product views, searches, basket additions, checkout activity and purchases. Marketing tracking stays off until you choose “Allow all”. You can withdraw this permission at any time using “Cookie preferences” in the footer. Your choice is separate from email newsletter preferences.</p>
-        <p>When enabled with your consent, browser cookies such as _fbp and _fbc help Meta match events to advertising interactions. We may share product identifiers, order amounts and currency, browser information, IP address and click identifiers. For confirmed purchases, we may also share your email address and phone number after normalising and SHA-256 hashing them. Hashing is not anonymisation. We do not send card details, delivery addresses, order notes or free-text searches through this integration.</p>
-        <p>We retain your cookie choice for up to 180 days. Meta browser/click cookies may last up to 90 days. Encrypted event data awaiting delivery is removed after delivery or within two days; local delivery records without event payloads are retained for 30 days. Withdrawing permission stops further tracking and cancels queued events associated with this browser; it cannot recall events already delivered to Meta. Learn more in <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noreferrer" className="underline underline-offset-4">Meta’s privacy policy</a>.</p>
+        <p>When enabled with your consent, browser cookies such as _fbp and _fbc help Meta match events to advertising interactions. We may share product identifiers, order amounts and currency, browser information, IP address and click identifiers. At checkout, we may also share your email address, phone number, billing first and last name, city, region, postcode and country after normalising and SHA-256 hashing them. A hashed visitor identifier helps link your consenting activity. Hashing is not anonymisation. We do not send card details, street addresses, order notes or free-text searches through this integration.</p>
+        <p>We retain your cookie choice for up to 180 days. With valid marketing permission, we also retain an encrypted copy of these already hashed checkout matching fields for this browser until your choice expires, for up to 180 days, so later consenting visits can be matched. Withdrawal removes this matching profile. Meta browser/click cookies may last up to 90 days. Encrypted event data awaiting delivery is removed after delivery or within two days; event queue records without payloads are retained for 30 days. An order’s delivery status, timestamps and any skip or failure reason are kept with that order for support and troubleshooting. These order records do not contain Meta cookies, matching identifiers or event payloads. Withdrawing permission stops further tracking and cancels queued events associated with this browser; it cannot recall events already delivered to Meta. Learn more in <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noreferrer" className="underline underline-offset-4">Meta’s privacy policy</a>.</p>
       </LegalSection>
 
       <LegalSection id="cookies" number="05" title="Cookies">

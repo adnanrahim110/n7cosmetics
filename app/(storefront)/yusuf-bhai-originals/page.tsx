@@ -4,6 +4,7 @@ import { collectionDesigns } from "@/components/collections/collection-config";
 import { getCollectionPage } from "@/lib/commerce/collections";
 
 export const metadata = {
+  alternates: { canonical: "/yusuf-bhai-originals" },
   title: "Yusuf Bhai Originals | N7 Cosmetics",
   description: "Explore 21 original Yusuf Bhai fragrances across the Noble, Teeb and Deja Vu collections, available from N7 Cosmetics in the UK.",
 };

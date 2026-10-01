@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { configureMeta, stopMeta, trackMeta } from "@/lib/meta/client";
+import { captureMetaLandingClick, configureMeta, stopMeta, suspendMeta, trackMeta } from "@/lib/meta/client";
 import type { MetaPublicConfig } from "@/lib/meta/shared";
 import { useCommerce } from "@/components/commerce/CommerceProvider";
 
@@ -27,7 +27,7 @@ export default function MetaTracking() {
     try {
       const response = await fetch("/api/meta/config", { cache: "no-store" });
       if (sequence !== refreshSequence.current) return;
-      if (!response.ok) { stopMeta(); return; }
+      if (!response.ok) { suspendMeta(); setConfig(undefined); return; }
       const value: MetaPublicConfig = await response.json();
       if (sequence !== refreshSequence.current) return;
       try { locallyDenied.current = localStorage.getItem("n7-marketing-denied") === "1"; } catch { /* Keep the in-memory preference. */ }
@@ -37,9 +37,10 @@ export default function MetaTracking() {
         value.consent = "denied";
       }
       configureMeta(value); setConfig(value);
-    } catch { if (sequence === refreshSequence.current) stopMeta(); }
+    } catch { if (sequence === refreshSequence.current) { suspendMeta(); setConfig(undefined); } }
   }, []);
   useEffect(() => {
+    captureMetaLandingClick();
     const sequence = refreshSequence;
     const initial = window.setTimeout(() => void refresh(), 0);
     const show = () => { setOpen(true); };
@@ -94,7 +95,7 @@ export default function MetaTracking() {
     finally { savingChoice.current = false; setBusy(false); }
   }
   useEffect(() => {
-    const changed = (event: StorageEvent) => { if (event.key === "n7-cookie-change" || event.key === "n7-marketing-denied") { stopMeta(); void refresh(); } };
+    const changed = (event: StorageEvent) => { if (event.key === "n7-cookie-change" || event.key === "n7-marketing-denied") { suspendMeta(); void refresh(); } };
     window.addEventListener("storage", changed); return () => window.removeEventListener("storage", changed);
   }, [refresh]);
   if (!visible) return null;

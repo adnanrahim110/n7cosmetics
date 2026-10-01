@@ -1,10 +1,15 @@
 "use client";
 import type { MetaBrowserEvent, MetaEventName, MetaPublicConfig } from "./shared";
+import { metaClickCookie, metaLandingClick, safeMetaPixelLocation, type MetaClick } from "./browser-policy";
+import { deliverMetaClientEvent } from "./client-delivery";
 
 type PixelFunction = ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue: unknown[][]; push?: PixelFunction; loaded: boolean; version: string };
 declare global { interface Window { fbq?: PixelFunction; _fbq?: PixelFunction } }
 let configuration: MetaPublicConfig = { enabled: false, pixelId: "", consent: "unknown" };
 let consentGeneration = 0;
+// A landing URL stays in this tab's memory only. No cookie/storage/request is used before consent.
+let landingClick: MetaClick | undefined;
+let pixelScriptAttempts = 0;
 const initialized = new Set<string>();
 const purchaseSent = new Set<string>();
 const purchaseRetentionMs = 47 * 60 * 60 * 1000;
@@ -27,47 +32,62 @@ function deleteMetaCookies() {
     for (let i = 0; i < parts.length - 1; i++) document.cookie = `${name}=; Max-Age=0; Path=/; Domain=.${parts.slice(i).join(".")}; SameSite=Lax`;
   }
 }
+export function captureMetaLandingClick(): void {
+  const click = metaLandingClick(location.href);
+  if (click && click.id !== landingClick?.id) landingClick = click;
+}
+function loadPixelScript() {
+  if (pixelScriptAttempts >= 2) return;
+  pixelScriptAttempts++;
+  const script = document.createElement("script");
+  script.async = true; script.src = "https://connect.facebook.net/en_US/fbevents.js";
+  script.referrerPolicy = "strict-origin";
+  script.onerror = () => {
+    script.remove();
+    const generation = consentGeneration;
+    window.setTimeout(() => {
+      if (generation === consentGeneration && configuration.enabled && configuration.consent === "granted" && safePixelLocation()) loadPixelScript();
+    }, 1500);
+  };
+  document.head.appendChild(script);
+}
 function initializePixel(id: string) {
   if (!safePixelLocation()) return;
   if (!window.fbq) {
     const fbq = function (...args: unknown[]) { if (fbq.callMethod) fbq.callMethod(...args); else fbq.queue.push(args); } as PixelFunction;
     fbq.queue = []; fbq.loaded = true; fbq.version = "2.0"; fbq.push = fbq;
     window.fbq = fbq; window._fbq = fbq;
-    const script = document.createElement("script"); script.async = true; script.src = "https://connect.facebook.net/en_US/fbevents.js";
-    script.referrerPolicy = "strict-origin";
-    document.head.appendChild(script);
+    loadPixelScript();
   }
   window.fbq("consent", "grant");
   if (!initialized.has(id)) {
     window.fbq("set", "autoConfig", false, id);
-    window.fbq("init", id);
+    window.fbq("init", id, configuration.externalId ? { external_id: configuration.externalId } : {});
     initialized.add(id);
   }
 }
 function safePixelLocation(): boolean {
   // Pixel reads the document URL itself; keep receipt tokens and Stripe secrets out.
-  const allowed = new Set(["fbclid", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]);
-  return [location.href, document.referrer].every(value => {
-    if (!value) return true;
-    try { return [...new URL(value).searchParams.keys()].every(key => allowed.has(key)); }
-    catch { return false; }
-  });
+  return safeMetaPixelLocation(location.href, document.referrer);
 }
 export function configureMeta(config: MetaPublicConfig): void {
   if (JSON.stringify(configuration) !== JSON.stringify(config)) consentGeneration++;
   configuration = config;
+  if (config.consent === "denied") landingClick = undefined;
+  else captureMetaLandingClick();
   prunePurchaseMarkers(config.consent === "denied");
   if (!config.enabled || config.consent !== "granted") {
     window.fbq?.("consent", "revoke"); deleteMetaCookies(); return;
   }
   // Only derive a click cookie from an actual fbclid, and only after consent.
-  const fbclid = new URL(location.href).searchParams.get("fbclid");
   const existingFbc = document.cookie.split(";").map(part => part.trim()).find(part => part.startsWith("_fbc="));
-  if (fbclid && /^[A-Za-z0-9_-]{1,500}$/.test(fbclid) && !existingFbc?.endsWith(`.${fbclid}`)) document.cookie = `_fbc=fb.1.${Date.now()}.${fbclid}; Max-Age=7776000; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+  if (landingClick && !existingFbc?.endsWith(`.${landingClick.id}`)) document.cookie = `_fbc=${metaClickCookie(landingClick)}; Max-Age=7776000; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
   if (config.pixelId) initializePixel(config.pixelId);
   window.dispatchEvent(new Event("n7:meta-ready"));
 }
 export function stopMeta(): void { configureMeta({ ...configuration, consent: "denied" }); }
+// A temporary config failure pauses delivery without discarding an unconsented landing click.
+export function suspendMeta(): void { configureMeta({ ...configuration, enabled: false }); }
 export function sendMetaBrowserEvent(event: MetaBrowserEvent): void {
   if (!configuration.enabled || configuration.consent !== "granted" || !event.pixelId || event.pixelId !== configuration.pixelId || !safePixelLocation()) return;
   const key = `${event.pixelId}:${event.eventId}`;
@@ -87,8 +107,10 @@ export async function trackMeta(name: MetaEventName, items: { slug: string; quan
   if (!configuration.enabled || configuration.consent !== "granted") return;
   const generation = consentGeneration;
   try {
-    const response = await fetch("/api/meta/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, eventId: crypto.randomUUID(), path: location.pathname, items, ...extra }), keepalive: true, signal: AbortSignal.timeout(8000) });
-    if (response.status !== 200 || generation !== consentGeneration) return;
-    sendMetaBrowserEvent(await response.json());
+    const event = await deliverMetaClientEvent(
+      JSON.stringify({ name, eventId: crypto.randomUUID(), path: location.pathname, items, ...extra }),
+      () => generation === consentGeneration && configuration.enabled && configuration.consent === "granted",
+    );
+    if (event && generation === consentGeneration) sendMetaBrowserEvent(event);
   } catch { /* Analytics must never block a visitor action. */ }
 }

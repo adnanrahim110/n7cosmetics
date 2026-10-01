@@ -7,6 +7,7 @@ import CollectionHero from "@/components/collections/CollectionHero";
 import { collectionDesigns } from "@/components/collections/collection-config";
 import { getCategoryPage } from "@/lib/commerce/collections";
 import { categoryHref } from "@/lib/commerce/category-config";
+import { storefrontUrl } from "@/lib/commerce/seo";
 
 type PageProps = { params: Promise<{ collectionSlug: string; categorySlug: string }> };
 const loadPage = cache(getCategoryPage);
@@ -15,10 +16,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { collectionSlug, categorySlug } = await params;
   const page = await loadPage(collectionSlug, categorySlug);
   if (!page) notFound();
+  const title = page.category.seo_title || `${page.category.name} | ${page.category.collection_name} | N7 Cosmetics`;
+  const description = page.category.seo_description || page.category.description || page.collection.intro || undefined;
+  const image = page.collection.heroProducts?.[0]?.image || page.collection.products[0]?.image;
   return {
-    title: page.category.seo_title || `${page.category.name} | ${page.category.collection_name} | N7 Cosmetics`,
-    description: page.category.seo_description || page.category.description || page.collection.intro || undefined,
+    title,
+    description,
     alternates: { canonical: categoryHref(collectionSlug, categorySlug) },
+    openGraph: { title, description, url: categoryHref(collectionSlug, categorySlug), type: "website", ...(image ? { images: [{ url: storefrontUrl(image), alt: page.category.name }] } : {}) },
+    twitter: { card: "summary_large_image", title, description, ...(image ? { images: [storefrontUrl(image)] } : {}) },
   };
 }
 

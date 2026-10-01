@@ -4,7 +4,8 @@ import { allowMetaRequest, consentGranted, consentId } from "@/lib/meta/consent"
 import { capiReady, getMetaSettings, pixelReady } from "@/lib/meta/settings";
 import { metaEventSchema, safeEventPath } from "@/lib/meta/shared";
 import { makeMetaEvent, queueMetaEvent, resolveEventData } from "@/lib/meta/events";
-import { requestUserData, readCookie } from "@/lib/meta/identity";
+import { readCookie } from "@/lib/meta/identity";
+import { visitorMetaUserData } from "@/lib/meta/visitor";
 import { kickMetaQueue } from "@/lib/meta/kick";
 import { readMetaJson } from "@/lib/meta/http";
 export const runtime = "nodejs";
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
     const data = await resolveEventData(input);
     if (capiReady(s)) {
       try {
-        await queueMetaEvent(makeMetaEvent(input.name, input.eventId, input.path, requestUserData(request), data), s, id);
+        await queueMetaEvent(makeMetaEvent(input.name, input.eventId, input.path, await visitorMetaUserData(request, id), data), s, id);
         kickMetaQueue();
       } catch { console.error("Meta browser event could not be queued; browser tracking remains available."); }
     }

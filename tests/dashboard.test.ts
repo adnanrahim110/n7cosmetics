@@ -16,7 +16,11 @@ import {
   parseAdDays,
   parseAdMetrics,
   parseAdCoverage,
+  fetchMetaOverview,
+  metaReportingRange,
 } from "../lib/meta/insights";
+import { defaultMetaSettings } from "../lib/meta/settings";
+import { encryptSecret } from "../lib/security/encryption";
 import { reportDays } from "../lib/admin/dashboard-reports";
 import { dashboardTab, metricValue } from "../lib/admin/dashboard-display";
 
@@ -213,12 +217,63 @@ test("Meta report dates and attribution are explicit; credentials are absent fro
     since: "2026-09-01",
     until: "2026-09-30",
   });
-  assert.deepEqual(
-    JSON.parse(url.searchParams.get("action_attribution_windows")!),
-    ["7d_click", "1d_view"],
-  );
+  assert.equal(url.searchParams.get("use_unified_attribution_setting"), "true");
+  assert.equal(url.searchParams.has("action_attribution_windows"), false);
   assert.equal(url.searchParams.has("access_token"), false);
   assert.equal(url.searchParams.has("time_increment"), false);
+});
+
+test("Meta presets and custom dates use the ad account calendar at midnight and DST changes", () => {
+  const now = new Date("2026-10-01T00:30:00Z");
+  const zone = "America/Los_Angeles";
+  for (const preset of ["today", "yesterday", "7", "30", "90"]) {
+    const applied = metaReportingRange(dashboardRange({ range: preset }, now), zone, now);
+    assert.equal(applied.end, preset === "yesterday" ? "2026-09-29" : "2026-09-30");
+    assert.equal(applied.start, shiftDate(applied.end, 1 - applied.days));
+    assert.equal(applied.timeZone, zone);
+  }
+  const custom = metaReportingRange(dashboardRange({ range: "custom", start: "2026-09-01", end: "2026-09-12" }, now), zone, now);
+  assert.equal(custom.start, "2026-09-01");
+  assert.equal(custom.end, "2026-09-12");
+  assert.equal(custom.previousEnd, "2026-08-31");
+  const appliedToday = dashboardRange({ range: "today" }, now, undefined, zone);
+  assert.deepEqual(metaReportingRange(appliedToday, zone, new Date("2026-10-02T12:00:00Z")), appliedToday);
+  assert.equal(dayStartUtc("2026-10-01", zone).toISOString(), "2026-10-01T07:00:00.000Z");
+  assert.equal((dayStartUtc("2026-03-09", zone).getTime() - dayStartUtc("2026-03-08", zone).getTime()) / 3600000, 23);
+  assert.equal((dayStartUtc("2026-11-02", zone).getTime() - dayStartUtc("2026-11-01", zone).getTime()) / 3600000, 25);
+});
+
+test("Every Meta card, chart and breakdown request shares the applied period after changing filters", async () => {
+  process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+  process.env.MEDIA_STORAGE_DIR = ".test-media";
+  const settings = { ...defaultMetaSettings, adAccountId: "123456789", reportingTokenEncrypted: encryptSecret("fixture-token") };
+  const now = new Date("2026-10-01T00:30:00Z");
+  for (const query of [{ range: "today" }, { range: "7" }, { range: "30" }, { range: "90" }, { range: "custom", start: "2026-08-10", end: "2026-08-20" }]) {
+    const range = dashboardRange(query, now);
+    const expected = metaReportingRange(range, "America/Los_Angeles", now);
+    const paths: string[] = [];
+    const report = await fetchMetaOverview(settings, range, async path => {
+      paths.push(path);
+      return path.includes("/insights?") ? { data: [] } : { name: "Fixture", currency: "GBP", timezone_name: "America/Los_Angeles" };
+    }, now);
+    assert.equal(report.status, "ready");
+    assert.equal(report.period?.start, expected.start);
+    assert.equal(report.period?.end, expected.end);
+    assert.equal(report.details?.days?.length, expected.days);
+    assert.equal(report.details?.days?.[0].date, expected.start);
+    assert.equal(report.details?.days?.at(-1)?.date, expected.end);
+    assert.equal(report.details?.previousDays?.length, expected.days);
+    assert.deepEqual(report.details?.errors, []);
+    assert.equal(paths.length, 8);
+    paths.filter(path => path.includes("/insights?")).forEach(path => {
+      const params = new URL(path, "https://graph.facebook.com/").searchParams;
+      const dates = JSON.parse(params.get("time_range")!);
+      const previous = dates.since === expected.previousStart;
+      assert.deepEqual(dates, { since: previous ? expected.previousStart : expected.start, until: previous ? expected.previousEnd : expected.end });
+      assert.equal(params.get("use_unified_attribution_setting"), "true");
+      assert.equal(params.get("action_report_time"), "conversion");
+    });
+  }
 });
 
 test("Dashboard tab selection enforces the fulfilment role and rejects unknown tabs", () => {

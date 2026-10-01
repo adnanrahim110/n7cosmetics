@@ -4,6 +4,7 @@ import { collectionDesigns } from "@/components/collections/collection-config";
 import { getCollectionPage } from "@/lib/commerce/collections";
 
 export const metadata = {
+  alternates: { canonical: "/recreations" },
   title: "Fragrance Recreations | N7 Cosmetics",
   description: "Discover the Yusuf Bhai recreation collection: 60 independent interpretations of celebrated fragrance profiles for him, her and everyone.",
 };

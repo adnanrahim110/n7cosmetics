@@ -9,6 +9,7 @@ import ReviewsSection from "@/components/sections/ReviewsSection";
 import ScentStorySection from "@/components/sections/ScentStorySection";
 import SignatureFragrances from "@/components/sections/SignatureFragrances";
 import { getHomepageStorefrontContent } from "@/lib/commerce/homepage";
+export const metadata = { alternates: { canonical: "/" } };
 
 export default async function Home() {
   const content = await getHomepageStorefrontContent();

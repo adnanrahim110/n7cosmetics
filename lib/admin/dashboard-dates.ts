@@ -2,6 +2,7 @@ export const STORE_TIME_ZONE = "Europe/London";
 export type DashboardSource = "LIVE" | "LEGACY" | "ALL";
 export type DashboardQuery = Record<string, string | string[] | undefined>;
 export interface DashboardRange {
+  timeZone?: string;
   preset: string;
   source: DashboardSource;
   start: string;
@@ -49,8 +50,9 @@ export function dashboardRange(
   query: DashboardQuery,
   now = new Date(),
   historyStart?: string,
+  timeZone = STORE_TIME_ZONE,
 ): DashboardRange {
-  const today = calendarDate(now);
+  const today = calendarDate(now, timeZone);
   const preset = [
     "today",
     "yesterday",
@@ -93,6 +95,7 @@ export function dashboardRange(
     days = Math.round((Date.parse(end) - Date.parse(start)) / dayMs) + 1;
   }
   return {
+    timeZone,
     preset: warning ? "30" : preset,
     source,
     start,
@@ -103,12 +106,12 @@ export function dashboardRange(
     warning,
   };
 }
-// Convert London midnight without depending on MySQL's optional time-zone tables.
-export function dayStartUtc(date: string): Date {
+// Convert calendar midnight without depending on MySQL's optional time-zone tables.
+export function dayStartUtc(date: string, timeZone = STORE_TIME_ZONE): Date {
   const target = Date.parse(`${date}T00:00:00Z`);
   let candidate = target;
   const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: STORE_TIME_ZONE,
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

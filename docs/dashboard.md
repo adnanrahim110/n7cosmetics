@@ -32,7 +32,7 @@ The server reads account metadata, account-level Insights totals, daily series, 
 
 Meta pagination reuses the trusted account path and opaque cursor, never an upstream `next` URL containing credentials. Reports are capped at ten pages; excess, malformed or looping responses are unavailable rather than shown as complete. A failed detailed endpoint does not erase valid account totals. Missing dates become zero only after a complete successful daily report; missing detail reports never become flat zero charts.
 
-The API reports in the account's own currency and timezone, both shown in the interface. Attribution is explicitly 7-day click / 1-day view, with conversion-date reporting. Only `offsite_conversion.fb_pixel_purchase` is selected for website purchases and values; overlapping aggregate purchase aliases are not summed. Reach is fetched as a whole-period estimate, never summed across days. ROAS is attributed website value divided by spend, not profit. Zero denominators display an em dash.
+The API reports in the account's own currency and timezone, both shown in the interface. Traffic and Meta ads presets, date controls, cards, daily charts, campaign/platform/device breakdowns, and local server-event counts share the applied account-calendar period. Custom dates remain the selected dates, including the full final day. Comparisons use the immediately preceding equal period. Report cache keys include dates, account timezone and configuration revision. Attribution follows each ad set through `use_unified_attribution_setting=true`, with conversion-date reporting. Only `offsite_conversion.fb_pixel_purchase` is selected for website purchases and values; overlapping aggregate purchase aliases are not summed. Reach is fetched as a whole-period estimate, never summed across days. ROAS is attributed website value divided by spend, not profit. Zero denominators display an em dash.
 
 A successful empty Insights response means no reported activity. Missing configuration, a paused connection, malformed responses, expired tokens, permission errors and outages display an unavailable state with no invented zeros. Store order totals remain independent and usable. Meta may delay/revise results; refreshing N7 cannot make upstream attribution real-time. Dashboard reports do not prove Pixel/CAPI deduplication or event match quality.
 
@@ -55,3 +55,8 @@ The affirmative button now reads **Allow all**. Essential basket, checkout and p
 - `pnpm typecheck`, `pnpm lint`, `pnpm build:deploy`.
 
 The UI was not browser-tested, following the project's current-task permission rule. Live ad-account access still depends on credentials saved in the deployed environment.
+
+
+## Matching parameter coverage
+
+Traffic and Meta ads show field-presence coverage for accepted live server events, using the same selected period and ad-account timezone as the rest of the report. Only the current dataset counts. Test events, failed deliveries and other datasets are excluded. Percentages use events with measured coverage; older records with unknown coverage are shown in the accepted total but excluded from the denominator. Records are retained for 30 days, and coverage starts with the matching-parameter update. These figures describe sent fields, not Meta Event Match Quality or ad attribution.

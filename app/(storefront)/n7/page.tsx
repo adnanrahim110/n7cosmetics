@@ -4,6 +4,7 @@ import { collectionDesigns } from "@/components/collections/collection-config";
 import { getCollectionPage } from "@/lib/commerce/collections";
 
 export const metadata = {
+  alternates: { canonical: "/n7" },
   title: "N7 Collection | N7 Cosmetics",
   description:
     "Discover the N7 Collection: a signature edit of expressive fragrances selected for presence, individuality, and lasting character.",

@@ -16,6 +16,7 @@ import {
 } from "@/lib/admin/dashboard-dates";
 import { dashboardTab, type DashboardTab } from "@/lib/admin/dashboard-display";
 import { getDashboardRange } from "@/lib/admin/dashboard";
+import { getMetaDashboardRange } from "@/lib/meta/insights";
 import { requireAdministrator } from "@/lib/auth/session";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
@@ -67,6 +68,7 @@ export default async function AdminDashboardPage({
   const canManage = admin.role !== "FULFILLMENT";
   const tab = dashboardTab(query.tab, canManage);
   let range = dashboardRange(query);
+  if (tab === "meta" || tab === "traffic") range = await getMetaDashboardRange(query);
   let historyUnavailable = false;
   if (
     range.preset === "all" &&

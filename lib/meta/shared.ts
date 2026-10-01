@@ -14,7 +14,7 @@ export interface MetaCustomData {
   num_items?: number;
 }
 export interface MetaBrowserEvent { pixelId: string; eventId: string; name: MetaEventName | "Purchase"; data: MetaCustomData }
-export interface MetaPublicConfig { enabled: boolean; pixelId: string; consent: "granted" | "denied" | "unknown" }
+export interface MetaPublicConfig { enabled: boolean; pixelId: string; consent: "granted" | "denied" | "unknown"; externalId?: string }
 
 // This identifier is the contract for the future catalogue export, including bundles.
 export function metaContentId(variantId: string): string { return `n7_variant_${variantId}`; }

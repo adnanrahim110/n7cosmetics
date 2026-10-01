@@ -13,6 +13,7 @@ import {
   getStorefrontProduct,
 } from "@/lib/commerce/catalog";
 import { getProductReviewSummary } from "@/lib/commerce/reviews";
+import { productStructuredData, structuredDataJson } from "@/lib/commerce/seo";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -133,6 +134,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="min-h-screen bg-[#f3eee5] text-[#1c1814]">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredDataJson(productStructuredData(product, reviewSummary)) }} />
       <main className="pb-16 pt-36 sm:pb-24 sm:pt-44">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           <nav

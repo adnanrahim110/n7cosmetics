@@ -10,7 +10,7 @@ import { kickEmailQueue } from "@/lib/email/kick";
 import { getStripeSettings, stripeKeysReady, PaymentUnavailableError } from "@/lib/payments/settings";
 import { applyPaymentIntent, ensurePaymentIntent } from "@/lib/payments/stripe";
 import { isPaymentRequestOrigin } from "@/lib/payments/request";
-import { readMetaCheckoutContext } from "@/lib/meta/orders";
+import { readMetaCheckoutCapture } from "@/lib/meta/orders";
 import { kickMetaQueue } from "@/lib/meta/kick";
 
 interface AttemptCount extends RowDataPacket { attempt_count: number }
@@ -27,8 +27,8 @@ export async function POST(request: Request) {
   try {
     const settings = await getStripeSettings();
     if (!settings.enabled || !stripeKeysReady(settings)) throw new PaymentUnavailableError();
-    const metaContext = await readMetaCheckoutContext(request).catch(() => undefined);
-    const order = await createOrder(parsed.data, settings.mode, settings.revision, metaContext);
+    const capture = await readMetaCheckoutCapture(request);
+    const order = await createOrder(parsed.data, settings.mode, settings.revision, capture.context, capture.reason);
     if (order.inventory_state === "COMMITTED") return NextResponse.json({ orderNumber: order.order_number, totalPence: order.total_pence, currency: order.currency, paid: true }, { headers: { "Cache-Control": "no-store" } });
     const intent = await ensurePaymentIntent(order.id, settings);
     if (intent.status === "canceled") throw new CommerceError("CHECKOUT_EXPIRED", "This payment session expired. Please try again.");
