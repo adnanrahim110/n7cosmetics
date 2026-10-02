@@ -12,6 +12,7 @@ export interface HomepageProduct extends Partial<ProductCardDetails> {
   rating: number;
   inspiredBy: string | null;
   productCode?: string | null;
+  isRecreation?: boolean;
   audience?: string | null;
   image: string;
   description: string;

@@ -106,8 +106,11 @@ export async function getHomepageStorefrontContent(): Promise<HomepageStorefront
   const configuration = await getHomepageConfiguration();
   // Paid standalone bottle sales in the last 90 days. Exclude refunded,
   // cancelled, returned and test orders; bundle components are not double-counted.
-  const bestSellers = hasDatabaseConfig() ? await selectRows<ProductIdRow>(
-    `SELECT CAST(p.id AS CHAR) AS id FROM order_items oi
+  const bestSellers = hasDatabaseConfig() ? await selectRows<ProductIdRow & { is_recreation: number }>(
+    `SELECT CAST(p.id AS CHAR) AS id,
+       EXISTS (SELECT 1 FROM product_collections pc INNER JOIN collections c ON c.id = pc.collection_id
+         WHERE pc.product_id = p.id AND c.slug = 'recreations') AS is_recreation
+     FROM order_items oi
      INNER JOIN orders o ON o.id = oi.order_id
      INNER JOIN products p ON p.id = oi.product_id AND p.status = 'ACTIVE' AND p.product_type = 'STANDARD'
      INNER JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1 AND v.status = 'ACTIVE'
@@ -118,7 +121,8 @@ export async function getHomepageStorefrontContent(): Promise<HomepageStorefront
        AND EXISTS (SELECT 1 FROM product_images image WHERE image.product_id = p.id)
      GROUP BY p.id HAVING SUM(oi.quantity) > 0 ORDER BY SUM(oi.quantity) DESC, p.id LIMIT 8`,
   ) : [];
-  const bestSellerProducts = (await productsByIds(bestSellers.map(product => product.id))).map(product => ({ ...product, bestSeller: true }));
+  const recreationIds = new Set(bestSellers.filter(product => Number(product.is_recreation) === 1).map(product => product.id));
+  const bestSellerProducts = (await productsByIds(bestSellers.map(product => product.id))).map(product => ({ ...product, bestSeller: true, isRecreation: recreationIds.has(product.id) }));
   const [heroProducts, signatureProducts, recreationProducts, weeklyProducts] = await Promise.all([productsByIds(configuration.hero.productIds), productsByIds(configuration.signature.productIds), productsByIds(configuration.recreations.productIds), productsByIds(configuration.weekly.productId ? [configuration.weekly.productId] : [])]);
   return {
     bestSellerProducts,

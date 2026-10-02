@@ -22,7 +22,8 @@ import {
 import { defaultMetaSettings } from "../lib/meta/settings";
 import { encryptSecret } from "../lib/security/encryption";
 import { reportDays } from "../lib/admin/dashboard-reports";
-import { dashboardTab, metricValue } from "../lib/admin/dashboard-display";
+import { dashboardTab, metricValue, visibleDashboardTabs } from "../lib/admin/dashboard-display";
+import { canAccessMetaAds } from "../lib/auth/permissions";
 
 test("Dashboard uses the UK date and an equal preceding calendar period", () => {
   const range = dashboardRange(
@@ -277,13 +278,35 @@ test("Every Meta card, chart and breakdown request shares the applied period aft
 });
 
 test("Dashboard tab selection enforces the fulfilment role and rejects unknown tabs", () => {
-  assert.equal(dashboardTab("meta", false), "operations");
-  assert.equal(dashboardTab("customers", true), "customers");
-  assert.equal(dashboardTab("unknown", true), "sales");
-  assert.equal(dashboardTab(["meta"], true), "sales");
+  assert.equal(dashboardTab("meta", false, true), "operations");
+  assert.equal(dashboardTab("customers", true, false), "customers");
+  assert.equal(dashboardTab("unknown", true, false), "sales");
+  assert.equal(dashboardTab(["meta"], true, true), "sales");
   assert.equal(metricValue(null, "pence"), "—");
   assert.equal(metricValue(NaN), "—");
   assert.equal(metricValue(1200, "pence"), "£12.00");
+});
+
+test("Meta ads access belongs only to the designated administrator email", () => {
+  assert.equal(canAccessMetaAds({ email: "shozaba261@gmail.com" }), true);
+  assert.equal(canAccessMetaAds({ email: " SHozaba261@GMAIL.COM " }), true);
+  assert.equal(canAccessMetaAds({ email: "owner@n7cosmetics.co.uk" }), false);
+  assert.equal(canAccessMetaAds({ email: "shozaba261+ads@gmail.com" }), false);
+  assert.equal(canAccessMetaAds({ email: "shozaba261@gmail.com.example.com" }), false);
+});
+
+test("Meta ads visibility and direct dashboard URLs use the same permission", () => {
+  for (const email of ["shozaba261@gmail.com", "owner@n7cosmetics.co.uk"]) {
+    const allowed = canAccessMetaAds({ email });
+    const tabs = visibleDashboardTabs(true, allowed).map((tab) => tab.id);
+    assert.equal(tabs.includes("meta"), allowed);
+    assert.equal(dashboardTab("meta", true, allowed), allowed ? "meta" : "sales");
+    assert.equal(dashboardTab("traffic", true, allowed), "traffic");
+    assert.deepEqual(tabs.filter((tab) => tab !== "meta"), [
+      "sales", "orders", "products", "customers", "traffic", "operations",
+    ]);
+  }
+  assert.deepEqual(visibleDashboardTabs(false, true).map((tab) => tab.id), ["operations"]);
 });
 
 test("Daily Meta data fills absent dates only after a complete valid response", () => {

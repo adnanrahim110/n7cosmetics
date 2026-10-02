@@ -66,5 +66,5 @@ export async function browserMetaPurchase(orderId: string, request: Request): Pr
   // A receipt link is not marketing consent; it must belong to the consenting browser.
   if (!value || value.row.consent_id !== consentId(request) || !pixelReady(value.settings) || value.row.stripe_mode !== "live") return;
   if (Date.now() - new Date(value.row.paid_at).getTime() > 47 * 60 * 60 * 1000) return;
-  return { pixelId: value.settings.pixelId, eventId: purchaseEventId(orderId), name: "Purchase", data: value.stored.data };
+  return { pixelId: value.settings.pixelId, eventId: purchaseEventId(orderId), name: "Purchase", data: value.stored.data, externalId: metaExternalId(value.row.consent_id) };
 }

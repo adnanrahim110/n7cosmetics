@@ -1,7 +1,7 @@
 "use client";
 import type { DashboardRange } from "@/lib/admin/dashboard-dates";
 import {
-  dashboardTabs,
+  visibleDashboardTabs,
   type DashboardTab,
 } from "@/lib/admin/dashboard-display";
 import { cn } from "@/lib/cn";
@@ -12,17 +12,17 @@ export default function DashboardTabs({
   active,
   range,
   canManage,
+  canViewMetaAds,
 }: {
   active: DashboardTab;
   range: DashboardRange;
   canManage: boolean;
+  canViewMetaAds: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  const tabs = dashboardTabs.filter(
-    (tab) => canManage || tab.id === "operations",
-  );
+  const tabs = visibleDashboardTabs(canManage, canViewMetaAds);
   function activate(tab: DashboardTab) {
     if (tab === active) return;
     const query = new URLSearchParams({

@@ -9,7 +9,7 @@ import { readMetaJson } from "../lib/meta/http";
 import { metaClickCookie, metaLandingClick, safeMetaPixelLocation } from "../lib/meta/browser-policy";
 import { deliverMetaClientEvent } from "../lib/meta/client-delivery";
 import { metaDeliveryStatus, type MetaDeliveryInput } from "../lib/meta/delivery-status";
-import { captureMetaLandingClick, configureMeta, stopMeta, suspendMeta } from "../lib/meta/client";
+import { captureMetaLandingClick, configureMeta, sendMetaBrowserEvent, stopMeta, suspendMeta } from "../lib/meta/client";
 
 test("Meta features activate independently", () => {
   const pixel = { ...defaultMetaSettings, pixelId: "123456789" };
@@ -98,10 +98,55 @@ test("Delayed consent retains the landing click across navigation without pre-co
   }
 });
 
+test("Pixel refreshes the server-matched External ID before each event and respects consent", () => {
+  const globals = ["location", "document", "window", "localStorage"];
+  const originals = globals.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
+  const calls: unknown[][] = [];
+  const values = [
+    { href: "https://n7.test/products/meta-test", hostname: "n7.test", protocol: "https:" },
+    { referrer: "", cookie: "" },
+    { fbq: (...args: unknown[]) => calls.push(args), dispatchEvent() {} },
+    { length: 0, key: () => null, getItem: () => null, setItem() {} },
+  ];
+  globals.forEach((key, index) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value: values[index] }));
+  const pixelId = "777123456";
+  const firstId = metaExternalId("first-consent"), secondId = metaExternalId("renewed-consent");
+  const event = { pixelId, eventId: "view-event", name: "ViewContent" as const, data: { content_ids: ["n7_variant_55"] }, externalId: firstId };
+  try {
+    configureMeta({ enabled: true, pixelId, consent: "granted" });
+    assert.equal(calls.some(args => args[0] === "init"), false, "Missing config identity must not initialize an unmatched Pixel");
+    sendMetaBrowserEvent(event);
+    assert.deepEqual(calls.slice(-2), [["init", pixelId, { external_id: firstId }], ["trackSingle", pixelId, "ViewContent", event.data, { eventID: event.eventId }]]);
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId: firstId });
+    sendMetaBrowserEvent({ ...event, eventId: "next-view" });
+    assert.deepEqual(calls.slice(-2), [["init", pixelId, { external_id: firstId }], ["trackSingle", pixelId, "ViewContent", event.data, { eventID: "next-view" }]]);
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId: secondId });
+    assert.deepEqual(calls.at(-1), ["init", pixelId, { external_id: secondId }]);
+    sendMetaBrowserEvent({ ...event, eventId: "renewed-view", externalId: secondId });
+    assert.deepEqual(calls.slice(-2), [["init", pixelId, { external_id: secondId }], ["trackSingle", pixelId, "ViewContent", event.data, { eventID: "renewed-view" }]]);
+    const beforeInvalid = calls.length;
+    sendMetaBrowserEvent({ ...event, externalId: "" });
+    sendMetaBrowserEvent({ ...event, externalId: "unhashed-visitor" });
+    assert.equal(calls.length, beforeInvalid, "Invalid matching identifiers cannot produce browser events");
+    const purchase = { ...event, eventId: "purchase-matching-test", name: "Purchase" as const, externalId: secondId };
+    sendMetaBrowserEvent(purchase);
+    const beforeDuplicate = calls.length;
+    sendMetaBrowserEvent(purchase);
+    assert.equal(calls.length, beforeDuplicate, "Matching refresh must not duplicate a Purchase");
+    stopMeta();
+    const afterWithdrawal = calls.length;
+    sendMetaBrowserEvent(event);
+    assert.equal(calls.length, afterWithdrawal, "Withdrawal blocks matching refresh and tracking");
+  } finally {
+    stopMeta();
+    globals.forEach((key, index) => { const descriptor = originals[index]; if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); });
+  }
+});
+
 test("Client delivery retries transient failures with the original deduplication ID", async () => {
   const bodies: string[] = [], delays: number[] = [];
   const body = JSON.stringify({ eventId: "stable-event-id", name: "AddToCart" });
-  const event = { pixelId: "123", eventId: "stable-event-id", name: "AddToCart", data: {} };
+  const event = { pixelId: "123", eventId: "stable-event-id", name: "AddToCart", data: {}, externalId: metaExternalId("visitor-a") };
   const result = await deliverMetaClientEvent(body, () => true, async (_url, init) => {
     bodies.push(String(init?.body));
     if (bodies.length === 1) throw new TypeError("Network unavailable");

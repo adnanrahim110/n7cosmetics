@@ -8,11 +8,24 @@ export const dashboardTabs = [
   { id: "operations", label: "Operations" },
 ] as const;
 export type DashboardTab = (typeof dashboardTabs)[number]["id"];
-export function dashboardTab(value: unknown, canManage: boolean): DashboardTab {
-  if (!canManage) return "operations";
-  return dashboardTabs.some((tab) => tab.id === value)
-    ? (value as DashboardTab)
-    : "sales";
+export function visibleDashboardTabs(
+  canManage: boolean,
+  canViewMetaAds: boolean,
+) {
+  return dashboardTabs.filter(
+    (tab) =>
+      (canManage || tab.id === "operations") &&
+      (canViewMetaAds || tab.id !== "meta"),
+  );
+}
+export function dashboardTab(
+  value: unknown,
+  canManage: boolean,
+  canViewMetaAds: boolean,
+): DashboardTab {
+  return visibleDashboardTabs(canManage, canViewMetaAds).find(
+    (tab) => tab.id === value,
+  )?.id ?? (canManage ? "sales" : "operations");
 }
 export const chartColors = [
   "#2563eb",

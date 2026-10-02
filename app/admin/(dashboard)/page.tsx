@@ -18,6 +18,7 @@ import { dashboardTab, type DashboardTab } from "@/lib/admin/dashboard-display";
 import { getDashboardRange } from "@/lib/admin/dashboard";
 import { getMetaDashboardRange } from "@/lib/meta/insights";
 import { requireAdministrator } from "@/lib/auth/session";
+import { canAccessMetaAds } from "@/lib/auth/permissions";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -66,7 +67,8 @@ export default async function AdminDashboardPage({
   const admin = await requireAdministrator();
   const query = await searchParams;
   const canManage = admin.role !== "FULFILLMENT";
-  const tab = dashboardTab(query.tab, canManage);
+  const canViewMetaAds = canAccessMetaAds(admin);
+  const tab = dashboardTab(query.tab, canManage, canViewMetaAds);
   let range = dashboardRange(query);
   if (tab === "meta" || tab === "traffic") range = await getMetaDashboardRange(query);
   let historyUnavailable = false;
@@ -97,7 +99,12 @@ export default async function AdminDashboardPage({
           </Link>
         }
       />
-      <DashboardTabs active={tab} range={range} canManage={canManage} />
+      <DashboardTabs
+        active={tab}
+        range={range}
+        canManage={canManage}
+        canViewMetaAds={canViewMetaAds}
+      />
       <DashboardControls
         range={range}
         tab={tab}

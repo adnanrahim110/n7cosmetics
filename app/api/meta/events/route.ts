@@ -4,7 +4,7 @@ import { allowMetaRequest, consentGranted, consentId } from "@/lib/meta/consent"
 import { capiReady, getMetaSettings, pixelReady } from "@/lib/meta/settings";
 import { metaEventSchema, safeEventPath } from "@/lib/meta/shared";
 import { makeMetaEvent, queueMetaEvent, resolveEventData } from "@/lib/meta/events";
-import { readCookie } from "@/lib/meta/identity";
+import { metaExternalId, readCookie } from "@/lib/meta/identity";
 import { visitorMetaUserData } from "@/lib/meta/visitor";
 import { kickMetaQueue } from "@/lib/meta/kick";
 import { readMetaJson } from "@/lib/meta/http";
@@ -28,6 +28,6 @@ export async function POST(request: Request) {
         kickMetaQueue();
       } catch { console.error("Meta browser event could not be queued; browser tracking remains available."); }
     }
-    return NextResponse.json({ pixelId: pixelReady(s) ? s.pixelId : "", eventId: input.eventId, name: input.name, data }, { headers });
+    return NextResponse.json({ pixelId: pixelReady(s) ? s.pixelId : "", eventId: input.eventId, name: input.name, data, externalId: metaExternalId(id) }, { headers });
   } catch { return new NextResponse(null, { status: 400, headers }); }
 }

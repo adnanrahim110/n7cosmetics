@@ -10,7 +10,7 @@ let consentGeneration = 0;
 // A landing URL stays in this tab's memory only. No cookie/storage/request is used before consent.
 let landingClick: MetaClick | undefined;
 let pixelScriptAttempts = 0;
-const initialized = new Set<string>();
+const initialized = new Map<string, string>();
 const purchaseSent = new Set<string>();
 const purchaseRetentionMs = 47 * 60 * 60 * 1000;
 
@@ -51,8 +51,9 @@ function loadPixelScript() {
   };
   document.head.appendChild(script);
 }
-function initializePixel(id: string) {
-  if (!safePixelLocation()) return;
+function initializePixel(id: string, externalId = configuration.externalId, refreshMatching = false): boolean {
+  // A missing identifier must not initialize an unmatched browser event.
+  if (!safePixelLocation() || !externalId || !/^[a-f0-9]{64}$/.test(externalId)) return false;
   if (!window.fbq) {
     const fbq = function (...args: unknown[]) { if (fbq.callMethod) fbq.callMethod(...args); else fbq.queue.push(args); } as PixelFunction;
     fbq.queue = []; fbq.loaded = true; fbq.version = "2.0"; fbq.push = fbq;
@@ -62,9 +63,14 @@ function initializePixel(id: string) {
   window.fbq("consent", "grant");
   if (!initialized.has(id)) {
     window.fbq("set", "autoConfig", false, id);
-    window.fbq("init", id, configuration.externalId ? { external_id: configuration.externalId } : {});
-    initialized.add(id);
   }
+  // Meta's official Pixel template refreshes advanced matching with init before
+  // subsequent events. Do not put identity in commerce/custom_data parameters.
+  if (refreshMatching || initialized.get(id) !== externalId) {
+    window.fbq("init", id, { external_id: externalId });
+    initialized.set(id, externalId);
+  }
+  return true;
 }
 function safePixelLocation(): boolean {
   // Pixel reads the document URL itself; keep receipt tokens and Stripe secrets out.
@@ -95,7 +101,7 @@ export function sendMetaBrowserEvent(event: MetaBrowserEvent): void {
     if (purchaseSent.has(key)) return;
     try { if (Number(localStorage.getItem(`n7_meta_${key}`)) > Date.now()) return; } catch { /* In-memory guard still applies. */ }
   }
-  initializePixel(event.pixelId);
+  if (!initializePixel(event.pixelId, event.externalId, true)) return;
   // Only allow canonical commerce fields; Pixel also reads the checked document URL/referrer.
   window.fbq?.("trackSingle", event.pixelId, event.name, event.data, { eventID: event.eventId });
   if (event.name === "Purchase") {
