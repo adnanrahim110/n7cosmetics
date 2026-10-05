@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useElements, useStripe } from "@stripe/react-stripe-js";
 import type { CheckoutInput } from "@/lib/commerce/validation";
+import { CheckoutValidationError } from "@/lib/commerce/checkout-validation";
 import { usePaymentConfig } from "./StripeProvider";
 import { useCommerce } from "./CommerceProvider";
 import { trackMeta } from "@/lib/meta/client";
@@ -43,6 +44,7 @@ export function useStripePayment({ preserveCart = false }: { preserveCart?: bool
       const data = await response.json();
       if (!response.ok) {
         if (data.code === "CHECKOUT_EXPIRED") { sessionStorage.removeItem(CHECKOUT_ATTEMPT_KEY); setReservationKey(undefined); }
+        if (data.code === "VALIDATION_ERROR") throw new CheckoutValidationError(data.error || "Check the checkout details.", data.fieldErrors);
         throw new Error(data.error || "Unable to start payment. Please try again.");
       }
       setReservationKey(key);

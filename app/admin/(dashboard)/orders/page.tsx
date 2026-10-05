@@ -1,17 +1,17 @@
-import Link from "next/link";
-import type { RowDataPacket } from "mysql2/promise";
-import { Eye, Search } from "lucide-react";
 import AdminThumbnail from "@/components/admin/AdminThumbnail";
 import CustomSelect from "@/components/admin/CustomSelect";
+import LegacyBadge from "@/components/admin/LegacyBadge";
+import OrderStatusControl from "@/components/admin/OrderStatusControl";
 import PageHeader from "@/components/admin/PageHeader";
 import Pagination, { parsePage } from "@/components/admin/Pagination";
-import LegacyBadge from "@/components/admin/LegacyBadge";
-import { isDatabaseId } from "@/lib/admin/form";
 import StatusBadge from "@/components/admin/StatusBadge";
-import OrderStatusControl from "@/components/admin/OrderStatusControl";
+import { isDatabaseId } from "@/lib/admin/form";
 import { orderStatuses, type OrderStatus } from "@/lib/admin/order-status";
 import { requireAdministrator } from "@/lib/auth/session";
 import { selectOne, selectRows } from "@/lib/db/query";
+import { Eye, Search } from "lucide-react";
+import type { RowDataPacket } from "mysql2/promise";
+import Link from "next/link";
 
 interface OrderRow extends RowDataPacket {
   id: string;
@@ -36,24 +36,38 @@ interface OrderCountRow extends RowDataPacket {
 }
 
 interface OrdersPageProps {
-  searchParams: Promise<{ q?: string; status?: string; page?: string; source?: string; customerId?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    status?: string;
+    page?: string;
+    source?: string;
+    customerId?: string;
+  }>;
 }
 
 const statuses = ["ALL", ...orderStatuses] as const;
 const pageSize = 25;
 
 function money(pence: number, currency: string): string {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(pence / 100);
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(
+    pence / 100,
+  );
 }
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
   const administrator = await requireAdministrator();
   const query = await searchParams;
   const q = query.q?.trim().slice(0, 100) ?? "";
-  const status = statuses.includes(query.status as (typeof statuses)[number]) ? query.status! : "ALL";
+  const status = statuses.includes(query.status as (typeof statuses)[number])
+    ? query.status!
+    : "ALL";
   const term = `%${q}%`;
-  const customerId = query.customerId && isDatabaseId(query.customerId) ? query.customerId : null;
-  const source = query.source === "LEGACY" || query.source === "LIVE" ? query.source : "ALL";
+  const customerId =
+    query.customerId && isDatabaseId(query.customerId)
+      ? query.customerId
+      : null;
+  const source =
+    query.source === "LEGACY" || query.source === "LIVE" ? query.source : "ALL";
   const count = await selectOne<OrderCountRow>(
     `SELECT COUNT(*) AS total_count
      FROM orders o
@@ -85,21 +99,70 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
      GROUP BY o.id
      ORDER BY o.placed_at DESC
      LIMIT ? OFFSET ?`,
-    [term, term, term, status, status, customerId, customerId, source, source, pageSize, offset],
+    [
+      term,
+      term,
+      term,
+      status,
+      status,
+      customerId,
+      customerId,
+      source,
+      source,
+      pageSize,
+      offset,
+    ],
   );
 
   return (
     <div>
-      <PageHeader eyebrow="Sales" title="Orders" description="Review customers, payment state, and fulfilment progress." />
+      <PageHeader
+        eyebrow="Sales"
+        title="Orders"
+        description="Review customers, payment state, and fulfilment progress."
+      />
       <form className="mt-7 grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_160px_160px_auto]">
-        {customerId ? <input type="hidden" name="customerId" value={customerId} /> : null}
+        {customerId ? (
+          <input type="hidden" name="customerId" value={customerId} />
+        ) : null}
         <label className="flex items-center rounded-lg border border-zinc-300 px-3 focus-within:border-amber-700 focus-within:ring-2 focus-within:ring-amber-100">
           <Search className="text-zinc-400" size={16} />
-          <input aria-label="Search orders" className="w-full px-2 py-2 text-sm outline-none" defaultValue={q} name="q" placeholder="Order, customer, email" />
+          <input
+            aria-label="Search orders"
+            className="w-full px-2 py-2 text-sm outline-none"
+            defaultValue={q}
+            name="q"
+            placeholder="Order, customer, email"
+          />
         </label>
-        <CustomSelect defaultValue={status} name="status" options={statuses.map((value) => ({ value, label: value === "ALL" ? "All statuses" : value.toLowerCase() }))} searchable={false} />
-        <CustomSelect aria-label="Order origin" name="source" defaultValue={source} className="min-w-40" triggerClassName="min-h-10" options={[{ value: "ALL", label: "All orders" }, { value: "LEGACY", label: "Historical" }, { value: "LIVE", label: "New website" }]} searchable={false} />
-        <button className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800" type="submit">Filter</button>
+        <CustomSelect
+          defaultValue={status}
+          name="status"
+          options={statuses.map((value) => ({
+            value,
+            label: value === "ALL" ? "All statuses" : value.toLowerCase(),
+          }))}
+          searchable={false}
+        />
+        <CustomSelect
+          aria-label="Order origin"
+          name="source"
+          defaultValue={source}
+          className="min-w-40"
+          triggerClassName="min-h-10"
+          options={[
+            { value: "ALL", label: "All orders" },
+            { value: "LEGACY", label: "Historical" },
+            { value: "LIVE", label: "New website" },
+          ]}
+          searchable={false}
+        />
+        <button
+          className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
+          type="submit"
+        >
+          Filter
+        </button>
       </form>
 
       <div className="mt-5 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -121,28 +184,96 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                 <tr key={order.id} className="hover:bg-zinc-50/70">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <AdminThumbnail alt={order.order_number} size="sm" src={order.image_url} />
+                      <AdminThumbnail
+                        alt={order.order_number}
+                        size="sm"
+                        src={order.image_url}
+                      />
                       <div>
-                        <Link className="font-medium hover:text-amber-700" href={`/admin/orders/${order.id}`}>{order.order_number}</Link><div className="mt-1"><LegacyBadge source={order.source} importId={order.import_id} /></div>
-                        <p className="mt-0.5 text-xs text-zinc-400">{new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(new Date(order.placed_at))}</p>
+                        <Link
+                          className="font-medium hover:text-amber-700"
+                          href={`/admin/orders/${order.id}`}
+                        >
+                          {order.order_number}
+                        </Link>
+                        <div className="mt-1">
+                          <LegacyBadge
+                            source={order.source}
+                            importId={order.import_id}
+                          />
+                        </div>
+                        <p className="mt-0.5 text-xs text-zinc-400">
+                          {new Intl.DateTimeFormat("en-GB", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          }).format(new Date(order.placed_at))}
+                        </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3"><p>{order.customer_name}</p><p className="text-xs text-zinc-400">{order.customer_email}</p></td>
-                  <td className="px-4 py-3"><OrderStatusControl canCancelOrRefund={administrator.role !== "FULFILLMENT"} historical={order.source === "LEGACY"} orderId={order.id} orderNumber={order.order_number} postageService={order.postage_service} status={order.status} trackingReference={order.tracking_reference} /></td>
-                  <td className="px-4 py-3"><StatusBadge status={order.payment_status} /></td>
-                  <td className="px-4 py-3 text-zinc-600">{order.item_count}</td>
-                  <td className="px-4 py-3 text-right font-medium">{money(order.total_pence, order.currency)}</td>
+                  <td className="px-4 py-3">
+                    <p>{order.customer_name}</p>
+                    <p className="text-xs text-zinc-400">
+                      {order.customer_email}
+                    </p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <OrderStatusControl
+                      canCancelOrRefund={administrator.role !== "FULFILLMENT"}
+                      historical={order.source === "LEGACY"}
+                      orderId={order.id}
+                      orderNumber={order.order_number}
+                      postageService={order.postage_service}
+                      status={order.status}
+                      trackingReference={order.tracking_reference}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={order.payment_status} />
+                  </td>
+                  <td className="px-4 py-3 text-zinc-600">
+                    {order.item_count}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    {money(order.total_pence, order.currency)}
+                  </td>
                   <td className="px-4 py-3 text-right">
-                    <Link aria-label={`View order ${order.order_number}`} className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50" href={`/admin/orders/${order.id}`}><Eye size={14} />View</Link>
+                    <Link
+                      aria-label={`View order ${order.order_number}`}
+                      className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50"
+                      href={`/admin/orders/${order.id}`}
+                    >
+                      <Eye size={14} />
+                      View
+                    </Link>
                   </td>
                 </tr>
               ))}
-              {!orders.length ? <tr><td className="px-4 py-12 text-center text-zinc-500" colSpan={7}>No orders found.</td></tr> : null}
+              {!orders.length ? (
+                <tr>
+                  <td
+                    className="px-4 py-12 text-center text-zinc-500"
+                    colSpan={7}
+                  >
+                    No orders found.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
-        <Pagination page={page} pageSize={pageSize} pathname="/admin/orders" query={{ q, status: status === "ALL" ? undefined : status, source, customerId: customerId ?? undefined }} totalItems={totalItems} />
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          pathname="/admin/orders"
+          query={{
+            q,
+            status: status === "ALL" ? undefined : status,
+            source,
+            customerId: customerId ?? undefined,
+          }}
+          totalItems={totalItems}
+        />
       </div>
     </div>
   );

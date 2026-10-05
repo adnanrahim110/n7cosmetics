@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { MAX_CART_ITEM_QUANTITY, MAX_CART_LINES } from "./cart-limits";
+import { checkoutAddressSchema, checkoutCouponSchema, checkoutEmailSchema, checkoutFullNameSchema, checkoutNotesSchema, checkoutPhoneSchema } from "./checkout-validation";
+
+export { checkoutAddressSchema } from "./checkout-validation";
 
 export const cartLineSchema = z.object({
   slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(190),
@@ -8,8 +11,8 @@ export const cartLineSchema = z.object({
 
 export const cartPricingInputSchema = z.object({
   items: z.array(cartLineSchema).min(1).max(MAX_CART_LINES).refine((items) => new Set(items.map((item) => item.slug)).size === items.length),
-  couponCode: z.string().trim().toUpperCase().regex(/^[A-Z0-9_-]+$/).max(80).optional(),
-  customerEmail: z.email().max(190).transform((value) => value.toLowerCase()).optional(),
+  couponCode: checkoutCouponSchema.optional(),
+  customerEmail: checkoutEmailSchema.optional(),
   reservationKey: z.uuid().optional(),
 });
 
@@ -24,27 +27,14 @@ export const cartDeliveryInputSchema = cartPricingInputSchema.extend({
     .refine(value => !value || /^(?:[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}|GIR0AA)$/.test(value), "Enter a full UK postcode.").optional(),
 });
 
-const phoneSchema = z.string().trim().min(5).max(50).regex(/^[+\d\s().-]+$/);
-export const checkoutAddressSchema = z.object({
-  fullName: z.string().trim().min(2).max(190),
-  company: z.string().trim().max(190).optional(),
-  line1: z.string().trim().min(2).max(190),
-  line2: z.string().trim().max(190).optional(),
-  city: z.string().trim().min(2).max(120),
-  region: z.string().trim().max(120).optional(),
-  postalCode: z.string().trim().min(2).max(30),
-  countryCode: z.literal("GB"),
-  phone: phoneSchema,
-});
-
 export const checkoutInputSchema = quoteInputSchema.omit({ reservationKey: true }).extend({
   idempotencyKey: z.uuid(),
   expectedTotalPence: z.number().int().min(30).max(99999999),
   customer: z.object({
-    name: z.string().trim().min(2).max(190),
-    email: z.email().max(190).transform((value) => value.toLowerCase()),
-    phone: phoneSchema,
-    notes: z.string().trim().max(2000).optional(),
+    name: checkoutFullNameSchema,
+    email: checkoutEmailSchema,
+    phone: checkoutPhoneSchema,
+    notes: checkoutNotesSchema.optional(),
   }),
   billingAddress: checkoutAddressSchema,
   shippingAddress: checkoutAddressSchema,

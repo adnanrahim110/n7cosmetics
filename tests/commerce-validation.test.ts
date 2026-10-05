@@ -3,6 +3,88 @@ import test from "node:test";
 import { cartPricingInputSchema, checkoutInputSchema, quoteInputSchema } from "../lib/commerce/validation";
 import { calculateBuyXGetYPricing, getSaleProgress } from "../lib/commerce/sale-pricing";
 import { defaultSalePageConfiguration } from "../lib/storefront-pages/config";
+import { checkoutAddressFromForm, checkoutCouponSchema, checkoutFieldErrors, checkoutFormSchema, readCheckoutFieldErrors, CheckoutValidationError } from "../lib/commerce/checkout-validation";
+
+const checkoutFormFixture = {
+  email: " customer@example.com ", notes: " Leave with reception ",
+  billingAddress: {
+    firstName: " N7 ", lastName: " Customer ", company: "", line1: " 1 Test Street ", line2: "", city: "London",
+    region: "", postalCode: "sw1a 1aa", countryCode: "GB", phone: "+44 20 7946 0000",
+  },
+};
+
+function checkoutServerFixture() {
+  const form = checkoutFormSchema.parse(checkoutFormFixture);
+  const address = checkoutAddressFromForm(form.billingAddress);
+  return {
+    items: [{ slug: "amber", quantity: 1 }], countryCode: "GB", expectedTotalPence: 4799,
+    idempotencyKey: "1e7e8efe-9f52-4c1c-a2a0-f2dc38ecabb8", paymentMethod: "STRIPE",
+    customer: { name: address.fullName, email: form.email, phone: address.phone, notes: form.notes },
+    billingAddress: address, shippingAddress: address,
+  };
+}
+
+test("checkout form normalizes contact details and produces a server-valid order", () => {
+  const form = checkoutFormSchema.parse({ ...checkoutFormFixture, email: " Customer@Example.COM " });
+  assert.equal(form.email, "customer@example.com");
+  assert.equal(form.billingAddress.postalCode, "SW1A 1AA");
+  assert.equal(form.notes, "Leave with reception");
+  assert.equal(checkoutAddressFromForm(form.billingAddress).fullName, "N7 Customer");
+  assert.equal(checkoutInputSchema.safeParse(checkoutServerFixture()).success, true);
+  assert.equal(checkoutFormSchema.safeParse({ ...checkoutFormFixture, notes: "", billingAddress: { ...checkoutFormFixture.billingAddress, firstName: "Élodie", lastName: "O’Connor" } }).success, true);
+});
+
+test("client and server reject malformed email, postcode and phone with matching field errors", () => {
+  const server = checkoutServerFixture();
+  for (const email of ["", " customer ", "person@", "person @example.com"]) {
+    const clientResult = checkoutFormSchema.safeParse({ ...checkoutFormFixture, email });
+    const serverResult = checkoutInputSchema.safeParse({ ...server, customer: { ...server.customer, email } });
+    assert.equal(clientResult.success, false);
+    assert.equal(serverResult.success, false);
+    if (!clientResult.success && !serverResult.success) assert.equal(checkoutFieldErrors(clientResult.error.issues).email, checkoutFieldErrors(serverResult.error.issues).email);
+  }
+  for (const [field, invalid] of [["postalCode", "SW1A"], ["postalCode", "12345"], ["phone", "-------"], ["phone", "+44 123"], ["phone", "020CALLME"], ["phone", "1234567890123456"], ["line1", "  "], ["city", " "], ["countryCode", "US"]]) {
+    const clientResult = checkoutFormSchema.safeParse({ ...checkoutFormFixture, billingAddress: { ...checkoutFormFixture.billingAddress, [field]: invalid } });
+    const serverResult = checkoutInputSchema.safeParse({ ...server, billingAddress: { ...server.billingAddress, [field]: invalid } });
+    assert.equal(clientResult.success, false, `client ${field}: ${invalid}`);
+    assert.equal(serverResult.success, false, `server ${field}: ${invalid}`);
+    if (!clientResult.success && !serverResult.success) assert.deepEqual(checkoutFieldErrors(clientResult.error.issues), checkoutFieldErrors(serverResult.error.issues));
+  }
+});
+
+test("different delivery addresses and optional field limits are enforced on both sides", () => {
+  const server = checkoutServerFixture();
+  const clientResult = checkoutFormSchema.safeParse({ ...checkoutFormFixture, shippingAddress: { ...checkoutFormFixture.billingAddress, postalCode: "" }, notes: "x".repeat(2001) });
+  const serverResult = checkoutInputSchema.safeParse({ ...server, shippingAddress: { ...server.shippingAddress, postalCode: "" }, customer: { ...server.customer, notes: "x".repeat(2001) } });
+  assert.equal(clientResult.success, false);
+  assert.equal(serverResult.success, false);
+  if (!clientResult.success && !serverResult.success) {
+    assert.deepEqual(checkoutFieldErrors(clientResult.error.issues), checkoutFieldErrors(serverResult.error.issues));
+    assert.equal(checkoutFieldErrors(clientResult.error.issues)["shipping.postalCode"], "Enter your postcode.");
+  }
+  for (const [field, limit] of [["company", 190], ["line2", 190], ["region", 120]] as const) {
+    assert.equal(checkoutFormSchema.safeParse({ ...checkoutFormFixture, billingAddress: { ...checkoutFormFixture.billingAddress, [field]: "x".repeat(limit + 1) } }).success, false);
+    assert.equal(checkoutInputSchema.safeParse({ ...server, billingAddress: { ...server.billingAddress, [field]: "x".repeat(limit + 1) } }).success, false);
+  }
+  assert.equal(checkoutFormSchema.safeParse({ ...checkoutFormFixture, billingAddress: { ...checkoutFormFixture.billingAddress, firstName: " " } }).success, false);
+  assert.equal(checkoutInputSchema.safeParse({ ...server, billingAddress: { ...server.billingAddress, fullName: " " } }).success, false);
+});
+
+test("discount codes normalize consistently and reject unsupported characters", () => {
+  assert.equal(checkoutCouponSchema.parse(" save-10_n7 "), "SAVE-10_N7");
+  for (const code of ["", " ", "SAVE 10", "SAVE!", "x".repeat(81)]) {
+    assert.equal(checkoutCouponSchema.safeParse(code).success, false);
+    assert.equal(cartPricingInputSchema.safeParse({ items: [{ slug: "amber", quantity: 1 }], couponCode: code }).success, false);
+  }
+});
+
+test("server field feedback is restricted to known checkout fields", () => {
+  assert.deepEqual(readCheckoutFieldErrors({ email: "Check your email.", unknown: "Ignore this", "billing.phone": "x".repeat(300) }), { email: "Check your email.", "billing.phone": "x".repeat(240) });
+  assert.deepEqual(readCheckoutFieldErrors({ email: { invalid: true } }), {});
+  const error = new CheckoutValidationError("Check your details.", { "shipping.postalCode": "Enter your postcode.", paymentMethod: "Ignore this" });
+  assert.equal(error.message, "Check your details.");
+  assert.deepEqual(error.fieldErrors, { "shipping.postalCode": "Enter your postcode." });
+});
 
 test("quote input rejects duplicate lines and excessive quantities", () => {
   assert.equal(quoteInputSchema.safeParse({ items: [{ slug: "amber", quantity: 1 }, { slug: "amber", quantity: 2 }], countryCode: "GB" }).success, false);

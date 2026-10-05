@@ -3,12 +3,13 @@ import ProductStockStatus from "@/components/commerce/ProductStockStatus";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import ProductGallery from "@/components/commerce/ProductGallery";
 import ProductReviews from "@/components/commerce/ProductReviews";
+import ProductInformationAccordion from "@/components/commerce/product-page/ProductInformationAccordion";
 import Title from "@/components/ui/Title";
 import RatingStars from "@/components/commerce/RatingStars";
 import { getStorefrontBundle } from "@/lib/commerce/bundles";
 import { getProductReviewSummary } from "@/lib/commerce/reviews";
 import { productStructuredData, structuredDataJson } from "@/lib/commerce/seo";
-import { ArrowLeft, BadgeCheck, Check, ChevronDown, Clock3, PackageCheck, ShieldCheck, Truck } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Check, Clock3, PackageCheck, ShieldCheck, Truck } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -149,18 +150,15 @@ export default async function BundlePage({ params }: BundlePageProps) {
               </div>
 
               <div className="mt-7 divide-y divide-black/12 border-y border-black/12">
-                <details className="group" open>
-                  <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-[10px] font-semibold uppercase tracking-[0.18em]"><span>About the bundle</span><ChevronDown className="transition group-open:rotate-180" size={15} /></summary>
+                <ProductInformationAccordion title="About the bundle" defaultOpen>
                   <p className="whitespace-pre-line pb-5 text-sm font-light leading-7 text-black/58">{bundle.description ?? bundle.shortDescription ?? "A considered selection of N7 fragrances, curated to be enjoyed together."}</p>
-                </details>
-                <details className="group">
-                  <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-[10px] font-semibold uppercase tracking-[0.18em]"><span>Bundle details</span><ChevronDown className="transition group-open:rotate-180" size={15} /></summary>
+                </ProductInformationAccordion>
+                <ProductInformationAccordion title="Bundle details">
                   <dl className="grid grid-cols-2 gap-x-5 gap-y-3 pb-5 text-sm"><div><dt className="text-black/38">Format</dt><dd className="mt-1">{bundle.variantTitle}</dd></div><div><dt className="text-black/38">Products</dt><dd className="mt-1">{bundle.components.reduce((total, component) => total + component.quantity, 0)} included</dd></div>{bundle.weightGrams ? <div><dt className="text-black/38">Pack weight</dt><dd className="mt-1">{bundle.weightGrams} g</dd></div> : null}</dl>
-                </details>
-                <details className="group">
-                  <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-[10px] font-semibold uppercase tracking-[0.18em]"><span>Delivery &amp; returns</span><ChevronDown className="transition group-open:rotate-180" size={15} /></summary>
+                </ProductInformationAccordion>
+                <ProductInformationAccordion title="Delivery & returns">
                   <p className="pb-5 text-sm font-light leading-7 text-black/58">Delivery options are calculated at checkout. For returns eligibility and timeframes, see our <Link className="text-[#7a5825] underline underline-offset-4" href="/shipping-returns">shipping and returns policy</Link>.</p>
-                </details>
+                </ProductInformationAccordion>
               </div>
             </div>
           </div>

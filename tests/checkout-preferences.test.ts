@@ -3,6 +3,7 @@ import test from "node:test";
 import { clearSavedCheckoutDetails, emptyCheckoutAddress, loadSavedCheckoutDetails, SAVED_CHECKOUT_KEY, saveCheckoutDetails, walletCheckoutDetails, type SavedCheckoutDetails } from "../lib/commerce/saved-checkout";
 import { newsletterEmail } from "../lib/email/templates";
 import { readCheckoutAttempt } from "../lib/payments/checkout-attempt";
+import { checkoutInternationalPhone, checkoutPhoneNumber } from "../lib/commerce/checkout-phone";
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -119,4 +120,18 @@ test("checkout marketing welcome explains the source without claiming explicit c
   assert.doesNotMatch(email.text, /confirmed|asked to receive/);
   assert.ok(email.text.includes(link));
   assert.ok(email.html.includes(link));
+});
+
+test("checkout phone fields handle saved UK numbers without repeating the country code", () => {
+  for (const value of ["07123 456789", "+44 7123 456789", "0044 7123 456789", "7123 456789"]) {
+    assert.equal(checkoutPhoneNumber(value), "7123 456789");
+    assert.equal(checkoutInternationalPhone(value), "+44 7123 456789");
+  }
+  assert.equal(checkoutInternationalPhone("020 7946 0000"), "+44 20 7946 0000");
+});
+
+test("clearing a checkout phone number leaves the required field empty", () => {
+  for (const value of ["", " ", "+44", "0044", "0"]) {
+    assert.equal(checkoutInternationalPhone(value), "");
+  }
 });

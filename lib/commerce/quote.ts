@@ -6,7 +6,7 @@ import { shippingOptions, type ShippingOption } from "./shipping";
 import { getShippingConfiguration } from "./shipping-data";
 import { getStockProducts } from "./stock-data";
 import { inspectStock } from "./stock";
-import type { FreeDeliveryProgress } from "./free-delivery";
+import { freeDeliveryProgress, type FreeDeliveryProgress } from "./free-delivery";
 
 export type CommerceErrorCode = "CART_CHANGED" | "OUT_OF_STOCK" | "INVALID_COUPON" | "COUPON_LIMIT" | "DELIVERY_UNAVAILABLE" | "CHECKOUT_CHANGED" | "CHECKOUT_EXPIRED";
 export class CommerceError extends Error { constructor(public readonly code: CommerceErrorCode, message: string) { super(message); this.name = "CommerceError"; } }
@@ -172,6 +172,7 @@ export async function calculateQuote(input: QuoteInput, connection?: PoolConnect
   const taxPence = 0;
   return {
     ...pricing, shippingPence, taxPence, totalPence: pricing.totalPence + shippingPence + taxPence,
+    deliveryProgress: freeDeliveryProgress(config, input.countryCode, input.postalCode ?? "", pricing.subtotalPence, pricing.totalPence, coupon),
     shippingMethod: chosen,
     shippingMethods: available,
     shippingEstimated: !input.postalCode && config.zones.some(zone => zone.isActive && zone.countries.includes(input.countryCode) && zone.postcodes.length > 0),

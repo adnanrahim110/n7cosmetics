@@ -9,7 +9,7 @@ const products = [
   { product_id: "3", variant_id: "13", product_type: "STANDARD", slug: "outside-sale", product_name: "Outside sale", price_pence: 1000 },
 ];
 
-function database(options: { coupon?: boolean; automatic?: boolean; shipping?: boolean; stock?: number } = {}) {
+function database(options: { coupon?: boolean; automatic?: boolean; shipping?: boolean; stock?: number; freeShippingThreshold?: number } = {}) {
   const queried: string[] = [];
   const connection = {
     async execute(sql: string, values: unknown[]) {
@@ -29,7 +29,9 @@ function database(options: { coupon?: boolean; automatic?: boolean; shipping?: b
       if (sql.includes("FROM shipping_zones z")) return [[{ id: "1", name: "UK", countries: "GB", postcodes: null, is_active: 1, sort_order: 0 }]];
       if (sql.includes("FROM shipping_methods")) return [options.shipping ? [{ id: "1", name: "Standard", method_type: "DELIVERY", pricing_mode: "FLAT_RATE", price_pence: 500, allow_free_shipping_coupon: 1, estimated_days_min: 2, estimated_days_max: 4, is_active: 1, sort_order: 0 }] : []];
       if (sql.includes("FROM shipping_method_rates")) return [[{ method_id: "1", zone_id: "1", price_pence: 500 }]];
-      if (sql.includes("FROM shipping_rules") || sql.includes("FROM shipping_rule_methods") || sql.includes("FROM shipping_zone_postcodes")) return [[]];
+      if (sql.includes("FROM shipping_rules")) return [options.freeShippingThreshold === undefined ? [] : [{ id: "99", name: "Free standard delivery", minimum_subtotal_pence: options.freeShippingThreshold, threshold_basis: "BEFORE_DISCOUNT", zone_id: "1", priority: 0, is_active: 1 }]];
+      if (sql.includes("FROM shipping_rule_methods")) return [options.freeShippingThreshold === undefined ? [] : [{ rule_id: "99", method_id: "1" }]];
+      if (sql.includes("FROM shipping_zone_postcodes")) return [[]];
       throw new Error(`Unexpected query: ${sql}`);
     },
   } as unknown as PoolConnection;
@@ -95,4 +97,16 @@ test("free bottles still require stock and checkout still requires delivery", as
   const input = { items: [{ slug: "amber", quantity: 6 }] };
   await assert.rejects(calculateCartPricing(input, database({ stock: 5 }).connection), (error: unknown) => error instanceof CommerceError && error.code === "OUT_OF_STOCK");
   await assert.rejects(calculateQuote({ ...input, countryCode: "GB" }, database().connection), (error: unknown) => error instanceof CommerceError && error.code === "DELIVERY_UNAVAILABLE");
+});
+
+test("checkout delivery messaging uses the configured threshold and confirmed delivery price", async () => {
+  const quote = (quantity: number) => calculateQuote({ items: [{ slug: "amber", quantity }], countryCode: "GB", postalCode: "SW1A 1AA" }, database({ shipping: true, freeShippingThreshold: 9900 }).connection);
+  const below = await quote(2);
+  assert.equal(below.shippingPence, 500);
+  assert.equal(below.deliveryProgress?.thresholdPence, 9900);
+  assert.equal(below.deliveryProgress?.remainingPence, 900);
+  const eligible = await quote(3);
+  assert.equal(eligible.shippingPence, 0);
+  assert.equal(eligible.deliveryProgress?.remainingPence, 0);
+  assert.equal(eligible.totalPence, eligible.subtotalPence);
 });

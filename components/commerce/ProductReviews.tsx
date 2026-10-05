@@ -1,4 +1,5 @@
 import Title from "@/components/ui/Title";
+import Accordion from "@/components/ui/Accordion";
 import { cn } from "@/lib/cn";
 import type { ProductReviewSummary } from "@/lib/commerce/reviews";
 import { BadgeCheck, Check, ChevronDown, Play, Star } from "lucide-react";
@@ -209,15 +210,21 @@ export default function ProductReviews({
           </div>
         )}
 
-        <details className="group border-t border-black/10" open>
-          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm font-semibold transition hover:text-[#8d6745] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8d6745] [&::-webkit-details-marker]:hidden">
-            Write a review
-            <ChevronDown
-              aria-hidden="true"
-              className="shrink-0 transition-transform group-open:rotate-180"
-              size={18}
-            />
-          </summary>
+        <Accordion
+          className="border-t border-black/10"
+          open
+          summaryClassName="flex min-h-14 items-center justify-between gap-3 py-3 text-sm font-semibold transition-colors hover:text-[#8d6745] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#8d6745]"
+          summary={
+            <>
+              Write a review
+              <ChevronDown
+                aria-hidden="true"
+                className="shrink-0 transition-transform duration-300 ease-in-out group-open:rotate-180 motion-reduce:transition-none"
+                size={18}
+              />
+            </>
+          }
+        >
           <div className="border-t border-black/10 py-5 sm:py-6">
             <ReviewForm
               productId={productId}
@@ -225,7 +232,7 @@ export default function ProductReviews({
               productSlug={productSlug}
             />
           </div>
-        </details>
+        </Accordion>
       </div>
     </section>
   );

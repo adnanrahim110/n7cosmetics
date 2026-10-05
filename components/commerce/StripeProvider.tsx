@@ -2,13 +2,13 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe, type Stripe } from "@stripe/stripe-js";
+import { loadStripe, type Appearance, type Stripe } from "@stripe/stripe-js";
 
 const promises = new Map<string, Promise<Stripe | null>>();
 const PaymentConfig = createContext({ enabled: false, loading: true, paymentLock: { current: false } });
 export const usePaymentConfig = () => useContext(PaymentConfig);
 
-export default function StripeProvider({ children, amount = 30 }: { children: ReactNode; amount?: number }) {
+export default function StripeProvider({ children, amount = 30, appearance }: { children: ReactNode; amount?: number; appearance?: Appearance }) {
   const paymentLock = useRef(false);
   const [config, setConfig] = useState<{ enabled: boolean; publishableKey: string | null; loading: boolean }>({ enabled: false, publishableKey: null, loading: true });
   useEffect(() => {
@@ -25,7 +25,7 @@ export default function StripeProvider({ children, amount = 30 }: { children: Re
     promises.set(config.publishableKey, stripe);
   }
   return <PaymentConfig.Provider value={{ ...config, paymentLock }}>
-    <Elements key={config.publishableKey || "unconfigured"} stripe={stripe} options={{ mode: "payment", amount: Math.max(30, amount), currency: "gbp", paymentMethodTypes: ["card"], appearance: { theme: "stripe", variables: { colorPrimary: "#8d6745", borderRadius: "0px" } } }}>
+    <Elements key={config.publishableKey || "unconfigured"} stripe={stripe} options={{ mode: "payment", amount: Math.max(30, amount), currency: "gbp", paymentMethodTypes: ["card"], appearance: appearance ?? { theme: "stripe", variables: { colorPrimary: "#8d6745", borderRadius: "0px" } } }}>
       {children}
     </Elements>
   </PaymentConfig.Provider>;

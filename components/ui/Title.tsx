@@ -51,7 +51,7 @@ const titleVariants: Record<TitleVariant, string> = {
 
 const titleTones: Record<TitleTone, { title: string; highlight: string }> = {
   ink: { title: "text-[#1c1814]", highlight: "text-[#8d6745]" },
-  charcoal: { title: "text-[#1a1a1a]", highlight: "text-[#967C55]" },
+  charcoal: { title: "text-[#1a1a1a]", highlight: "text-primary-600" },
   gold: { title: "text-primary-500", highlight: "text-[#967C55]" },
   ivory: { title: "text-[#f7f0e8]", highlight: "text-[#b99a6c]" },
   cream: { title: "text-[#f4eadf]", highlight: "text-[#c99b69]" },
@@ -273,7 +273,7 @@ function renderTitleNodes(
         "span",
         {
           className: cn(
-            "inline font-light italic tracking-normal",
+            "inline font-light tracking-normal",
             titleTones[tone].highlight,
             highlightClassName,
           ),

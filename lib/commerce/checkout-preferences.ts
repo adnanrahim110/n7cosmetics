@@ -1,7 +1,7 @@
 export const checkoutMarketingCopy = {
-  title: "Keep me updated",
-  introduction: "We’d love to keep you updated by email with N7 Cosmetics news, new fragrance launches, special offers and promotions.",
-  checkbox: "Tick this box if you do NOT want to receive marketing emails from N7 Cosmetics.",
+  title: "Contact Information",
+  introduction: "We’ll send your order confirmation to this email.",
+  checkbox: "Email me exclusive offers, new fragrance launches and special deals. (Optional)",
   unsubscribe: "You can unsubscribe at any time using the unsubscribe link in our emails.",
   privacy: "For information about how we use your personal data, please see our",
 } as const;

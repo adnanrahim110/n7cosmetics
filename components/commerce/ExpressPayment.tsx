@@ -9,13 +9,18 @@ import { useCommerce } from "./CommerceProvider";
 import { usePaymentConfig } from "./StripeProvider";
 import { useStripePayment } from "./useStripePayment";
 
-export default function ExpressPayment({ quote, items: checkoutItems, onQuote, marketingOptOut, onCheckoutDetails, onBusyChange }: {
+export interface WalletAvailability { applePay: boolean; googlePay: boolean }
+
+export default function ExpressPayment({ quote, items: checkoutItems, onQuote, marketingOptOut, onCheckoutDetails, onBusyChange, onAvailabilityChange, wallet, checkoutStyle = false }: {
   quote: CheckoutQuote;
   items?: CheckoutInput["items"];
   onQuote?: (quote: CheckoutQuote) => void;
   marketingOptOut?: boolean;
   onCheckoutDetails?: (input: Omit<CheckoutInput, "idempotencyKey">) => void;
   onBusyChange?: (busy: boolean) => void;
+  onAvailabilityChange?: (availability: WalletAvailability) => void;
+  wallet?: "applePay" | "googlePay";
+  checkoutStyle?: boolean;
 }) {
   const { cart, couponCode, reservationKey } = useCommerce();
   const items = checkoutItems ?? cart.map(({ slug, quantity }) => ({ slug, quantity }));
@@ -76,10 +81,18 @@ export default function ExpressPayment({ quote, items: checkoutItems, onQuote, m
     } finally { onBusyChange?.(false); }
   }
 
-  return <div className={available ? "space-y-3" : "hidden"}>
+  return <div className={available ? "space-y-3" : "hidden"} data-cursor="native">
     <ExpressCheckoutElement
-      options={{ paymentMethods: { applePay: "always", googlePay: "always", link: "never", amazonPay: "never", paypal: "never", klarna: "never" }, paymentMethodOrder: ["apple_pay", "google_pay"], buttonType: { applePay: "buy", googlePay: "pay" }, buttonTheme: { applePay: "black", googlePay: "black" }, layout: { maxColumns: 2, overflow: "never" }, billingAddressRequired: true, emailRequired: true, phoneNumberRequired: true, shippingAddressRequired: true, allowedShippingCountries: ["GB"], shippingRates: rates(quote), buttonHeight: 48 }}
-      onReady={(event) => setAvailable(Boolean(event.availablePaymentMethods?.applePay || event.availablePaymentMethods?.googlePay))}
+      options={{ paymentMethods: { applePay: wallet === "googlePay" ? "never" : "always", googlePay: wallet === "applePay" ? "never" : "always", link: "never", amazonPay: "never", paypal: "never", klarna: "never" }, paymentMethodOrder: ["apple_pay", "google_pay"], buttonType: { applePay: checkoutStyle ? "plain" : "buy", googlePay: checkoutStyle ? "plain" : "pay" }, buttonTheme: { applePay: "black", googlePay: "black" }, layout: { maxColumns: wallet ? 1 : 2, overflow: "never" }, billingAddressRequired: true, emailRequired: true, phoneNumberRequired: true, shippingAddressRequired: true, allowedShippingCountries: ["GB"], shippingRates: rates(quote), buttonHeight: checkoutStyle ? 52 : 48 }}
+      onReady={(event) => {
+        const availability = { applePay: Boolean(event.availablePaymentMethods?.applePay), googlePay: Boolean(event.availablePaymentMethods?.googlePay) };
+        setAvailable(availability.applePay || availability.googlePay);
+        onAvailabilityChange?.(availability);
+      }}
+      onLoadError={() => {
+        setAvailable(false);
+        onAvailabilityChange?.({ applePay: false, googlePay: false });
+      }}
       onClick={(event) => {
         workingQuote.current = quote;
         workingItems.current = items.map((item) => ({ ...item }));

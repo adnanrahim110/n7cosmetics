@@ -4,6 +4,7 @@ import { getRequestMetadata } from "@/lib/auth/request";
 import { CommerceError } from "@/lib/commerce/quote";
 import { createOrder } from "@/lib/commerce/orders";
 import { checkoutInputSchema } from "@/lib/commerce/validation";
+import { checkoutFieldErrors } from "@/lib/commerce/checkout-validation";
 import { executeMutation, selectOne } from "@/lib/db/query";
 import { hasDatabaseConfig } from "@/lib/env";
 import { kickEmailQueue } from "@/lib/email/kick";
@@ -23,7 +24,11 @@ export async function POST(request: Request) {
   if (Number(attempts?.attempt_count ?? 0) >= 10) return NextResponse.json({ error: "Too many checkout attempts. Try again later." }, { status: 429 });
   let body: unknown; try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const parsed = checkoutInputSchema.safeParse(body);
-  if (!parsed.success) { await executeMutation("INSERT INTO checkout_attempts (ip_address, succeeded) VALUES (?, 0)", [metadata.ipAddress]); return NextResponse.json({ error: "Check the checkout details." }, { status: 400 }); }
+  if (!parsed.success) {
+    await executeMutation("INSERT INTO checkout_attempts (ip_address, succeeded) VALUES (?, 0)", [metadata.ipAddress]);
+    const fieldErrors = checkoutFieldErrors(parsed.error.issues);
+    return NextResponse.json({ code: "VALIDATION_ERROR", error: Object.values(fieldErrors)[0] ?? "Check the checkout details.", fieldErrors }, { status: 400 });
+  }
   try {
     const settings = await getStripeSettings();
     if (!settings.enabled || !stripeKeysReady(settings)) throw new PaymentUnavailableError();
