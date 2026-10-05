@@ -37,9 +37,7 @@ export default function ProductSummary({
   shippingMethods: PublicShippingMethod[];
   paymentEnabled: boolean;
 }) {
-  const eyebrow = [product.brand?.trim(), audienceLabels[product.audience]]
-    .filter(Boolean)
-    .join(" · ");
+  const eyebrow = [product.brand?.trim()].filter(Boolean).join(" · ");
   const inspiredBy = product.inspiredBy?.trim();
   const shortDescription =
     product.shortDescription?.trim() || product.description?.trim();
