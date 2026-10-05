@@ -9,8 +9,8 @@ export default function BestSellers({
 }: {
   products: HomepageProduct[];
 }) {
-  if (!products.length) return null;
   const { getStock } = useCommerce();
+  if (!products.length) return null;
   const availableProducts = products.filter(
     (product) => getStock(product.slug).soldOut === false,
   );
