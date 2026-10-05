@@ -1,21 +1,26 @@
 "use client";
 
+import ViewportSwiper from "@/components/ui/ViewportSwiper";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
+import * as motion from "motion/react-m";
 import Image from "next/image";
 import Link from "next/link";
-import { useId, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import "swiper/css";
-import { Autoplay, Mousewheel } from "swiper/modules";
-import { Swiper, SwiperSlide } from "swiper/react";
+import type { SwiperOptions } from "swiper/types";
 
-import Button from "@/components/ui/Button";
-import Title from "@/components/ui/Title";
-import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import { SoldOutBadge } from "@/components/commerce/ProductStockStatus";
+import Button from "@/components/ui/Button";
+import ProductCodeBar from "@/components/ui/ProductCodeBar";
+import Title from "@/components/ui/Title";
 import type { HomepageProduct, RecreationsContent } from "@/lib/homepage/types";
 
 const customEase = [0.65, 0, 0.35, 1] as const;
+const loadRecreationModules = () =>
+  import("@/components/ui/swiper-recreation-features").then(
+    (module) => module.default,
+  );
 
 export default function RecreationsSlider({
   products,
@@ -33,6 +38,23 @@ export default function RecreationsSlider({
   const mobileProductButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const mobilePanelId = useId();
   const shouldReduceMotion = useReducedMotion();
+  const swiperOptions = useMemo<SwiperOptions>(
+    () => ({
+      loop: products.length >= 6,
+      spaceBetween: 20,
+      slidesPerView: 1.2,
+      grabCursor: true,
+      mousewheel: { forceToAxis: true },
+      breakpoints: {
+        480: { slidesPerView: 1.5, spaceBetween: 20 },
+        768: { slidesPerView: 2.2, spaceBetween: 24 },
+        1024: { slidesPerView: 2.2, spaceBetween: 24 },
+        1280: { slidesPerView: 2.5, spaceBetween: 30 },
+      },
+      on: { slideChange: (instance) => setActiveIndex(instance.realIndex) },
+    }),
+    [products.length],
+  );
   const activeProduct = recreations[activeIndex];
   const mobileActiveProduct = recreations[mobileActiveIndex];
 
@@ -150,7 +172,10 @@ export default function RecreationsSlider({
 
                 <div className="flex flex-col justify-between bg-[#17130f] p-4 pt-3 text-[#f5eee5] sm:p-7 md:p-8">
                   <div>
-                    <ProductCodeBar code={mobileActiveProduct.productCode} className="mb-3" />
+                    <ProductCodeBar
+                      code={mobileActiveProduct.productCode}
+                      className="mb-3"
+                    />
                     <SoldOutBadge slug={mobileActiveProduct.slug} />
                     <h3
                       className="font-heading text-[2rem] leading-[0.98] tracking-normal text-[#f5eee5] sm:text-[2.6rem]"
@@ -285,7 +310,11 @@ export default function RecreationsSlider({
                         src={product.image}
                       />
                     </span>
-                    <ProductCodeBar code={product.productCode} className="mt-2" compact />
+                    <ProductCodeBar
+                      code={product.productCode}
+                      className="mt-2"
+                      compact
+                    />
                     <span className="mt-2 flex items-start justify-between gap-2">
                       <span
                         className={`line-clamp-2 text-[10px] font-medium leading-4 ${isSelected ? "text-[#1a1a1a]" : "text-black/48"}`}
@@ -355,7 +384,10 @@ export default function RecreationsSlider({
                     <span className="font-heading text-[#1a1a1a]/20 text-6xl md:text-8xl absolute -top-12 -left-6 -z-10 select-none">
                       {String(activeIndex + 1).padStart(2, "0")}
                     </span>
-                    <ProductCodeBar code={activeProduct.productCode} className="mb-3" />
+                    <ProductCodeBar
+                      code={activeProduct.productCode}
+                      className="mb-3"
+                    />
                     <SoldOutBadge slug={activeProduct.slug} />
                     <h3 className="mb-4 font-heading text-3xl leading-tight tracking-wide text-[#1a1a1a] sm:text-4xl md:text-5xl lg:text-6xl">
                       {activeProduct.name}
@@ -408,31 +440,15 @@ export default function RecreationsSlider({
           </div>
 
           <div className="recreations-slider-mask relative w-full lg:col-span-7 lg:pl-12">
-            <Swiper
-              modules={[Mousewheel, Autoplay]}
-              loop={recreations.length >= 6}
-              spaceBetween={20}
-              slidesPerView={1.2}
-              grabCursor={true}
-              mousewheel={{ forceToAxis: true }}
-              // autoplay={{
-              //   delay: 4000,
-              //   disableOnInteraction: false,
-              //   pauseOnMouseEnter: true,
-              // }}
-              breakpoints={{
-                480: { slidesPerView: 1.5, spaceBetween: 20 },
-                768: { slidesPerView: 2.2, spaceBetween: 24 },
-                1024: { slidesPerView: 2.2, spaceBetween: 24 },
-                1280: { slidesPerView: 2.5, spaceBetween: 30 },
-              }}
-              onSlideChange={(swiper) => setActiveIndex(swiper.realIndex)}
+            <ViewportSwiper
+              loadModules={loadRecreationModules}
+              options={swiperOptions}
               className="overflow-visible! w-full py-12"
             >
               {recreations.map((product, index) => {
                 const isActive = activeIndex === index;
                 return (
-                  <SwiperSlide key={product.id} className="pt-10 pb-16">
+                  <div key={product.id} className="swiper-slide pt-10 pb-16">
                     <Link
                       aria-current={isActive ? "true" : undefined}
                       aria-label={`View ${product.name}`}
@@ -452,7 +468,11 @@ export default function RecreationsSlider({
 
                         <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-sm border border-[#967C55]/20 bg-[#F9F7F1] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.06)] transition-all duration-700 group-hover:shadow-[0_30px_80px_rgba(0,0,0,0.12)]">
                           <div className="pointer-events-none absolute inset-2 border-[0.5px] border-[#967C55]/30 transition-transform duration-700 group-hover:scale-[0.98]" />
-                          <ProductCodeBar code={product.productCode} className="absolute bottom-3 left-3 z-10" compact />
+                          <ProductCodeBar
+                            code={product.productCode}
+                            className="absolute bottom-3 left-3 z-10"
+                            compact
+                          />
 
                           <div className="relative h-[85%] w-full transition-transform duration-1000 ease-[0.65,0,0.35,1] group-hover:scale-110">
                             <Image
@@ -466,10 +486,10 @@ export default function RecreationsSlider({
                         </div>
                       </motion.div>
                     </Link>
-                  </SwiperSlide>
+                  </div>
                 );
               })}
-            </Swiper>
+            </ViewportSwiper>
           </div>
         </div>
       </div>

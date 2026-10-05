@@ -2,7 +2,8 @@
 import { trackMeta } from "@/lib/meta/client";
 
 import { ArrowRight, LoaderCircle, Search, X } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
+import * as motion from "motion/react-m";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

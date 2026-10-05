@@ -3,7 +3,8 @@
 import ProductCard from "@/components/ui/ProductCard";
 import Title from "@/components/ui/Title";
 import type { StorefrontRelatedProduct } from "@/lib/commerce/catalog";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import RelatedProductsNavigation from "./RelatedProductsNavigation";
+import { useReducedMotion } from "motion/react";
 import { useState } from "react";
 import type { Swiper as SwiperInstance } from "swiper";
 import "swiper/css";
@@ -18,6 +19,7 @@ export default function RelatedProductsSlider({ products }: { products: Storefro
   const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(products.length <= 1);
+  const reduceMotion = useReducedMotion();
   if (!products.length) return null;
 
   const syncControls = (instance: SwiperInstance) => {
@@ -38,17 +40,14 @@ export default function RelatedProductsSlider({ products }: { products: Storefro
               tone="ink"
             />
           </div>
-          <div className="hidden shrink-0 items-center gap-2 sm:flex">
-            <button aria-label="Previous related products" className="grid size-11 place-items-center rounded-full border border-black/18 transition hover:border-black hover:bg-[#1c1814] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" disabled={atStart} onClick={() => swiper?.slidePrev()} type="button"><ArrowLeft size={17} strokeWidth={1.4} /></button>
-            <button aria-label="Next related products" className="grid size-11 place-items-center rounded-full border border-black/18 transition hover:border-black hover:bg-[#1c1814] hover:text-white disabled:cursor-not-allowed disabled:opacity-25" disabled={atEnd} onClick={() => swiper?.slideNext()} type="button"><ArrowRight size={17} strokeWidth={1.4} /></button>
-          </div>
+          <RelatedProductsNavigation atStart={atStart} atEnd={atEnd} className="hidden sm:flex" onPrevious={() => swiper?.slidePrev()} onNext={() => swiper?.slideNext()} />
         </div>
 
         <Swiper
           aria-label="Related products"
           breakpoints={{
-            480: { slidesPerView: 1.6, spaceBetween: 18 },
-            720: { slidesPerView: 2.35, spaceBetween: 22 },
+            480: { slidesPerView: 1.6, spaceBetween: 20 },
+            720: { slidesPerView: 2.35, spaceBetween: 24 },
             1024: { slidesPerView: 3.2, spaceBetween: 24 },
             1280: { slidesPerView: 4, spaceBetween: 28 },
           }}
@@ -61,6 +60,7 @@ export default function RelatedProductsSlider({ products }: { products: Storefro
           onSwiper={(instance) => { setSwiper(instance); syncControls(instance); }}
           slidesPerView={1.25}
           spaceBetween={16}
+          speed={reduceMotion ? 0 : 300}
           watchOverflow
         >
           {products.map((product) => (
@@ -87,10 +87,7 @@ export default function RelatedProductsSlider({ products }: { products: Storefro
           ))}
         </Swiper>
 
-        <div className="mt-7 flex items-center justify-end gap-2 sm:hidden">
-          <button aria-label="Previous related products" className="grid size-11 place-items-center rounded-full border border-black/18 disabled:opacity-25" disabled={atStart} onClick={() => swiper?.slidePrev()} type="button"><ArrowLeft size={17} /></button>
-          <button aria-label="Next related products" className="grid size-11 place-items-center rounded-full border border-black/18 disabled:opacity-25" disabled={atEnd} onClick={() => swiper?.slideNext()} type="button"><ArrowRight size={17} /></button>
-        </div>
+        <RelatedProductsNavigation atStart={atStart} atEnd={atEnd} className="mt-7 justify-end sm:hidden" onPrevious={() => swiper?.slidePrev()} onNext={() => swiper?.slideNext()} />
       </div>
     </section>
   );

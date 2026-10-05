@@ -3,6 +3,7 @@ import { Outfit, Playfair_Display } from "next/font/google";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import "./globals.css";
+import MotionProvider from "@/components/layout/MotionProvider";
 
 const siteUrl = (process.env.APP_URL || "https://n7cosmetics.co.uk").replace(
   /\/$/,
@@ -22,6 +23,7 @@ const outfit = Outfit({
 });
 
 const kindred = localFont({
+  preload: false,
   variable: "--font-kindred",
   src: [
     {
@@ -70,7 +72,7 @@ export default function RootLayout({
       lang="en"
       className={`${playfair.variable} ${outfit.variable} ${kindred.variable} h-full antialiased`}
     >
-      <body className=" bg-dark-950 text-dark-50 font-body">{children}</body>
+      <body className=" bg-dark-950 text-dark-50 font-body"><MotionProvider>{children}</MotionProvider></body>
     </html>
   );
 }

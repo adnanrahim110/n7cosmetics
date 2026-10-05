@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
+import * as motion from "motion/react-m";
 import { Fragment, createElement, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";

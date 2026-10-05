@@ -61,6 +61,18 @@ test("cart and checkout use identical product prices, free units and savings", a
   assert.equal(quote.totalPence, cart.totalPence + 500);
 });
 
+test("a product-only wallet quote includes only its selected quantity and delivery", async () => {
+  const quote = await calculateQuote({
+    items: [{ slug: "amber", quantity: 2 }], countryCode: "GB",
+  }, database({ shipping: true }).connection);
+  assert.equal(quote.lines.length, 1);
+  assert.equal(quote.lines[0].slug, "amber");
+  assert.equal(quote.lines[0].quantity, 2);
+  assert.equal(quote.subtotalPence, 9000);
+  assert.equal(quote.shippingPence, 500);
+  assert.equal(quote.totalPence, 9500);
+});
+
 test("coupons replace the sale and leave no stale free labels", async () => {
   const db = database({ coupon: true });
   const priced = await calculateCartPricing({ items: [{ slug: "amber", quantity: 6 }], couponCode: "WELCOME10" }, db.connection);

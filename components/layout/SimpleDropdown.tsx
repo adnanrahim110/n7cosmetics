@@ -1,7 +1,8 @@
 "use client";
 
 import type { Variants } from "motion/react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
+import * as motion from "motion/react-m";
 import Link from "next/link";
 import type { MouseEventHandler } from "react";
 import type { DropdownNavigationItem } from "../../content/global";

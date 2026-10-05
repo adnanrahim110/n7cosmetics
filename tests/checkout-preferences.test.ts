@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { clearSavedCheckoutDetails, emptyCheckoutAddress, loadSavedCheckoutDetails, SAVED_CHECKOUT_KEY, saveCheckoutDetails, walletCheckoutDetails, type SavedCheckoutDetails } from "../lib/commerce/saved-checkout";
 import { newsletterEmail } from "../lib/email/templates";
+import { readCheckoutAttempt } from "../lib/payments/checkout-attempt";
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -65,6 +66,49 @@ test("wallet details use the wallet's actual contact and delivery addresses", ()
   assert.equal(result.differentShipping, true);
   assert.equal(walletCheckoutDetails({ ...input, shippingAddress: address }).differentShipping, false);
   assert.equal("marketingOptOut" in result, false);
+});
+
+const paymentAttempt = {
+  key: "12345678-1234-4234-8234-123456789abc",
+  fingerprint: "a".repeat(64),
+};
+
+test("existing cart payments keep their original cart-clearing behavior", () => {
+  assert.deepEqual(readCheckoutAttempt(JSON.stringify(paymentAttempt)), {
+    ...paymentAttempt,
+    preserveCart: false,
+    returnPath: "/checkout",
+  });
+});
+
+test("product wallet payments preserve the cart and can retry on the product page", () => {
+  const attempt = { ...paymentAttempt, preserveCart: true, returnPath: "/products/infinity-oud" };
+  assert.deepEqual(readCheckoutAttempt(JSON.stringify(attempt)), attempt);
+});
+
+test("a cart payment cannot take a product-only retry path", () => {
+  const attempt = readCheckoutAttempt(JSON.stringify({
+    ...paymentAttempt,
+    preserveCart: false,
+    returnPath: "/products/infinity-oud",
+  }));
+  assert.equal(attempt?.preserveCart, false);
+  assert.equal(attempt?.returnPath, "/checkout");
+});
+
+test("invalid payment sessions cannot be reused", () => {
+  for (const value of [null, "broken json", "null", "[]", "{}",
+    JSON.stringify({ ...paymentAttempt, key: "invalid-key" }),
+    JSON.stringify({ ...paymentAttempt, fingerprint: "invalid-fingerprint" }),
+  ]) assert.equal(readCheckoutAttempt(value), null);
+});
+
+test("product retries only allow local product or bundle paths", () => {
+  for (const returnPath of ["https://example.com", "//example.com", "javascript:alert(1)", "/admin", "/products/../admin", "/products/oud?redirect=external"]) {
+    const attempt = readCheckoutAttempt(JSON.stringify({ ...paymentAttempt, preserveCart: true, returnPath }));
+    assert.equal(attempt?.returnPath, "/checkout");
+  }
+  assert.equal(readCheckoutAttempt(JSON.stringify({ ...paymentAttempt, preserveCart: true, returnPath: "/bundles/discovery-set" }))?.returnPath, "/bundles/discovery-set");
 });
 
 test("checkout marketing welcome explains the source without claiming explicit confirmation", () => {

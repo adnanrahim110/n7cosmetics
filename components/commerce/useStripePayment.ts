@@ -6,9 +6,10 @@ import type { CheckoutInput } from "@/lib/commerce/validation";
 import { usePaymentConfig } from "./StripeProvider";
 import { useCommerce } from "./CommerceProvider";
 import { trackMeta } from "@/lib/meta/client";
+import { CHECKOUT_ATTEMPT_KEY, readCheckoutAttempt, type CheckoutAttempt } from "@/lib/payments/checkout-attempt";
 
 type PaymentInput = Omit<CheckoutInput, "idempotencyKey">;
-export function useStripePayment() {
+export function useStripePayment({ preserveCart = false }: { preserveCart?: boolean } = {}) {
   const stripe = useStripe();
   const elements = useElements();
   const { paymentLock: busyRef } = usePaymentConfig();
@@ -23,10 +24,10 @@ export function useStripePayment() {
       const { error: submitError } = await elements.submit();
       if (submitError) throw new Error(submitError.message || "Check your payment details.");
       if (window.location.pathname !== "/checkout") void trackMeta("InitiateCheckout", payload.items, { couponCode: payload.couponCode });
-      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(preserveCart ? { payload, preserveCart } : payload)));
       const fingerprint = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-      let previous: { key: string; fingerprint: string } | null = null;
-      try { previous = JSON.parse(sessionStorage.getItem("n7-stripe-attempt") || "null"); } catch { /* Start a new attempt if storage was cleared. */ }
+      let previous: CheckoutAttempt | null = null;
+      try { previous = readCheckoutAttempt(sessionStorage.getItem(CHECKOUT_ATTEMPT_KEY)); } catch { /* Start a new attempt if storage was cleared. */ }
       if (previous && previous.fingerprint !== fingerprint) {
         const response = await fetch("/api/payments/stripe/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: previous.key }) });
         const data = await response.json();
@@ -36,11 +37,12 @@ export function useStripePayment() {
         setReservationKey(undefined);
       }
       const key = previous?.key || crypto.randomUUID();
-      sessionStorage.setItem("n7-stripe-attempt", JSON.stringify({ key, fingerprint }));
+      const attempt: CheckoutAttempt = { key, fingerprint, preserveCart, returnPath: preserveCart ? window.location.pathname : "/checkout" };
+      sessionStorage.setItem(CHECKOUT_ATTEMPT_KEY, JSON.stringify(attempt));
       const response = await fetch("/api/commerce/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, idempotencyKey: key }) });
       const data = await response.json();
       if (!response.ok) {
-        if (data.code === "CHECKOUT_EXPIRED") { sessionStorage.removeItem("n7-stripe-attempt"); setReservationKey(undefined); }
+        if (data.code === "CHECKOUT_EXPIRED") { sessionStorage.removeItem(CHECKOUT_ATTEMPT_KEY); setReservationKey(undefined); }
         throw new Error(data.error || "Unable to start payment. Please try again.");
       }
       setReservationKey(key);

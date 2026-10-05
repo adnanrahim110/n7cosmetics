@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { MouseEventHandler, ReactNode } from "react";
-import { motion } from "motion/react";
+import * as motion from "motion/react-m";
 import Link from "next/link";
 
 type ButtonVariant = "primary" | "outline" | "ghost";

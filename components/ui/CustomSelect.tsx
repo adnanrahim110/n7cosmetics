@@ -2,7 +2,8 @@
 
 import type { LucideIcon } from "lucide-react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
+import * as motion from "motion/react-m";
 import {
   type KeyboardEvent,
   useEffect,

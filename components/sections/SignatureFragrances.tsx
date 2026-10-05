@@ -1,7 +1,7 @@
 "use client";
 
 import type { HomepageProduct, SignatureContent } from "@/lib/homepage/types";
-import { motion } from "motion/react";
+import * as motion from "motion/react-m";
 import Link from "next/link";
 import ProductCard from "../ui/ProductCard";
 import Title from "../ui/Title";
@@ -42,7 +42,7 @@ export default function SignatureFragrances({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: customEase }}
-              className="text-[#967C55] font-medium tracking-[0.2em] text-sm uppercase mb-4 block"
+              className="text-[#967C55] font-medium tracking-[0.2em] text-xs md:text-sm uppercase mb-4 block"
             >
               {content.eyebrow}
             </motion.span>

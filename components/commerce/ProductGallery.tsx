@@ -1,7 +1,8 @@
 "use client";
 
-import { Expand, Play } from "lucide-react";
-import { motion, useMotionValue, useReducedMotion } from "motion/react";
+import { cn } from "@/lib/cn";
+import { ChevronLeft, ChevronRight, Expand, Play } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import type { PointerEvent } from "react";
 import { useState } from "react";
@@ -25,25 +26,22 @@ function ZoomableGalleryImage({
   const [hovering, setHovering] = useState(false);
   const [loadOriginal, setLoadOriginal] = useState(false);
   const [originalReady, setOriginalReady] = useState(false);
-  const originX = useMotionValue(0.5);
-  const originY = useMotionValue(0.5);
+  const [origin, setOrigin] = useState({ x: 0.5, y: 0.5 });
   const reduceMotion = useReducedMotion();
 
   function trackPointer(event: PointerEvent<HTMLButtonElement>) {
     if (event.pointerType !== "mouse") return;
     const rect = event.currentTarget.getBoundingClientRect();
-    originX.set(
-      Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
-    );
-    originY.set(
-      Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
-    );
+    setOrigin({
+      x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+    });
     setLoadOriginal(true);
     setHovering(true);
   }
 
   const imageClass =
-    "pointer-events-none select-none object-contain p-7 drop-shadow-[0_38px_28px_rgba(38,26,17,0.2)] sm:p-10 lg:p-12";
+    "pointer-events-none select-none object-contain p-6 drop-shadow-[0_24px_24px_rgba(38,26,17,0.14)] sm:p-8 lg:p-10";
 
   return (
     <button
@@ -65,9 +63,12 @@ function ZoomableGalleryImage({
       type="button"
     >
       <motion.div
-        animate={{ scale: hovering ? 2.5 : 1 }}
+        animate={{
+          scale: hovering ? 2.5 : 1,
+          originX: origin.x,
+          originY: origin.y,
+        }}
         className="absolute inset-0"
-        style={{ originX, originY }}
         transition={{ duration: reduceMotion ? 0 : 0.18, ease: "easeOut" }}
       >
         <Image
@@ -83,7 +84,10 @@ function ZoomableGalleryImage({
           <Image
             alt=""
             aria-hidden="true"
-            className={`${imageClass} ${originalReady ? "opacity-100" : "opacity-0"}`}
+            className={cn(
+              imageClass,
+              originalReady ? "opacity-100" : "opacity-0",
+            )}
             draggable={false}
             fill
             loading="eager"
@@ -95,7 +99,10 @@ function ZoomableGalleryImage({
       </motion.div>
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute bottom-4 right-4 flex size-10 items-center justify-center rounded-full border border-black/10 bg-[#f7f2ea]/90 text-[#7A5D38] transition-opacity motion-reduce:transition-none ${hovering ? "opacity-0" : "opacity-100"}`}
+        className={cn(
+          "pointer-events-none absolute bottom-4 right-4 flex size-11 items-center justify-center rounded-full border border-black/10 bg-[#f7f2ea]/90 text-[#7A5D38] transition-opacity motion-reduce:transition-none",
+          hovering ? "opacity-0" : "opacity-100",
+        )}
       >
         <Expand size={17} />
       </span>
@@ -117,21 +124,31 @@ export default function ProductGallery({
   if (!active) return null;
 
   return (
-    <div
-      className={
+    <figure
+      aria-label={`${productName} gallery`}
+      className={cn(
+        "min-w-0 lg:sticky lg:top-20",
         hasThumbnails
-          ? "grid gap-3 sm:grid-cols-[5.25rem_minmax(0,1fr)] sm:gap-4"
-          : "block min-w-0"
-      }
+          ? "grid gap-3 sm:grid-cols-[5rem_minmax(0,1fr)] sm:gap-4"
+          : "block min-w-0",
+      )}
     >
       {hasThumbnails ? (
-        <div className="order-2 flex gap-2 overflow-x-auto pb-1 sm:order-0 sm:max-h-168 sm:flex-col sm:overflow-y-auto sm:pb-0 sm:pr-1">
+        <div
+          aria-label="Gallery thumbnails"
+          className="order-2 flex min-w-0 gap-3 overflow-x-auto p-1 sm:order-0 sm:max-h-144 sm:flex-col sm:overflow-y-auto"
+        >
           {items.map((item, index) => (
             <button
               aria-label={`View ${item.type} ${index + 1} of ${items.length}`}
               aria-pressed={activeIndex === index}
-              className={`relative aspect-square w-19 shrink-0 overflow-hidden bg-[#e9e0d3] transition sm:w-full ${activeIndex === index ? "ring-1 ring-[#1c1814] ring-offset-2 ring-offset-[#f3eee5]" : "opacity-65 hover:opacity-100"}`}
-              key={`${item.type}-${item.url}`}
+              className={cn(
+                "relative aspect-square w-16 shrink-0 overflow-hidden rounded-sm bg-[#e9e0d3] transition-opacity focus-visible:ring-2 focus-visible:ring-stone-700 focus-visible:ring-offset-2 motion-reduce:transition-none sm:w-full",
+                activeIndex === index
+                  ? "ring-1 ring-[#1c1814] ring-offset-2 ring-offset-[#f7f3ed]"
+                  : "opacity-70 hover:opacity-100",
+              )}
+              key={`${item.type}-${item.url}-${index}`}
               onClick={() => setActiveIndex(index)}
               type="button"
             >
@@ -140,7 +157,7 @@ export default function ProductGallery({
                   alt=""
                   className="object-contain p-2"
                   fill
-                  sizes="84px"
+                  sizes="80px"
                   src={item.url}
                 />
               ) : (
@@ -162,7 +179,7 @@ export default function ProductGallery({
         </div>
       ) : null}
 
-      <div className="relative aspect-4/5 w-full min-w-0 overflow-hidden bg-[#e9e0d3] sm:aspect-5/6">
+      <div className="relative aspect-4/5 w-full min-w-0 overflow-hidden rounded-sm bg-[#e9e0d3] sm:aspect-5/6">
         {active.type === "image" ? (
           <ZoomableGalleryImage
             item={active}
@@ -180,6 +197,34 @@ export default function ProductGallery({
             src={active.url}
           />
         )}
+        {hasThumbnails ? (
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-x-3 flex items-center justify-between",
+              active.type === "video" ? "top-4" : "top-1/2 -translate-y-1/2",
+            )}
+          >
+            {[
+              { direction: -1, label: "Previous", icon: ChevronLeft },
+              { direction: 1, label: "Next", icon: ChevronRight },
+            ].map(({ direction, label, icon: Icon }) => (
+              <button
+                aria-label={`${label} product image or video`}
+                className="pointer-events-auto grid size-11 place-items-center rounded-full border border-stone-900/10 bg-[#f7f3ed]/95 text-stone-900 shadow-sm transition-colors hover:bg-white active:bg-stone-200 focus-visible:ring-2 focus-visible:ring-stone-700 motion-reduce:transition-none"
+                key={label}
+                onClick={() =>
+                  setActiveIndex(
+                    (index) =>
+                      (index + direction + items.length) % items.length,
+                  )
+                }
+                type="button"
+              >
+                <Icon aria-hidden="true" size={20} strokeWidth={1.5} />
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
       {viewerOpen && active.type === "image" ? (
         <ProductImageViewer
@@ -191,6 +236,6 @@ export default function ProductGallery({
           productName={productName}
         />
       ) : null}
-    </div>
+    </figure>
   );
 }

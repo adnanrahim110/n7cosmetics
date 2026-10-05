@@ -41,6 +41,15 @@ export function stripeKeysReady(settings: Pick<StripeSettings, "mode" | "publish
     && new RegExp(`^sk_${settings.mode}_[A-Za-z0-9]{16,}$`).test(settings.secretKey);
 }
 
+export async function getPublicPaymentAvailability(): Promise<boolean> {
+  try {
+    const settings = await getStripeSettings();
+    return settings.enabled && stripeKeysReady(settings);
+  } catch {
+    return false;
+  }
+}
+
 export function stripeClient(settings: StripeSettings): Stripe {
   if (!stripeKeysReady(settings)) throw new PaymentUnavailableError();
   return new Stripe(settings.secretKey, { maxNetworkRetries: 2, timeout: 15_000 });

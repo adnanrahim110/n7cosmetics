@@ -7,6 +7,8 @@ import SmtpSettingsForm from "@/components/admin/SmtpSettingsForm";
 import NotificationSettingsForm from "@/components/admin/NotificationSettingsForm";
 import SocialMediaLinksEditor from "@/components/admin/SocialMediaLinksEditor";
 import StripeSettings from "@/components/admin/StripeSettings";
+import DispatchSettingsForm from "@/components/admin/DispatchSettingsForm";
+import { defaultDispatchSchedule, readDispatchSchedule } from "@/lib/commerce/dispatch";
 import { requireAdministrator } from "@/lib/auth/session";
 import { selectRows } from "@/lib/db/query";
 import { normalizeSocialMediaLinks } from "@/lib/social-media";
@@ -16,6 +18,7 @@ import { smtpProviders } from "@/lib/email/settings";
 import {
   saveSettingsAction,
   saveSocialMediaSettingsAction,
+  saveDispatchSettingsAction,
 } from "./actions";
 
 interface SettingRow extends RowDataPacket {
@@ -55,7 +58,7 @@ const card = "rounded-xl border border-zinc-200 bg-white p-5 shadow-sm";
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<SettingsQuery> }) {
   const [admin, rows, query] = await Promise.all([
     requireAdministrator(),
-    selectRows<SettingRow>("SELECT setting_key, value_json FROM site_settings WHERE setting_key IN ('contact.phone','contact.email','contact.address','contact.whatsapp','social.links','store.currency','inventory.low_stock_threshold','email.reply_to')"),
+    selectRows<SettingRow>("SELECT setting_key, value_json FROM site_settings WHERE setting_key IN ('contact.phone','contact.email','contact.address','contact.whatsapp','social.links','store.currency','inventory.low_stock_threshold','email.reply_to','shipping.dispatch_schedule')"),
     searchParams,
   ]);
   const settings = Object.fromEntries(rows.map((row) => [row.setting_key, settingValue(row.value_json)]));
@@ -107,6 +110,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </section>
         <div className="flex justify-end"><button className="rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save settings</button></div>
       </form>
+
+      <DispatchSettingsForm action={saveDispatchSettingsAction} value={readDispatchSchedule(rows.find((row) => row.setting_key === "shipping.dispatch_schedule")?.value_json) ?? defaultDispatchSchedule} />
 
       <section className={`${card} mt-8`} id="social-media">
         <div>

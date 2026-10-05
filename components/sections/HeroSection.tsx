@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
+import * as motion from "motion/react-m";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -9,6 +10,8 @@ import { useEffect, useRef, useState } from "react";
 import type { HeroContent, HomepageProduct } from "@/lib/homepage/types";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import { SoldOutBadge } from "@/components/commerce/ProductStockStatus";
+import { cn } from "@/lib/cn";
+import { storefrontAssets } from "@/lib/media/storefront-assets";
 
 const revealEase = [0.22, 1, 0.36, 1] as const;
 const autoplayDelay = 7000;
@@ -92,14 +95,15 @@ const HeroSection = ({
       onPointerDown={handlePointerDown}
       onPointerUp={finishDrag}
       onPointerCancel={finishDrag}
-      className={`relative min-h-150 lg:min-h-200 select-none overflow-hidden bg-cover bg-center bg-no-repeat ${
-        isDragging ? "cursor-grabbing" : "cursor-grab"
-      }`}
-      style={{
-        backgroundImage: `url(${content.backgroundImage})`,
-        touchAction: "pan-y",
-      }}
+      className={cn("relative isolate min-h-150 touch-pan-y select-none overflow-hidden lg:min-h-200", isDragging ? "cursor-grabbing" : "cursor-grab")}
     >
+      <Image
+        src={content.backgroundImage === "/imgs/hero-bg.png" ? storefrontAssets.heroBackground : content.backgroundImage}
+        alt=""
+        fill
+        sizes="100vw"
+        className="-z-10 object-cover"
+      />
       <div className="absolute inset-0 bg-linear-to-b from-black/50 via-transparent to-transparent" />
       <div className="absolute inset-0 bg-linear-to-r from-black/20 via-transparent to-transparent" />
 
@@ -357,7 +361,7 @@ const HeroSection = ({
                 alt={`${activeProduct.name} fragrance bottle`}
                 width={576}
                 height={1023}
-                priority={activeIndex === 0}
+                sizes="(max-width: 640px) 72vw, (max-width: 1024px) 56vw, 48vw"
                 draggable={false}
                 className="h-full w-full object-contain"
               />
@@ -367,11 +371,12 @@ const HeroSection = ({
       </div>
       <div className="lg:hidden inset-y-0 absolute left-0 w-1/2 bg-linear-to-r from-black/40 to-transparent z-4 pointer-events-none" />
       <Image
-        src={content.cloudImage}
+        src={content.cloudImage === "/imgs/hero-cloud.png" ? storefrontAssets.heroCloud : content.cloudImage}
         alt=""
         aria-hidden="true"
         width={1672}
         height={941}
+        sizes="(max-width: 640px) 145vw, (max-width: 768px) 120vw, (max-width: 1024px) 105vw, (max-width: 1280px) 100vw, 90vw"
         draggable={false}
         className="pointer-events-none absolute -bottom-10 -right-20 z-3 h-auto w-[145vw] brightness-95 sm:-bottom-16 sm:-right-24 sm:w-[120vw] md:w-[105vw] lg:-bottom-26 lg:-right-32 lg:w-screen xl:w-[90vw]"
       />

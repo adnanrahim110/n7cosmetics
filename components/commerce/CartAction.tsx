@@ -15,6 +15,7 @@ interface CartActionProps {
   inCartChildren?: ReactNode;
   disabled?: boolean;
   ariaLabel?: string;
+  unavailableChildren?: ReactNode;
 }
 
 export default function CartAction({
@@ -26,6 +27,7 @@ export default function CartAction({
   inCartChildren = "View in cart",
   disabled = false,
   ariaLabel,
+  unavailableChildren,
 }: CartActionProps) {
   const { addToCart, isInCart, getStock, getCartLimit, cartBusy, hydrated } = useCommerce();
   const soldOut = getStock(product.slug).soldOut;
@@ -46,13 +48,13 @@ export default function CartAction({
 
   return (
     <button
-      aria-label={soldOut ? `${product.name} is sold out` : ariaLabel}
+      aria-label={soldOut ? `${product.name} is sold out` : maximum === 0 ? `Stock limit reached for ${product.name}` : ariaLabel}
       className={className}
       disabled={disabled || soldOut || cartBusy || !hydrated || quantity > maximum}
       onClick={() => addToCart(product, quantity)}
       type="button"
     >
-      {soldOut ? "Sold Out" : maximum === 0 ? "Stock limit reached" : children}
+      {soldOut ? unavailableChildren ?? "Sold Out" : maximum === 0 ? unavailableChildren ?? "Stock limit reached" : children}
     </button>
   );
 }

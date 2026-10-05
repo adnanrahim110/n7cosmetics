@@ -3,14 +3,16 @@
 import Title from "@/components/ui/Title";
 import type { ReviewContent, ReviewsContent } from "@/lib/homepage/types";
 import { ArrowLeft, ArrowRight, Quote, Star } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { useReducedMotion } from "motion/react";
+import * as motion from "motion/react-m";
+import { useMemo, useState } from "react";
 import type { Swiper as SwiperInstance } from "swiper";
+import type { SwiperOptions } from "swiper/types";
 import "swiper/css";
-import { A11y, Autoplay, Keyboard } from "swiper/modules";
-import { Swiper, SwiperSlide } from "swiper/react";
+import ViewportSwiper from "@/components/ui/ViewportSwiper";
 
 const ease = [0.22, 1, 0.36, 1] as const;
+const loadReviewModules = () => import("@/components/ui/swiper-review-features").then(module => module.default);
 
 function getRating(review: ReviewContent): number {
   const rating = Number(review.rating ?? 5);
@@ -80,6 +82,23 @@ export default function ReviewsSection({
   const [swiper, setSwiper] = useState<SwiperInstance | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const originalCount = content.reviews.length;
+  const swiperOptions = useMemo<SwiperOptions>(() => ({
+    autoplay: shouldReduceMotion || originalCount <= 1 ? false : { delay: 6000, disableOnInteraction: false, pauseOnMouseEnter: true },
+    breakpoints: {
+      480: { slidesPerView: 2.1, spaceBetween: 12 },
+      640: { slidesPerView: 2.3, spaceBetween: 16 },
+      768: { slidesPerView: 2.6, spaceBetween: 20 },
+      1024: { slidesPerView: 3, spaceBetween: 24 },
+      1280: { slidesPerView: 3, spaceBetween: 28 },
+    },
+    grabCursor: originalCount > 1,
+    keyboard: { enabled: true },
+    rewind: originalCount > 1,
+    slidesPerView: 2,
+    spaceBetween: 10,
+    watchOverflow: false,
+    on: { init: setSwiper, slideChange: instance => setActiveIndex(instance.realIndex) },
+  }), [shouldReduceMotion, originalCount]);
 
   if (!originalCount) return null;
 
@@ -144,44 +163,21 @@ export default function ReviewsSection({
           viewport={{ once: true, margin: "-60px" }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <Swiper
-            aria-label="Customer reviews"
-            autoplay={
-              shouldReduceMotion || originalCount <= 1
-                ? false
-                : {
-                    delay: 6000,
-                    disableOnInteraction: false,
-                    pauseOnMouseEnter: true,
-                  }
-            }
-            breakpoints={{
-              480: { slidesPerView: 2.1, spaceBetween: 12 },
-              640: { slidesPerView: 2.3, spaceBetween: 16 },
-              768: { slidesPerView: 2.6, spaceBetween: 20 },
-              1024: { slidesPerView: 3, spaceBetween: 24 },
-              1280: { slidesPerView: 3, spaceBetween: 28 },
-            }}
+          <ViewportSwiper
+            label="Customer reviews"
+            loadModules={loadReviewModules}
+            options={swiperOptions}
             className="overflow-visible!"
-            grabCursor={originalCount > 1}
-            keyboard={{ enabled: true }}
-            modules={[A11y, Autoplay, Keyboard]}
-            onSlideChange={(instance) => setActiveIndex(instance.realIndex)}
-            onSwiper={setSwiper}
-            rewind={originalCount > 1}
-            slidesPerView={2}
-            spaceBetween={10}
-            watchOverflow={false}
           >
             {displayReviews.map((review, index) => (
-              <SwiperSlide
-                className="flex h-auto!"
+              <div
+                className="swiper-slide flex h-auto!"
                 key={`${review.author}-${index}`}
               >
                 <ReviewCard review={review} />
-              </SwiperSlide>
+              </div>
             ))}
-          </Swiper>
+          </ViewportSwiper>
 
           <div className="mt-7 flex items-center gap-4 sm:mt-9 sm:gap-6">
             <span

@@ -1,4 +1,5 @@
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
+import * as motion from "motion/react-m";
 import type { Variants } from "motion/react";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";

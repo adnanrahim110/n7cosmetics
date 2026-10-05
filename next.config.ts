@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { storefrontAssets } from "./lib/media/storefront-assets";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -8,17 +9,34 @@ const nextConfig: NextConfig = {
   },
   reactCompiler: true,
   experimental: {
+    // Send the existing Tailwind/font/slider styles with HTML, avoiding a blocking waterfall.
+    inlineCss: true,
+    optimizePackageImports: ["swiper/modules"],
     serverActions: {
       bodySizeLimit: "350mb",
     },
   },
   images: {
+    imageSizes: [32, 48, 64, 96, 128, 192, 256, 320, 384],
     remotePatterns: [
       {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
     ],
+  },
+  async headers() {
+    return [
+      {
+        // Uploaded /media URLs already carry their own immutable cache policy.
+        source: "/:directory(imgs|videos)/:asset*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=2592000, stale-while-revalidate=86400" }],
+      },
+      ...Object.values(storefrontAssets).map(source => ({
+        source,
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      })),
+    ];
   },
 };
 

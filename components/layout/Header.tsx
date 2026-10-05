@@ -1,8 +1,6 @@
 "use client";
 
 import type { HeaderContent } from "@/lib/homepage/types";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { LucideIcon } from "lucide-react";
 import {
   BadgeCheck,
@@ -14,8 +12,10 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
+import * as motion from "motion/react-m";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -23,10 +23,11 @@ import type { NavigationItem } from "../../content/global";
 import { globalContent } from "../../content/global";
 import { useCommerce } from "../commerce/CommerceProvider";
 import MegaMenu from "./MegaMenu";
-import ProductSearchDialog from "./ProductSearchDialog";
 import SimpleDropdown from "./SimpleDropdown";
 
-gsap.registerPlugin(ScrollTrigger);
+import { cn } from "@/lib/cn";
+
+const ProductSearchDialog = dynamic(() => import("./ProductSearchDialog"), { ssr: false });
 
 interface AnnouncementMarqueeProps {
   items: Array<{
@@ -118,6 +119,9 @@ export default function Header({ content }: { content: HeaderContent }) {
   const headerContainerRef = useRef<HTMLElement>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchLoaded, setSearchLoaded] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const openSearch = () => { setSearchLoaded(true); setIsSearchOpen(true); };
   const [hoveredNav, setHoveredNav] = useState<number | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -148,12 +152,24 @@ export default function Header({ content }: { content: HeaderContent }) {
   }, [isMobileMenuOpen]);
 
   useEffect(() => {
+    let previousY = window.scrollY;
+    let frame = 0;
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 0);
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const currentY = Math.max(0, window.scrollY);
+        const scrollingDown = currentY > previousY;
+        setIsScrolled(currentY > 0);
+        if (currentY <= 10) setHeaderHidden(false);
+        else if (currentY !== previousY) setHeaderHidden(scrollingDown);
+        if (currentY > 10 && scrollingDown) setIsMobileMenuOpen(false);
+        previousY = currentY;
+      });
     };
     handleScroll();
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => { window.removeEventListener("scroll", handleScroll); window.cancelAnimationFrame(frame); };
   }, []);
 
   useEffect(() => {
@@ -168,41 +184,6 @@ export default function Header({ content }: { content: HeaderContent }) {
     const observer = new ResizeObserver(updateHeaderHeight);
     observer.observe(header);
     return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    let ctx = gsap.context(() => {
-      ScrollTrigger.create({
-        start: "top top",
-        end: "max",
-        onUpdate: (self) => {
-          if (window.scrollY <= 10) {
-            gsap.to(headerContainerRef.current, {
-              yPercent: 0,
-              duration: 0.4,
-              ease: "power3.out",
-              overwrite: true,
-            });
-          } else if (self.direction === 1) {
-            gsap.to(headerContainerRef.current, {
-              yPercent: -100,
-              duration: 0.4,
-              ease: "power3.out",
-              overwrite: true,
-            });
-            setIsMobileMenuOpen(false);
-          } else if (self.direction === -1) {
-            gsap.to(headerContainerRef.current, {
-              yPercent: 0,
-              duration: 0.4,
-              ease: "power3.out",
-              overwrite: true,
-            });
-          }
-        },
-      });
-    }, headerContainerRef);
-    return () => ctx.revert();
   }, []);
 
   const leftLinks = content.navigation.slice(0, 3);
@@ -306,8 +287,7 @@ export default function Header({ content }: { content: HeaderContent }) {
     <>
       <header
         ref={headerContainerRef}
-        className="fixed left-0 top-0 z-50 w-full will-change-transform"
-        style={{ transform: "translateY(0)" }}
+        className={cn("fixed left-0 top-0 z-50 w-full transition-transform duration-400 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none", headerHidden ? "-translate-y-full" : "translate-y-0")}
       >
         <div className="relative">
           <div
@@ -354,7 +334,7 @@ export default function Header({ content }: { content: HeaderContent }) {
                 alt={globalContent.header.name}
                 width={291}
                 height={373}
-                priority
+                loading="eager"
                 sizes="(max-width: 1279px) 64px, 80px"
                 className={`h-auto w-16 object-contain transition-[filter] duration-500 xl:w-20 ${
                   isScrolled || forceDarkText ? "invert-100" : ""
@@ -393,7 +373,7 @@ export default function Header({ content }: { content: HeaderContent }) {
                   className={`w-11 h-11 rounded-full flex items-center justify-center relative group/icon overflow-hidden transition-colors duration-500 ${isScrolled || forceDarkText ? "hover:bg-black/5" : "hover:bg-white/10"}`}
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    setIsSearchOpen(true);
+                    openSearch();
                   }}
                   type="button"
                 >
@@ -430,7 +410,7 @@ export default function Header({ content }: { content: HeaderContent }) {
                   className={`relative grid size-11 place-items-center rounded-full transition-colors ${isScrolled || forceDarkText ? "text-[#1A1A1A] hover:bg-black/5" : "text-dark-100 hover:bg-white/10"}`}
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    setIsSearchOpen(true);
+                    openSearch();
                   }}
                   type="button"
                 >
@@ -482,10 +462,10 @@ export default function Header({ content }: { content: HeaderContent }) {
       </header>
 
       <div id="product-search-dialog">
-        <ProductSearchDialog
+        {searchLoaded ? <ProductSearchDialog
           onClose={() => setIsSearchOpen(false)}
           open={isSearchOpen}
-        />
+        /> : null}
       </div>
 
       <AnimatePresence>

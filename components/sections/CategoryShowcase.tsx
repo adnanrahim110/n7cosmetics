@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
+import * as motion from "motion/react-m";
 import Image from "next/image";
 import { useState } from "react";
 

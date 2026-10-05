@@ -20,7 +20,7 @@ function money(pence: number) {
   }).format(pence / 100);
 }
 
-export default function CartDrawer() {
+export default function CartDrawer({ onReady }: { onReady?: () => void }) {
   const {
     cart,
     cartCount,
@@ -37,6 +37,8 @@ export default function CartDrawer() {
   } = useCommerce();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => { onReady?.(); }, [onReady]);
 
   useEffect(() => {
     if (!isCartOpen) return;

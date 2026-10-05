@@ -12,6 +12,8 @@ import { executeMutation } from "@/lib/db/query";
 import { withTransaction } from "@/lib/db/transaction";
 import type { PoolConnection } from "mysql2/promise";
 import { socialMediaPlatformValues } from "@/lib/social-media";
+import { dispatchScheduleSchema } from "@/lib/commerce/dispatch";
+import type { DispatchSettingsState } from "@/components/admin/DispatchSettingsForm";
 
 const settingsSchema = z.object({ phone: z.string().max(50), email: z.union([z.literal(""), z.email().max(190)]), address: z.string().max(1000), whatsapp: z.string().max(50), currency: z.enum(["GBP", "PKR", "USD", "EUR"]), lowStockThreshold: z.number().int().min(0).max(1000000) });
 const keyMap = { phone: "contact.phone", email: "contact.email", address: "contact.address", whatsapp: "contact.whatsapp", currency: "store.currency", lowStockThreshold: GLOBAL_LOW_STOCK_SETTING_KEY } as const;
@@ -64,4 +66,29 @@ export async function saveSocialMediaSettingsAction(formData: FormData): Promise
   revalidatePath("/contact");
   revalidatePath("/admin/settings");
   redirect("/admin/settings?social-saved=1#social-media");
+}
+
+export async function saveDispatchSettingsAction(_previous: DispatchSettingsState, formData: FormData): Promise<DispatchSettingsState> {
+  const admin = await requireAdministrator(["OWNER", "MANAGER"]);
+  const parsed = dispatchScheduleSchema.safeParse({
+    enabled: formData.get("enabled") === "on",
+    timeZone: formString(formData, "timeZone"),
+    workingDays: formData.getAll("workingDays").map((day) => Number(day)),
+    opensAt: formString(formData, "opensAt"),
+    cutoffAt: formString(formData, "cutoffAt"),
+    closedDates: [...new Set(formString(formData, "closedDates").split(/[\n,]/).map((date) => date.trim()).filter(Boolean))],
+  });
+  if (!parsed.success) return { error: "Check the dispatch schedule fields.", fieldErrors: z.flattenError(parsed.error).fieldErrors };
+  const metadata = await getRequestMetadata();
+  try {
+    await withTransaction(async (connection) => {
+      await saveSetting("shipping.dispatch_schedule", parsed.data, true, admin.id, connection);
+      await writeAuditLog({ administratorId: admin.id, action: "DISPATCH_SETTINGS_UPDATE", entityType: "site_settings", entityId: "shipping.dispatch_schedule", summary: "Updated dispatch working hours and closed dates", ipAddress: metadata.ipAddress }, connection);
+    });
+  } catch {
+    return { error: "The dispatch schedule couldn’t be saved. Please try again." };
+  }
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/settings");
+  return { success: true };
 }

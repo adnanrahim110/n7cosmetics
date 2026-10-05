@@ -1,11 +1,23 @@
+"use client";
 import type { HomepageProduct } from "@/lib/homepage/types";
-import BestSellersHeader from "./BestSellersHeader";
+import { useCommerce } from "../commerce/CommerceProvider";
 import BestSellerProductGrid from "./BestSellerProductGrid";
+import BestSellersHeader from "./BestSellersHeader";
 
-export default function BestSellers({ products }: { products: HomepageProduct[] }) {
+export default function BestSellers({
+  products,
+}: {
+  products: HomepageProduct[];
+}) {
   if (!products.length) return null;
-  const recreations = products.filter(product => product.isRecreation);
-  const others = products.filter(product => !product.isRecreation);
+  const { getStock } = useCommerce();
+  const availableProducts = products.filter(
+    (product) => getStock(product.slug).soldOut === false,
+  );
+  const recreations = availableProducts.filter(
+    (product) => product.isRecreation,
+  );
+  const others = availableProducts.filter((product) => !product.isRecreation);
   return (
     <section
       id="home-bestsellers"

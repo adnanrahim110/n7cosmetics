@@ -1,11 +1,14 @@
 "use client";
 
 import { Pause, Play } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
+import * as motion from "motion/react-m";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import Title from "@/components/ui/Title";
 import type { ScentStoryContent } from "@/lib/homepage/types";
+import { useViewportActivation } from "@/components/ui/useViewportActivation";
+import { optimisedVideoSource, videoPoster } from "@/lib/media/storefront-assets";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -17,6 +20,7 @@ export default function ScentStorySection({
   const sectionRef = useRef<HTMLElement>(null);
   const mainVideoRef = useRef<HTMLVideoElement>(null);
   const detailVideoRef = useRef<HTMLVideoElement>(null);
+  const mediaEnabled = useViewportActivation(sectionRef);
   const shouldReduceMotion = useReducedMotion();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPreviewReady, setIsPreviewReady] = useState(false);
@@ -41,7 +45,8 @@ export default function ScentStorySection({
   useEffect(() => {
     const section = sectionRef.current;
     const video = mainVideoRef.current;
-    if (!section || !video) return;
+    const detailVideo = detailVideoRef.current;
+    if (!section || !video || !mediaEnabled) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -50,10 +55,12 @@ export default function ScentStorySection({
 
         if (isInView && !shouldReduceMotion) {
           void playMainFilm();
+          void detailVideo?.play().catch(() => undefined);
           return;
         }
 
         video.pause();
+        detailVideo?.pause();
       },
       { threshold: [0, 0.25] },
     );
@@ -62,20 +69,9 @@ export default function ScentStorySection({
     return () => {
       observer.disconnect();
       video.pause();
+      detailVideo?.pause();
     };
-  }, [playMainFilm, shouldReduceMotion, story.mainVideo]);
-
-  useEffect(() => {
-    const detailVideo = detailVideoRef.current;
-    if (!detailVideo) return;
-
-    if (shouldReduceMotion) {
-      detailVideo.pause();
-      return;
-    }
-
-    detailVideo.play().catch(() => undefined);
-  }, [shouldReduceMotion]);
+  }, [playMainFilm, shouldReduceMotion, story.mainVideo, mediaEnabled]);
 
   const toggleMainFilm = () => {
     const video = mainVideoRef.current;
@@ -195,10 +191,11 @@ export default function ScentStorySection({
             </div>
             <video
               ref={mainVideoRef}
-              src={story.mainVideo}
+              src={mediaEnabled ? story.mainVideo : undefined}
+              poster={videoPoster(story.mainVideo)}
               muted={false}
               playsInline
-              preload="metadata"
+              preload={mediaEnabled ? "metadata" : "none"}
               controls={isPlaying}
               onLoadedMetadata={prepareMainPreview}
               onSeeked={() => setIsPreviewReady(true)}
@@ -250,11 +247,11 @@ export default function ScentStorySection({
           <div className="absolute bottom-[8%] left-0 z-20 h-[43%] w-[42%] overflow-hidden border-[6px] border-[#120d0a] bg-[#080605] shadow-[0_28px_65px_rgba(0,0,0,0.62)] sm:w-[38%] sm:border-10">
             <video
               ref={detailVideoRef}
-              src={story.detailVideo}
+              src={mediaEnabled ? optimisedVideoSource(story.detailVideo) : undefined}
               muted
               loop
               playsInline
-              preload="metadata"
+              preload="none"
               className="size-full object-cover"
               aria-hidden="true"
               tabIndex={-1}

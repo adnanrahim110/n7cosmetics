@@ -3,7 +3,8 @@
 import { cn } from "@/lib/cn";
 import type { ProductCardDetails } from "@/lib/commerce/product-card";
 import { Check, Heart, ShoppingBag, Sparkles, Tag } from "lucide-react";
-import { motion, useMotionValue, useTransform } from "motion/react";
+import { useMotionValue, useTransform } from "motion/react";
+import * as motion from "motion/react-m";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -243,7 +244,6 @@ export default function ProductCard({
             href={href}
           />
           <div className="pointer-events-none absolute left-2 top-2 z-20 flex flex-col items-start gap-1">
-            <ProductTag bestSeller={product.bestSeller} isNew={product.isNew} />
             <GenderBadge audience={product.audience} />
           </div>
           <div className="pointer-events-none absolute inset-x-[14%] bottom-[7%] h-[12%] rounded-full bg-black/10 blur-xl" />
@@ -251,7 +251,7 @@ export default function ProductCard({
             src={product.image}
             alt={product.name}
             fill
-            sizes="(max-width: 640px) 80vw, 25vw"
+            sizes="(max-width: 1023px) calc(50vw - 40px), 280px"
             className={`pointer-events-none object-contain drop-shadow-[0_18px_18px_rgba(48,33,19,0.2)] ${soldOut ? "opacity-55" : ""} ${productCode ? "px-3 pt-3 pb-12" : "p-3"}`}
           />
           {soldOut ? <SoldOutOverlay /> : null}
@@ -370,7 +370,7 @@ export default function ProductCard({
                   src={product.image}
                   alt={product.name}
                   fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  sizes="(max-width: 1023px) calc(40vw - 32px), 224px"
                   className={`object-contain transition-transform duration-700 ${soldOut ? "opacity-55" : ""}`}
                 />
               </div>
@@ -394,11 +394,7 @@ export default function ProductCard({
         </motion.div>
 
         <div className="pointer-events-none absolute inset-x-0 top-0 z-40 aspect-3/4">
-          <ProductTag
-            bestSeller={product.bestSeller}
-            isNew={product.isNew}
-            className="absolute left-1/2 -translate-x-1/2 top-2"
-          />
+          
           <div className="absolute inset-y-0 right-0 w-16 overflow-hidden pointer-events-none">
             <div className="pointer-events-auto absolute right-0 lg:right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
               <button

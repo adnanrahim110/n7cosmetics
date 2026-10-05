@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowUpRight, Plus } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
+import * as motion from "motion/react-m";
 import Image from "next/image";
 import Link from "next/link";
 

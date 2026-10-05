@@ -50,6 +50,7 @@ export interface StorefrontProduct {
   images: StorefrontProductImage[];
   videos: StorefrontProductVideo[];
   collectionSlug: string | null;
+  collectionName: string | null;
 }
 
 export interface StorefrontRelatedProduct extends ProductCardDetails {
@@ -92,6 +93,7 @@ interface StorefrontProductRow extends RowDataPacket {
   weight_grams: number | null;
   track_inventory: number;
   collection_slug: string | null;
+  collection_name: string | null;
 }
 
 interface ProductImageRow extends RowDataPacket { url: string; alt_text: string | null }
@@ -152,8 +154,14 @@ export async function getStorefrontProduct(slug: string, expectedType: "STANDARD
           FROM product_collections pc
           INNER JOIN collections col ON col.id = pc.collection_id AND col.status = 'ACTIVE'
           WHERE pc.product_id = p.id
-          ORDER BY FIELD(col.slug, 'n7', 'bundles', 'premium-collection', 'recreations', 'yusuf-bhai-originals', 'sale'), pc.sort_order
+          ORDER BY FIELD(col.slug, 'n7', 'bundles', 'premium-collection', 'recreations', 'yusuf-bhai-originals', 'sale'), pc.sort_order, col.id
           LIMIT 1) AS collection_slug,
+         (SELECT col.name
+          FROM product_collections pc
+          INNER JOIN collections col ON col.id = pc.collection_id AND col.status = 'ACTIVE'
+          WHERE pc.product_id = p.id
+          ORDER BY FIELD(col.slug, 'n7', 'bundles', 'premium-collection', 'recreations', 'yusuf-bhai-originals', 'sale'), pc.sort_order, col.id
+          LIMIT 1) AS collection_name,
          v.title AS variant_title, v.sku, v.price_pence, v.compare_at_price_pence,
          v.stock_on_hand, v.weight_grams
        FROM products p
@@ -202,6 +210,7 @@ export async function getStorefrontProduct(slug: string, expectedType: "STANDARD
       images,
       videos,
       collectionSlug: row.collection_slug,
+      collectionName: row.collection_name,
     };
   }
 
@@ -236,7 +245,7 @@ export async function getRelatedStorefrontProducts(
        SELECT pi.id FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1
      )
      WHERE p.id != ? AND p.status = 'ACTIVE' AND p.product_type = 'STANDARD'
-     ORDER BY relevance_score DESC, (p.audience = ?) DESC, p.featured DESC, p.updated_at DESC
+     ORDER BY relevance_score DESC, (p.audience = ?) DESC, p.featured DESC, p.updated_at DESC, p.id DESC
      LIMIT 8`,
     [productId, productId, productId, audience],
   );

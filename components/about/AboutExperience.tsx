@@ -1,6 +1,7 @@
 "use client";
 
 import Title from "@/components/ui/Title";
+import AboutPassionSection from "./AboutPassionSection";
 import {
   ArrowDown,
   ArrowRight,
@@ -246,81 +247,7 @@ export default function AboutExperience() {
         </div>
       </section>
 
-      <section className="relative isolate overflow-hidden bg-[#15100d] py-20 text-[#f4eadf] sm:py-28 lg:py-34">
-        <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_50%_-10%,rgba(195,137,76,0.20),transparent_40%),linear-gradient(135deg,#18110d_0%,#0b0807_100%)]" />
-        <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.06] bg-[linear-gradient(rgba(255,255,255,0.15)_1px,transparent_1px)] bg-size-[100%_76px]" />
-        <div className="mx-auto max-w-360 px-5 sm:px-8 lg:px-12">
-          <div className="grid items-end gap-9 border-b border-white/12 pb-12 md:grid-cols-[1.08fr_0.92fr] md:pb-16">
-            <motion.div
-              initial={false}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration, ease }}
-            >
-              <span className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#c99b69]">
-                Our passion
-              </span>
-              <Title
-                className="mt-5 max-w-4xl text-[#f4eadf]"
-                highlight="in every bottle."
-                highlightClassName="text-[#caa77f]"
-                text="Timeless elegance in every bottle."
-                tone="custom"
-              />
-            </motion.div>
-            <motion.p
-              initial={false}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration, delay: reduceMotion ? 0 : 0.12, ease }}
-              className="max-w-xl border-l border-[#c99b69]/60 pl-6 text-sm font-light leading-7 text-white/58 sm:text-base sm:leading-8 md:justify-self-end"
-            >
-              Inspired by the artistry of Middle Eastern perfumery, our journey
-              began with a commitment to quality, authenticity and innovation.
-              We collaborate with expert perfumers and skincare specialists to
-              bring handcrafted, premium cosmetics to the UK market.
-            </motion.p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4">
-            {promises.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <motion.article
-                  key={item.number}
-                  initial={false}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{
-                    duration,
-                    delay: reduceMotion ? 0 : index * 0.08,
-                    ease,
-                  }}
-                  className={`group relative min-h-68 px-2 py-10 sm:px-5 lg:px-7 lg:py-12 lg:first:pl-0 lg:last:pr-0 ${index < promises.length - 1 ? "border-b border-white/10" : ""} ${index % 2 === 0 ? "sm:border-r sm:border-white/10" : ""} ${index < 2 ? "sm:border-b sm:border-white/10" : "sm:border-b-0"} ${index < promises.length - 1 ? "lg:border-r lg:border-white/10" : "lg:border-r-0"} lg:border-b-0`}
-                >
-                  <div className="flex items-center justify-between text-[#c99b69]">
-                    <Icon
-                      aria-hidden="true"
-                      className="size-8"
-                      strokeWidth={0.9}
-                    />
-                    <span className="text-[8px] font-semibold tracking-[0.26em] text-white/28">
-                      {item.number}
-                    </span>
-                  </div>
-                  <h3 className="mt-12 font-heading text-2xl leading-tight tracking-normal text-[#f4eadf] sm:text-3xl">
-                    {item.title}
-                  </h3>
-                  <p className="mt-4 max-w-xs text-xs font-light leading-6 text-white/42 sm:text-sm">
-                    {item.description}
-                  </p>
-                  <span className="absolute inset-x-0 bottom-0 h-px origin-left scale-x-0 bg-[#c99b69] transition-transform duration-700 group-hover:scale-x-100" />
-                </motion.article>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      <AboutPassionSection />
 
       <section className="relative overflow-hidden bg-[#fbf8f2] py-20 text-[#211a15] sm:py-28 lg:py-36">
         <div className="mx-auto grid max-w-360 items-center gap-14 px-5 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-24 lg:px-12">
