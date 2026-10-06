@@ -4,8 +4,9 @@ import { allowMetaRequest, consentGranted, consentId } from "@/lib/meta/consent"
 import { capiReady, getMetaSettings, pixelReady } from "@/lib/meta/settings";
 import { metaEventSchema, safeEventPath } from "@/lib/meta/shared";
 import { makeMetaEvent, queueMetaEvent, resolveEventData } from "@/lib/meta/events";
-import { metaExternalId, readCookie } from "@/lib/meta/identity";
+import { metaExternalId, readCookie, requestUserData } from "@/lib/meta/identity";
 import { visitorMetaUserData } from "@/lib/meta/visitor";
+import { metaAdvancedMatching } from "@/lib/meta/matching";
 import { kickMetaQueue } from "@/lib/meta/kick";
 import { readMetaJson } from "@/lib/meta/http";
 export const runtime = "nodejs";
@@ -22,12 +23,15 @@ export async function POST(request: Request) {
     if (!pixelReady(s) && !capiReady(s)) return new NextResponse(null, { status: 204, headers });
     const input = parsed.data;
     const data = await resolveEventData(input);
+    let userData: Record<string, string | string[]> = requestUserData(request);
+    try { userData = await visitorMetaUserData(request, id); }
+    catch { console.error("Meta matching profile unavailable; continuing with the consenting visitor ID."); }
     if (capiReady(s)) {
       try {
-        await queueMetaEvent(makeMetaEvent(input.name, input.eventId, input.path, await visitorMetaUserData(request, id), data), s, id);
+        await queueMetaEvent(makeMetaEvent(input.name, input.eventId, input.path, userData, data), s, id);
         kickMetaQueue();
       } catch { console.error("Meta browser event could not be queued; browser tracking remains available."); }
     }
-    return NextResponse.json({ pixelId: pixelReady(s) ? s.pixelId : "", eventId: input.eventId, name: input.name, data, externalId: metaExternalId(id) }, { headers });
+    return NextResponse.json({ pixelId: pixelReady(s) ? s.pixelId : "", eventId: input.eventId, name: input.name, data, externalId: metaExternalId(id), matching: metaAdvancedMatching(userData) }, { headers });
   } catch { return new NextResponse(null, { status: 400, headers }); }
 }

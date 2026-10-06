@@ -129,6 +129,7 @@ export async function storeMediaFiles(
     throw new MediaUploadError("The selected media exceeds the 300 MB limit for one save.");
   }
   if (!validateMediaFolder(options.folder)) throw new MediaUploadError("The media folder is invalid.");
+  if (!files.length) return [];
 
   const now = new Date();
   const segment = `${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}`;

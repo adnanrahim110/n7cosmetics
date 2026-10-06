@@ -3,6 +3,7 @@ import MetaSettingsForm, {
 } from "@/components/admin/MetaSettingsForm";
 import PageHeader from "@/components/admin/PageHeader";
 import MetaDeliveryHealth from "@/components/admin/MetaDeliveryHealth";
+import MetaCatalogSection from "@/components/admin/MetaCatalogSection";
 import { requireAdministrator } from "@/lib/auth/session";
 import { selectRows } from "@/lib/db/query";
 import {
@@ -85,7 +86,7 @@ export default async function MetaSettingsPage() {
       <PageHeader
         eyebrow="Integrations"
         title="Meta integration"
-        description="Connect N7’s website activity to Meta and prepare your advertising reporting. Configure each feature independently."
+        description="Connect website tracking, advertising reports and automatic product catalogue updates. Configure each feature independently."
       />
       {s.testEventCode ? <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm leading-6 text-amber-950"><strong>Server test mode is active.</strong> Purchases are sent as test events and do not count as live campaign conversions. Clear the Test Events code and save settings before accepting live orders.</div> : null}
       <div className="grid gap-4 lg:grid-cols-3">
@@ -120,6 +121,7 @@ export default async function MetaSettingsPage() {
           hasReportingToken: Boolean(s.reportingTokenEncrypted),
         }}
       />
+      <MetaCatalogSection canEdit={canEdit} />
       <MetaDeliveryHealth />
       <section className={card}>
         <h2 className="font-body text-base font-semibold text-zinc-950">
@@ -348,10 +350,17 @@ export default async function MetaSettingsPage() {
             </h3>
             <p>
               Events use <code>n7_variant_&lt;variant ID&gt;</code>, including
-              the purchasable bundle variant. The future catalogue export will
-              use those same IDs. The main dashboard shows store and advertising
-              performance; detailed dashboard pages and catalogue export will follow.
+              the purchasable bundle variant. Automatic catalogue sync uses those
+              same IDs. Connect this dataset as an event source for the catalogue
+              in Commerce Manager so product views and purchases can match its items.
             </p>
+          </li>
+          <li>
+            <h3 className="font-semibold text-zinc-950">7. Connect the product catalogue</h3>
+            <p>Open Commerce Manager, select N7’s ecommerce catalogue and copy its ID from Catalogue → Settings. Create or use a Meta business app, then add a system user in Business settings → Users → System users. Assign that user permission to manage this catalogue and generate an app token with <code>catalog_management</code> and the business permissions required by your asset setup. Meta may require business verification or App Review depending on the app’s ownership and access. Save the catalogue ID and token in Automatic product catalogue above.</p>
+            <p className="mt-2">Use Check catalogue access to confirm the ID and read access. The first processed batch confirms write access. Product images and links must be publicly accessible over HTTPS. Automatic sync includes published purchasable variants and bundles, keeps sold-out items marked out of stock, and removes only items previously managed by N7’s sync when they are unpublished or deleted. Website-specific coupons and buy-more offers are not presented as a single-item catalogue price.</p>
+            <p className="mt-2">After the new catalogue items, prices, stock and event-ID matching are verified, remove the unused Shopify and WooCommerce sources yourself in Commerce Manager. This integration does not remove those sources or unrelated catalogue items. Keep the Meta worker running for updates, retries and daily reconciliation.</p>
+            <a className={docs} href="https://developers.facebook.com/documentation/ads-commerce/catalog" target="_blank" rel="noreferrer">Meta Catalogue API documentation</a>
           </li>
         </ol>
         <div className="mt-6 border-t border-zinc-200 pt-5 text-xs leading-6 text-zinc-500">

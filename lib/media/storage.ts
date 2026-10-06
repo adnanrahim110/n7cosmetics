@@ -1,10 +1,10 @@
 import path from "node:path";
-import { getApplicationConfig } from "@/lib/env";
+import { getApplicationConfig } from "../env";
 
 export const MEDIA_URL_PREFIX = "/media";
 export const MEDIA_TOKEN_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const folderPattern = /^[a-z0-9]+(?:\/[a-z0-9-]+)*$/;
+const folderPattern = /^[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*$/;
 
 export function getMediaStorageRoot(): string {
   const configuredPath = getApplicationConfig().mediaStorageDirectory;

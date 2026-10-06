@@ -4,11 +4,11 @@ import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TriangleAlert, X } from "lucide-react";
-import toast, { ToastBar, Toaster } from "react-hot-toast";
+import toast, { resolveValue, ToastBar, Toaster } from "react-hot-toast";
 import { resolveAdminToastFeedback, type AdminToastFeedback } from "@/lib/admin/toast-feedback";
 
 function ToastCopy({ title, description }: Pick<AdminToastFeedback, "title" | "description">) {
-  return <div className="min-w-0"><p className="text-sm font-semibold leading-5 text-zinc-950">{title}</p>{description ? <p className="mt-0.5 text-xs leading-5 text-zinc-500">{description}</p> : null}</div>;
+  return <div className="min-w-0 wrap-anywhere text-left"><p className="text-sm font-semibold leading-5 text-zinc-950">{title}</p>{description ? <p className="mt-1 text-xs leading-5 text-zinc-500">{description}</p> : null}</div>;
 }
 
 export function showAdminToast(feedback: Omit<AdminToastFeedback, "consume">): string {
@@ -51,21 +51,21 @@ export default function AdminToastProvider({ children }: { children: ReactNode }
         gutter={12}
         position="top-right"
         reverseOrder={false}
-        containerStyle={{ top: 76, right: 16, zIndex: 100 }}
+        containerClassName="top-19! right-4! z-100!"
         toastOptions={{
           duration: 5000,
-          style: { width: "min(420px, calc(100vw - 32px))", maxWidth: 420, minWidth: 0, padding: "14px 12px", border: "1px solid #e4e4e7", borderRadius: 14, background: "rgba(255,255,255,0.98)", boxShadow: "0 18px 45px rgba(24,24,27,0.14)" },
+          className: "w-fit! min-w-0! max-w-[min(26.25rem,calc(100vw-2rem))]! rounded-xl! border border-zinc-200 bg-white/98! p-3! shadow-lg!",
           success: { iconTheme: { primary: "#047857", secondary: "#ecfdf5" } },
           error: { iconTheme: { primary: "#dc2626", secondary: "#fef2f2" } },
         }}
       >
         {(currentToast) => (
           <ToastBar toast={currentToast}>
-            {({ icon, message }) => (
-              <div className="flex w-full items-start gap-3">
-                <span className="mt-0.5 shrink-0">{icon}</span>
-                <div className="min-w-0 flex-1" {...currentToast.ariaProps}>{message}</div>
-                {currentToast.type !== "loading" ? <button aria-label="Dismiss notification" className="grid size-7 shrink-0 place-items-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700" onClick={() => toast.dismiss(currentToast.id)} type="button"><X size={15} /></button> : null}
+            {({ icon }) => (
+              <div className="flex min-w-0 items-center gap-3">
+                {icon ? <span className="shrink-0">{icon}</span> : null}
+                <div className="min-w-0 wrap-anywhere text-left whitespace-pre-line" {...currentToast.ariaProps}>{resolveValue(currentToast.message, currentToast)}</div>
+                {currentToast.type !== "loading" ? <button aria-label="Dismiss notification" className="grid size-11 shrink-0 place-items-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 motion-reduce:transition-none" onClick={() => toast.dismiss(currentToast.id)} type="button"><X aria-hidden="true" size={16} /></button> : null}
               </div>
             )}
           </ToastBar>

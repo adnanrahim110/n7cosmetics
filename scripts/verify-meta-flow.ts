@@ -17,7 +17,9 @@ import { getMetaOrderDelivery, recordMetaWorkerHealth, syncMetaDeliveryDiagnosti
 import { readMetaCheckoutCapture } from "../lib/meta/orders";
 import { visitorMetaUserData } from "../lib/meta/visitor";
 import { hashMetaValue, metaExternalId } from "../lib/meta/identity";
+import { metaAdvancedMatching } from "../lib/meta/matching";
 import { createOrder } from "../lib/commerce/orders";
+import { getMetaDeliveryHealth } from "../lib/meta/delivery-health";
 import { applyPaymentIntent, type PaymentIntentSnapshot } from "../lib/payments/stripe";
 import type { CheckoutInput } from "../lib/commerce/validation";
 
@@ -79,6 +81,11 @@ async function run() {
     check(purchaseUser.fn[0] === hashMetaValue("meta") && purchaseUser.zp[0] === hashMetaValue("sw1a1aa") && !JSON.stringify(purchaseUser).includes(address.line1), "Matching uses billing names and locality without street addresses");
     const recognized = await visitorMetaUserData(request, consent);
     check(recognized.em?.[0] === purchaseUser.em[0] && recognized.ph?.[0] === purchaseUser.ph[0] && recognized.external_id?.[0] === anonymous.external_id?.[0], "Known consenting views reuse checkout hashes and the original visitor ID");
+    check(recognized.st?.[0] === hashMetaValue("greaterlondon") && metaAdvancedMatching(recognized).st === recognized.st[0], "Known ViewContent and Pixel matching share the same hashed county");
+    const repeatAddress = { ...address, region: "" };
+    const repeat = await createOrder({ ...input, idempotencyKey: randomUUID(), billingAddress: repeatAddress, shippingAddress: repeatAddress }, "live", undefined, context);
+    const repeatedContext = await selectOne<RowDataPacket>("SELECT payload_encrypted FROM meta_order_contexts WHERE order_id = ?", [repeat.id]);
+    check(JSON.parse(decryptSecret(repeatedContext!.payload_encrypted)).userData.st?.[0] === purchaseUser.st[0] && (await visitorMetaUserData(request, consent)).st?.[0] === purchaseUser.st[0], "A same-person, same-locality checkout with omitted optional county preserves known county for Purchase and later views");
     const otherVisitor = await saveConsent(new Request("https://n7.test"), true);
     check(!(await visitorMetaUserData(request, otherVisitor)).em, "Matching profiles do not leak across consenting browsers");
     await executeMutation("UPDATE meta_consents SET matching_data_encrypted = ?, expires_at = DATE_SUB(CURRENT_TIMESTAMP(3), INTERVAL 1 SECOND) WHERE id = ?", [encryptSecret(JSON.stringify({ em: purchaseUser.em })), otherVisitor]);
@@ -96,6 +103,7 @@ async function run() {
     const browser = await browserMetaPurchase(order.id, request);
     check(browser?.eventId === sent[0].body.data[0].event_id && browser.data.value === 47.99, "Browser and server purchase share ID and paid total including delivery");
     check(browser?.externalId === anonymous.external_id?.[0] && browser?.externalId === sent[0].body.data[0].user_data.external_id?.[0], "Browser views, checkout and both Purchase copies share the canonical External ID");
+    check(browser?.matching?.st === purchaseUser.st[0] && sent[0].body.data[0].user_data.st?.[0] === browser?.matching?.st, "Browser and server Purchase carry the same county hash without raw address details");
     check(!await browserMetaPurchase(order.id, new Request("https://n7.test")), "A shared receipt is not permission to track another browser");
     await applyPaymentIntent(paidIntent(order.id)); await processMetaQueue(); check(sent.length === 1, "Webhook replays cannot create duplicate conversions");
     check((await selectOne<RowDataPacket>("SELECT payload_encrypted FROM meta_event_jobs WHERE event_name = 'Purchase'"))?.payload_encrypted === null, "Accepted payloads are removed");
@@ -106,6 +114,20 @@ async function run() {
     check(delivered?.status === "Sent" && delivered.attempts === 1 && delivered.sentAt && delivered.lastAttemptAt, "Order diagnostics show Meta acceptance, attempts and timestamps");
     await recordMetaWorkerHealth(true);
     check(Boolean((await selectOne<RowDataPacket>("SELECT last_success_at FROM meta_worker_health WHERE id = 1"))?.last_success_at), "Worker success produces an observable heartbeat");
+    const historicId = randomUUID();
+    await executeMutation(`INSERT INTO meta_event_jobs (pixel_id,event_id,event_name,status,event_time,last_attempt_at,last_error)
+      VALUES (?,?,'PageView','FAILED',DATE_SUB(CURRENT_TIMESTAMP(3),INTERVAL 3 DAY),DATE_SUB(CURRENT_TIMESTAMP(3),INTERVAL 3 DAY),'Unable to read the encrypted event. Check the application encryption key.')`, [settings.pixelId, historicId]);
+    const historicHealth = await getMetaDeliveryHealth();
+    check(historicHealth.worker.state === "running" && historicHealth.credentialError === null && historicHealth.history.some(issue => issue.name === "PageView") && !historicHealth.activeIssues.some(issue => issue.message.includes("encrypted")), "An old failed PageView is retained as history without falsely reporting a current encryption outage");
+    const originalCiphertext = settings.capiTokenEncrypted;
+    await save({ ...settings, capiTokenEncrypted: "v1.invalid.invalid.invalid" });
+    check(Boolean((await getMetaDeliveryHealth()).credentialError), "An actually unreadable current token remains a prominent credential error");
+    await save({ ...settings, capiTokenEncrypted: originalCiphertext });
+    check(!JSON.stringify(await getMetaDeliveryHealth()).includes("fake-meta-token"), "Delivery health never contains credentials or encrypted token values");
+    await executeMutation("UPDATE meta_event_jobs SET last_attempt_at=CURRENT_TIMESTAMP(3) WHERE event_id=?", [historicId]);
+    const recentHealth = await getMetaDeliveryHealth();
+    check(recentHealth.activeIssues.some(issue => issue.status === "FAILED") && !recentHealth.history.some(issue => issue.message.includes("encrypted")), "A recent terminal failure is still prominently reported instead of hidden in history");
+    await executeMutation("UPDATE meta_event_jobs SET last_attempt_at=DATE_SUB(CURRENT_TIMESTAMP(3),INTERVAL 3 DAY) WHERE event_id=?", [historicId]);
     const noConsent = await createOrder({ ...input, idempotencyKey: randomUUID() }, "live", undefined, undefined, "NO_CONSENT");
     await applyPaymentIntent(paidIntent(noConsent.id));
     check((await getMetaOrderDelivery(noConsent.id))?.reason === "Marketing consent was not granted at checkout.", "Paid untracked orders retain their actual skip reason");
@@ -121,7 +143,7 @@ async function run() {
     await queueMetaEvent(makeMetaEvent("ViewContent", viewId, "/products/meta-test", { ...recognized, external_id: [metaExternalId("incorrect-caller")] }, view), settings, consent);
     const queuedView = await selectOne<RowDataPacket>("SELECT payload_encrypted FROM meta_event_jobs WHERE event_id = ?", [viewId]);
     const viewUser = JSON.parse(decryptSecret(queuedView!.payload_encrypted)).user_data;
-    check(viewUser.external_id[0] === browser?.externalId && viewUser.em[0] === recognized.em?.[0] && viewUser.ph[0] === recognized.ph?.[0], "ViewContent gets the canonical External ID while preserving known email and phone hashes");
+    check(viewUser.external_id[0] === browser?.externalId && viewUser.em[0] === recognized.em?.[0] && viewUser.ph[0] === recognized.ph?.[0] && viewUser.st[0] === browser?.matching?.st, "ViewContent gets the canonical External ID while preserving known email, phone and county hashes");
     responseStatus = 503; await processMetaQueue();
     let retry = await selectOne<RowDataPacket>("SELECT * FROM meta_event_jobs WHERE event_id = ?", [retryId]);
     check(retry?.status === "PENDING" && retry?.attempts === 1, "Transient failures back off");
@@ -144,6 +166,23 @@ async function run() {
     check(sent.at(-1)?.body.test_event_code === "TEST123" && !await browserMetaPurchase(testPurchase.id, request), "Test payments use CAPI Test Events only");
     check((await getMetaOrderDelivery(testPurchase.id))?.testMode, "Accepted test purchases stay visibly marked as test events");
     await save(settings);
+    const pixelOnlyConsent = await saveConsent(new Request("https://n7.test"), true);
+    const pixelOnlySettings = { ...settings, capiEnabled: false };
+    await save(pixelOnlySettings);
+    const pixelRequest = new Request("https://n7.test", { headers: { cookie: `n7_marketing_consent=${pixelOnlyConsent}` } });
+    const pixelContext = await readMetaCheckoutContext(pixelRequest);
+    assert.ok(pixelContext);
+    const pixelOrder = await createOrder({ ...input, idempotencyKey: randomUUID() }, "live", undefined, pixelContext);
+    await applyPaymentIntent(paidIntent(pixelOrder.id));
+    const beforePixelOnly = sent.length;
+    await processMetaQueue();
+    check(sent.length === beforePixelOnly, "Pixel-only configuration never queues or sends a server Purchase");
+    check(metaAdvancedMatching(await visitorMetaUserData(pixelRequest, pixelOnlyConsent)).st === hashMetaValue("greaterlondon"), "Pixel-only configuration retains valid consenting county matching without requiring CAPI");
+    check((await browserMetaPurchase(pixelOrder.id, pixelRequest))?.matching?.st === hashMetaValue("greaterlondon"), "Pixel-only Purchase receives the same verified county matching");
+    await save(settings);
+    const otherAddress = { ...address, region: "", city: "Bristol", postalCode: "BS1 1AA" };
+    await createOrder({ ...input, idempotencyKey: randomUUID(), billingAddress: otherAddress, shippingAddress: otherAddress }, "live", undefined, context);
+    check(!(await visitorMetaUserData(request, consent)).st, "Changed checkout locality drops the previous county instead of inventing one");
     const revokedId = randomUUID();
     await queueMetaEvent(makeMetaEvent("PageView", revokedId, "/", { client_user_agent: "Test" }, {}), settings, consent);
     await saveConsent(request, false);

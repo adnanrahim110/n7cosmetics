@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { metaCommerceData, metaContentId, metaEventSchema, metaSettingsSchema, purchaseEventId, safeEventPath } from "../lib/meta/shared";
 import { capiReady, defaultMetaSettings, pixelReady, reportingReady } from "../lib/meta/settings";
-import { hashMetaValue, metaExternalId, metaMatchData, normalizeMetaPhone, requestUserData } from "../lib/meta/identity";
+import { hashMetaValue, metaExternalId, metaMatchData, normalizeMetaPhone, preserveMetaRegion, requestUserData } from "../lib/meta/identity";
+import { metaAdvancedMatching } from "../lib/meta/matching";
 import { clientIpAddress } from "../lib/http/client-ip";
 import { metaMatchingCoverage } from "../lib/meta/matching-coverage";
 import { readMetaJson } from "../lib/meta/http";
@@ -10,6 +11,43 @@ import { metaClickCookie, metaLandingClick, safeMetaPixelLocation } from "../lib
 import { deliverMetaClientEvent } from "../lib/meta/client-delivery";
 import { metaDeliveryStatus, type MetaDeliveryInput } from "../lib/meta/delivery-status";
 import { captureMetaLandingClick, configureMeta, sendMetaBrowserEvent, stopMeta, suspendMeta } from "../lib/meta/client";
+import { runMetaWorker, type MetaWorkerTasks } from "../lib/meta/worker";
+
+test("A slow conversion queue does not delay catalogue processing", async () => {
+  let release: (count: number) => void = () => undefined;
+  const waiting = new Promise<number>(resolve => { release = resolve; });
+  let catalogueProcessed = false;
+  const heartbeats: boolean[] = [];
+  const tasks: MetaWorkerTasks = {
+    events: () => waiting,
+    catalogue: async () => { catalogueProcessed = true; return 0; },
+    health: async success => { heartbeats.push(success); },
+    report: () => assert.fail("Successful tasks should not report failure"),
+  };
+  const running = runMetaWorker(new AbortController().signal, { once: true }, tasks);
+  assert.equal(catalogueProcessed, true);
+  release(0); await running;
+  assert.deepEqual(heartbeats, [true]);
+});
+
+test("Conversion failure records a failed heartbeat without stopping catalogue work", async () => {
+  const heartbeats: boolean[] = [], failures: string[] = [];
+  let catalogueProcessed = false;
+  await runMetaWorker(new AbortController().signal, { once: true }, {
+    events: async () => { throw new Error("Unavailable"); },
+    catalogue: async () => { catalogueProcessed = true; return 0; },
+    health: async success => { heartbeats.push(success); },
+    report: source => { failures.push(source); },
+  });
+  assert.equal(catalogueProcessed, true);
+  assert.deepEqual(heartbeats, [false]); assert.deepEqual(failures, ["events"]);
+});
+
+test("An aborted worker cannot start another delivery or catalogue operation", async () => {
+  const controller = new AbortController(); controller.abort();
+  const unavailable = async () => { assert.fail("Stopped workers must not process jobs"); return 0; };
+  await runMetaWorker(controller.signal, { once: true }, { events: unavailable, catalogue: unavailable, health: async () => assert.fail("No heartbeat after stopping"), report: () => assert.fail("No errors after stopping") });
+});
 
 test("Meta features activate independently", () => {
   const pixel = { ...defaultMetaSettings, pixelId: "123456789" };
@@ -38,6 +76,23 @@ test("Client IP trusts Cloudflare headers only behind its verified edge", () => 
   assert.equal(clientIpAddress(headers({ "x-forwarded-for": "2001:db8::7" })), "2001:db8::7");
   assert.equal(clientIpAddress(headers({ "x-real-ip": "127.0.0.1" })), "127.0.0.1");
   assert.equal(clientIpAddress(headers({ "x-forwarded-for": "invalid" })), undefined);
+});
+
+test("County matching reuses only verified hashes and the same buyer's unchanged locality", () => {
+  const address = { fullName: "Meta Test", city: "London", region: "Greater London", postalCode: "SW1A 1AA", countryCode: "GB" };
+  const previous = metaMatchData("person@example.test", "02079460000", address);
+  const omitted = metaMatchData("person@example.test", "02079460000", { ...address, region: "" });
+  assert.equal(preserveMetaRegion(omitted, previous).st[0], hashMetaValue("greaterlondon"));
+  assert.equal(omitted.st, undefined, "Preserving a county must not mutate the submitted matching data");
+  for (const changed of [{ fullName: "Other Person" }, { city: "Bristol" }, { postalCode: "BS1 1AA" }, { countryCode: "FR" }]) {
+    assert.equal(preserveMetaRegion(metaMatchData("person@example.test", "02079460000", { ...address, region: "", ...changed }), previous).st, undefined);
+  }
+  assert.equal(preserveMetaRegion(metaMatchData("other@example.test", "02079460000", { ...address, region: "" }), previous).st, undefined);
+  assert.equal(preserveMetaRegion(metaMatchData("", "02079460000", { ...address, region: "" }), previous).st, undefined);
+  const updated = metaMatchData("person@example.test", "02079460000", { ...address, region: "Kent" });
+  assert.equal(preserveMetaRegion(updated, previous).st[0], hashMetaValue("kent"), "A provided county always replaces an old value");
+  assert.deepEqual(metaAdvancedMatching({ st: previous.st, em: previous.em, zp: previous.zp, country: previous.country, ct: "London", ph: ["unhashed"], fn: [previous.fn[0], previous.fn[0]], line1: "1 Test Street", external_id: [metaExternalId("visitor")], client_ip_address: "203.0.113.1" }), { em: previous.em[0], st: previous.st[0], zp: previous.zp[0], country: previous.country[0] });
+  for (const value of [null, [], "invalid", { st: "Greater London" }]) assert.deepEqual(metaAdvancedMatching(value), {});
 });
 
 test("Matching coverage retains presence flags without personal values", () => {
@@ -120,6 +175,14 @@ test("Pixel refreshes the server-matched External ID before each event and respe
     configureMeta({ enabled: true, pixelId, consent: "granted", externalId: firstId });
     sendMetaBrowserEvent({ ...event, eventId: "next-view" });
     assert.deepEqual(calls.slice(-2), [["init", pixelId, { external_id: firstId }], ["trackSingle", pixelId, "ViewContent", event.data, { eventID: "next-view" }]]);
+    const county = hashMetaValue("greaterlondon");
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId: firstId, matching: { st: county } });
+    assert.deepEqual(calls.at(-1), ["init", pixelId, { st: county, external_id: firstId }], "New matching fields refresh Pixel even when the External ID is unchanged");
+    sendMetaBrowserEvent({ ...event, eventId: "county-view", matching: { st: county } });
+    assert.deepEqual(calls.slice(-2), [["init", pixelId, { st: county, external_id: firstId }], ["trackSingle", pixelId, "ViewContent", event.data, { eventID: "county-view" }]]);
+    assert.equal("st" in event.data, false, "County belongs to matching data, not commerce parameters");
+    sendMetaBrowserEvent({ ...event, eventId: "unknown-county", matching: { st: "unhashed-county" } });
+    assert.deepEqual(calls.at(-2), ["init", pixelId, { external_id: firstId }], "An unknown/raw county cannot leak into Pixel or inherit the previous event's county");
     configureMeta({ enabled: true, pixelId, consent: "granted", externalId: secondId });
     assert.deepEqual(calls.at(-1), ["init", pixelId, { external_id: secondId }]);
     sendMetaBrowserEvent({ ...event, eventId: "renewed-view", externalId: secondId });

@@ -1,25 +1,39 @@
 "use server";
 
-import type { PoolConnection, RowDataPacket } from "mysql2/promise";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { z } from "zod";
 import { formCheckbox, formString, formStringList } from "@/lib/admin/form";
-import { cleanupUnreferencedMediaUrls, mergeMediaSubmission, removeStoredMediaFiles, storeMediaFiles, submittedMediaFiles, type StoredMediaAsset } from "@/lib/admin/media";
-import { resolveStorefrontPageEditorTarget, type StorefrontPageEditorTarget } from "@/lib/admin/storefront-page-editor";
+import {
+  cleanupUnreferencedMediaUrls,
+  mergeMediaSubmission,
+  MediaUploadError,
+  removeStoredMediaFiles,
+  storeMediaFiles,
+  submittedMediaFiles,
+  type StoredMediaAsset,
+} from "@/lib/admin/media";
+import {
+  resolveStorefrontPageEditorTarget,
+  type StorefrontPageEditorTarget,
+} from "@/lib/admin/storefront-page-editor";
+import type { StorefrontPageFormState } from "@/lib/admin/storefront-page-form";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { getRequestMetadata } from "@/lib/auth/request";
 import { requireAdministrator } from "@/lib/auth/session";
 import { executeMutation, selectOne, selectRows } from "@/lib/db/query";
 import { withTransaction } from "@/lib/db/transaction";
-import {
-  normalizeStorefrontPageDetail,
-} from "@/lib/storefront-pages/config";
+import { normalizeStorefrontPageDetail } from "@/lib/storefront-pages/config";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
 
 const requiredText = (maximum: number) => z.string().trim().min(1).max(maximum);
 const optionalText = (maximum: number) => z.string().trim().max(maximum);
 const productId = z.string().regex(/^[1-9]\d*$/);
-const productIds = (maximum: number) => z.array(productId).max(maximum).transform((values) => [...new Set(values)]);
+const productIds = (maximum: number) =>
+  z
+    .array(productId)
+    .max(maximum)
+    .transform((values) => [...new Set(values)]);
 
 const heroSchema = z.object({
   eyebrow: requiredText(160),
@@ -31,30 +45,54 @@ const heroSchema = z.object({
   productIds: productIds(3),
 });
 
-const detailSchema = z.object({
-  eyebrow: requiredText(160),
-  title: requiredText(190),
-  description: requiredText(1000),
-  credit: requiredText(190),
-  showComingSoon: z.boolean(),
-  comingSoonEyebrow: optionalText(160),
-  comingSoonTitle: optionalText(190),
-  comingSoonDescription: optionalText(1000),
-}).superRefine((value, context) => {
-  if (!value.showComingSoon) return;
-  if (!value.comingSoonEyebrow) context.addIssue({ code: "custom", message: "Coming soon eyebrow is required", path: ["comingSoonEyebrow"] });
-  if (!value.comingSoonTitle) context.addIssue({ code: "custom", message: "Coming soon title is required", path: ["comingSoonTitle"] });
-  if (!value.comingSoonDescription) context.addIssue({ code: "custom", message: "Coming soon description is required", path: ["comingSoonDescription"] });
-});
+const detailSchema = z
+  .object({
+    eyebrow: requiredText(160),
+    title: requiredText(190),
+    description: requiredText(1000),
+    credit: requiredText(190),
+    showComingSoon: z.boolean(),
+    comingSoonEyebrow: optionalText(160),
+    comingSoonTitle: optionalText(190),
+    comingSoonDescription: optionalText(1000),
+  })
+  .superRefine((value, context) => {
+    if (!value.showComingSoon) return;
+    if (!value.comingSoonEyebrow)
+      context.addIssue({
+        code: "custom",
+        message: "Coming soon eyebrow is required",
+        path: ["comingSoonEyebrow"],
+      });
+    if (!value.comingSoonTitle)
+      context.addIssue({
+        code: "custom",
+        message: "Coming soon title is required",
+        path: ["comingSoonTitle"],
+      });
+    if (!value.comingSoonDescription)
+      context.addIssue({
+        code: "custom",
+        message: "Coming soon description is required",
+        path: ["comingSoonDescription"],
+      });
+  });
 
-interface ActiveProductRow extends RowDataPacket { id: string }
-interface SectionContentRow extends RowDataPacket { content_json: unknown }
-
-function invalid(slug: string, section: "hero" | "detail"): never {
-  redirect(`/admin/pages/${slug}?error=${section}#${section}`);
+interface ActiveProductRow extends RowDataPacket {
+  id: string;
+}
+interface SectionContentRow extends RowDataPacket {
+  content_json: unknown;
 }
 
-async function validateActiveProductIds(ids: string[], target: StorefrontPageEditorTarget): Promise<boolean> {
+function invalid(previousState: StorefrontPageFormState, message: string): StorefrontPageFormState {
+  return { revision: previousState.revision, status: "error", message };
+}
+
+async function validateActiveProductIds(
+  ids: string[],
+  target: StorefrontPageEditorTarget,
+): Promise<boolean> {
   if (!ids.length) return true;
   const placeholders = ids.map(() => "?").join(", ");
   const rows = await selectRows<ActiveProductRow>(
@@ -62,7 +100,11 @@ async function validateActiveProductIds(ids: string[], target: StorefrontPageEdi
      WHERE p.status = 'ACTIVE' AND p.id IN (${placeholders})
        ${target.saleId ? "AND EXISTS (SELECT 1 FROM sale_products sp WHERE sp.product_id = p.id AND sp.sale_id = ?)" : ""}
        ${target.categoryId ? "AND EXISTS (SELECT 1 FROM product_categories pc INNER JOIN categories c ON c.id = pc.category_id INNER JOIN product_collections pcl ON pcl.product_id = pc.product_id AND pcl.collection_id = c.collection_id WHERE pc.product_id = p.id AND c.id = ?)" : ""}`,
-    target.saleId ? [...ids, target.saleId] : target.categoryId ? [...ids, target.categoryId] : ids,
+    target.saleId
+      ? [...ids, target.saleId]
+      : target.categoryId
+        ? [...ids, target.categoryId]
+        : ids,
   );
   const found = new Set(rows.map((row) => row.id));
   return ids.every((id) => found.has(id));
@@ -79,7 +121,13 @@ async function writeSection(
     `INSERT INTO page_sections (page_key, section_key, section_type, display_name, content_json, is_enabled, sort_order)
      VALUES (?, ?, 'fixed', ?, ?, 1, ?)
      ON DUPLICATE KEY UPDATE section_type = 'fixed', display_name = VALUES(display_name), content_json = VALUES(content_json), is_enabled = 1, sort_order = VALUES(sort_order)`,
-    [target.databaseKey, section, displayName, JSON.stringify(content), section === "hero" ? 10 : 20],
+    [
+      target.databaseKey,
+      section,
+      displayName,
+      JSON.stringify(content),
+      section === "hero" ? 10 : 20,
+    ],
     connection,
   );
 }
@@ -89,7 +137,7 @@ async function finishSectionSave(
   section: "hero" | "detail",
   displayName: string,
   administratorId: string,
-): Promise<never> {
+): Promise<StorefrontPageFormState> {
   const metadata = await getRequestMetadata();
   await writeAuditLog({
     administratorId,
@@ -102,7 +150,7 @@ async function finishSectionSave(
   revalidatePath(target.path);
   revalidatePath("/admin/pages");
   revalidatePath(`/admin/pages/${target.editorSlug}`);
-  redirect(`/admin/pages/${target.editorSlug}?saved=${section}#${section}`);
+  return { status: "success", revision: crypto.randomUUID() };
 }
 
 async function saveSection(
@@ -111,7 +159,7 @@ async function saveSection(
   displayName: string,
   content: unknown,
   administratorId: string,
-): Promise<never> {
+): Promise<StorefrontPageFormState> {
   await writeSection(target, section, displayName, content);
   return finishSectionSave(target, section, displayName, administratorId);
 }
@@ -125,7 +173,11 @@ function parseContentJson(value: unknown): unknown {
   }
 }
 
-export async function saveStorefrontPageHeroAction(slugValue: string, formData: FormData): Promise<void> {
+export async function saveStorefrontPageHeroAction(
+  slugValue: string,
+  previousState: StorefrontPageFormState,
+  formData: FormData,
+): Promise<StorefrontPageFormState> {
   const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
   const target = await resolveStorefrontPageEditorTarget(slugValue);
   if (!target) redirect("/admin/pages");
@@ -138,18 +190,33 @@ export async function saveStorefrontPageHeroAction(slugValue: string, formData: 
     highlights: formStringList(formData, "highlights"),
     productIds: formStringList(formData, "productIds"),
   });
-  if (!parsed.success || !(await validateActiveProductIds(parsed.data.productIds, target))) invalid(slugValue, "hero");
-  await saveSection(target, "hero", "Hero section", {
-    eyebrow: parsed.data.eyebrow,
-    title: { lead: parsed.data.titleLead, accent: parsed.data.titleAccent },
-    intro: parsed.data.intro,
-    statement: parsed.data.statement,
-    highlights: parsed.data.highlights,
-    productIds: parsed.data.productIds,
-  }, administrator.id);
+  if (!parsed.success) {
+    return invalid(previousState, "Check the hero text, three highlights, and featured product selections.");
+  }
+  if (!(await validateActiveProductIds(parsed.data.productIds, target))) {
+    return invalid(previousState, "Choose active products that belong to this page, then try again.");
+  }
+  return saveSection(
+    target,
+    "hero",
+    "Hero section",
+    {
+      eyebrow: parsed.data.eyebrow,
+      title: { lead: parsed.data.titleLead, accent: parsed.data.titleAccent },
+      intro: parsed.data.intro,
+      statement: parsed.data.statement,
+      highlights: parsed.data.highlights,
+      productIds: parsed.data.productIds,
+    },
+    administrator.id,
+  );
 }
 
-export async function saveStorefrontPageDetailAction(slugValue: string, formData: FormData): Promise<void> {
+export async function saveStorefrontPageDetailAction(
+  slugValue: string,
+  previousState: StorefrontPageFormState,
+  formData: FormData,
+): Promise<StorefrontPageFormState> {
   const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
   const target = await resolveStorefrontPageEditorTarget(slugValue);
   if (!target) redirect("/admin/pages");
@@ -158,21 +225,37 @@ export async function saveStorefrontPageDetailAction(slugValue: string, formData
     title: formString(formData, "title"),
     description: formString(formData, "description"),
     credit: formString(formData, "credit"),
-    showComingSoon: target.kind !== "sale" && formCheckbox(formData, "showComingSoon"),
+    showComingSoon:
+      target.kind !== "sale" && formCheckbox(formData, "showComingSoon"),
     comingSoonEyebrow: formString(formData, "comingSoonEyebrow"),
     comingSoonTitle: formString(formData, "comingSoonTitle"),
     comingSoonDescription: formString(formData, "comingSoonDescription"),
   });
-  if (!parsed.success) invalid(slugValue, "detail");
+  if (!parsed.success) {
+    const comingSoonIssue = parsed.error.issues.find((issue) => issue.code === "custom");
+    return invalid(previousState, comingSoonIssue?.message ?? "Check the detail text and field lengths, then try again.");
+  }
 
   if (target.kind === "sale") {
-    await saveSection(target, "detail", "Detail section", {
-      eyebrow: parsed.data.eyebrow,
-      title: parsed.data.title,
-      description: parsed.data.description,
-      credit: parsed.data.credit,
-      comingSoon: { enabled: false, eyebrow: "", title: "", description: "", image: "" },
-    }, administrator.id);
+    return saveSection(
+      target,
+      "detail",
+      "Detail section",
+      {
+        eyebrow: parsed.data.eyebrow,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        credit: parsed.data.credit,
+        comingSoon: {
+          enabled: false,
+          eyebrow: "",
+          title: "",
+          description: "",
+          image: "",
+        },
+      },
+      administrator.id,
+    );
   }
 
   const written: StoredMediaAsset[] = [];
@@ -184,41 +267,66 @@ export async function saveStorefrontPageDetailAction(slugValue: string, formData
         [target.databaseKey],
         connection,
       );
-      const previousDetail = normalizeStorefrontPageDetail(parseContentJson(existing?.content_json));
+      const previousDetail = normalizeStorefrontPageDetail(
+        parseContentJson(existing?.content_json),
+      );
       previousImage = previousDetail.comingSoon.image;
-      const stored = await storeMediaFiles(submittedMediaFiles(formData, "comingSoonImage"), {
-        uploadedBy: administrator.id,
-        connection,
-        expectedType: "image",
-        folder: "storefront-pages/coming-soon",
-        altTexts: [`${parsed.data.comingSoonTitle || target.name} coming soon visual`],
-        maximumFiles: 1,
-      });
+      const stored = await storeMediaFiles(
+        submittedMediaFiles(formData, "comingSoonImage"),
+        {
+          uploadedBy: administrator.id,
+          connection,
+          expectedType: "image",
+          folder: "storefront-pages/coming-soon",
+          altTexts: [
+            `${parsed.data.comingSoonTitle || target.name} coming soon visual`,
+          ],
+          maximumFiles: 1,
+        },
+      );
       written.push(...stored);
       const allowedExistingUrls = new Set(previousImage ? [previousImage] : []);
-      const imageUrls = mergeMediaSubmission(formData, "comingSoonImage", stored, allowedExistingUrls);
-      if (imageUrls.length > 1) throw new Error("Choose no more than one coming soon image.");
+      const imageUrls = mergeMediaSubmission(
+        formData,
+        "comingSoonImage",
+        stored,
+        allowedExistingUrls,
+      );
+      if (imageUrls.length > 1)
+        throw new Error("Choose no more than one coming soon image.");
 
-      await writeSection(target, "detail", "Detail section", {
-        eyebrow: parsed.data.eyebrow,
-        title: parsed.data.title,
-        description: parsed.data.description,
-        credit: parsed.data.credit,
-        comingSoon: {
-          enabled: parsed.data.showComingSoon,
-          eyebrow: parsed.data.comingSoonEyebrow,
-          title: parsed.data.comingSoonTitle,
-          description: parsed.data.comingSoonDescription,
-          image: imageUrls[0] ?? "",
+      await writeSection(
+        target,
+        "detail",
+        "Detail section",
+        {
+          eyebrow: parsed.data.eyebrow,
+          title: parsed.data.title,
+          description: parsed.data.description,
+          credit: parsed.data.credit,
+          comingSoon: {
+            enabled: parsed.data.showComingSoon,
+            eyebrow: parsed.data.comingSoonEyebrow,
+            title: parsed.data.comingSoonTitle,
+            description: parsed.data.comingSoonDescription,
+            image: imageUrls[0] ?? "",
+          },
         },
-      }, connection);
+        connection,
+      );
     });
   } catch (error) {
     await removeStoredMediaFiles(written);
     console.error(`Unable to save ${slugValue} detail section`, error);
-    invalid(slugValue, "detail");
+    return invalid(previousState, error instanceof MediaUploadError
+      ? error.message
+      : "The detail section could not be saved. Your changes are still in the form; please try again.");
   }
 
-  await cleanupUnreferencedMediaUrls(previousImage ? [previousImage] : []).catch((error) => console.error(`Unable to clean replaced ${slugValue} detail media`, error));
-  await finishSectionSave(target, "detail", "Detail section", administrator.id);
+  await cleanupUnreferencedMediaUrls(
+    previousImage ? [previousImage] : [],
+  ).catch((error) =>
+    console.error(`Unable to clean replaced ${slugValue} detail media`, error),
+  );
+  return finishSectionSave(target, "detail", "Detail section", administrator.id);
 }

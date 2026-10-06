@@ -30,6 +30,13 @@ export function metaMatchData(email: string, phone: string, profile: MetaCustome
   if (country && /^[a-z]{2}$/.test(country)) data.country = [hashMetaValue(country)];
   return data;
 }
+export function preserveMetaRegion(current: Record<string, string[]>, previous: Record<string, string[]>): Record<string, string[]> {
+  // Optional county omissions must not erase a known county for the same person
+  // at the same locality. A changed buyer/address must never inherit it.
+  if (current.st || !previous.st || !current.em?.[0] || !current.zp?.[0] || !current.country?.[0]) return current;
+  const unchanged = ["em", "fn", "ln", "ct", "zp", "country"].every(key => current[key]?.[0] === previous[key]?.[0]);
+  return unchanged ? { ...current, st: previous.st } : current;
+}
 export function readCookie(request: Request, name: string): string {
   const entry = request.headers.get("cookie")?.split(";").map(part => part.trim()).find(part => part.startsWith(`${name}=`));
   return entry?.slice(name.length + 1) ?? "";

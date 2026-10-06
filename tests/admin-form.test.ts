@@ -9,6 +9,7 @@ import { applyHeroProductPresentations, normalizeHeroProductPresentations } from
 import type { HomepageProduct } from "../lib/homepage/types";
 import { normalizeSocialMediaLinks } from "../lib/social-media";
 import { categoriesMatchCollections, categoryHref, isCategoryCollectionSlug } from "../lib/commerce/category-config";
+import { validateMediaFolder } from "../lib/media/storage";
 import { CategoryAssignmentError, validateCategoryAssignments } from "../lib/admin/category-assignment";
 import type { PoolConnection } from "mysql2/promise";
 import {
@@ -18,6 +19,15 @@ import {
   defaultCategoryPageConfiguration,
   storefrontCategoryDatabaseKey,
 } from "../lib/storefront-pages/config";
+
+test("coming soon uploads accept hyphenated folders without allowing unsafe paths", () => {
+  for (const folder of ["storefront-pages/coming-soon", "products/images", "homepage/hero", "reviews/images"]) {
+    assert.equal(validateMediaFolder(folder), true, folder);
+  }
+  for (const folder of ["", "/storefront-pages/coming-soon", "storefront-pages/../images", "storefront-pages//images", "storefront-pages\\images", "C:/uploads", "images\0", "https://example.com/uploads"]) {
+    assert.equal(validateMediaFolder(folder), false, folder);
+  }
+});
 
 test("categories require their own parent collection even when a product spans collections", () => {
   const categories = [{ id: "11", collection_id: "1" }, { id: "12", collection_id: "2" }];

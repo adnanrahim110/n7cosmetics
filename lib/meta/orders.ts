@@ -3,7 +3,9 @@ import { executeMutation, selectOne } from "../db/query";
 import { encryptSecret, decryptSecret } from "../security/encryption";
 import { getMetaSettings, capiReady, pixelReady, type MetaSettings } from "./settings";
 import { consentId, consentGranted } from "./consent";
-import { metaExternalId, metaMatchData, requestUserData, readCookie, type MetaCustomerProfile } from "./identity";
+import { metaExternalId, metaMatchData, preserveMetaRegion, requestUserData, readCookie, type MetaCustomerProfile } from "./identity";
+import { metaAdvancedMatching } from "./matching";
+import { readMetaMatchingProfile } from "./visitor";
 import { makeMetaEvent, queueMetaEvent } from "./events";
 import { purchaseEventId, type MetaCustomData, type MetaBrowserEvent } from "./shared";
 import type { MetaCaptureReason } from "./delivery-status";
@@ -28,10 +30,11 @@ export async function saveMetaOrderContext(orderId: string, context: MetaCheckou
   let reason: MetaCaptureReason = "CONSENT_WITHDRAWN";
   await connection.query("SAVEPOINT meta_checkout_context");
   try {
-    if (await consentGranted(context.consentId, connection)) {
-      const matching = metaMatchData(email, phone, profile);
-      const stored: StoredContext = { userData: capiReady(context.settings) ? { ...context.userData, ...matching, external_id: [metaExternalId(context.consentId)] } : {}, data };
-      if (capiReady(context.settings)) await executeMutation("UPDATE meta_consents SET matching_data_encrypted = ? WHERE id = ?", [encryptSecret(JSON.stringify(matching)), context.consentId], connection);
+    const consent = await selectOne<RowDataPacket & { matching_data_encrypted: string | null }>("SELECT matching_data_encrypted FROM meta_consents WHERE id = ? AND granted = 1 AND expires_at > CURRENT_TIMESTAMP(3) FOR UPDATE", [context.consentId], connection);
+    if (consent) {
+      const matching = preserveMetaRegion(metaMatchData(email, phone, profile), readMetaMatchingProfile(consent.matching_data_encrypted));
+      const stored: StoredContext = { userData: { ...(capiReady(context.settings) ? context.userData : {}), ...matching, external_id: [metaExternalId(context.consentId)] }, data };
+      await executeMutation("UPDATE meta_consents SET matching_data_encrypted = ? WHERE id = ?", [encryptSecret(JSON.stringify(matching)), context.consentId], connection);
       await executeMutation("INSERT IGNORE INTO meta_order_contexts (order_id, consent_id, pixel_id, server_enabled, test_event_code, payload_encrypted) VALUES (?, ?, ?, ?, ?, ?)", [orderId, context.consentId, context.settings.pixelId, capiReady(context.settings), context.settings.testEventCode, encryptSecret(JSON.stringify(stored))], connection);
       reason = capiReady(context.settings) ? "ELIGIBLE" : "SERVER_DISABLED";
     }
@@ -66,5 +69,5 @@ export async function browserMetaPurchase(orderId: string, request: Request): Pr
   // A receipt link is not marketing consent; it must belong to the consenting browser.
   if (!value || value.row.consent_id !== consentId(request) || !pixelReady(value.settings) || value.row.stripe_mode !== "live") return;
   if (Date.now() - new Date(value.row.paid_at).getTime() > 47 * 60 * 60 * 1000) return;
-  return { pixelId: value.settings.pixelId, eventId: purchaseEventId(orderId), name: "Purchase", data: value.stored.data, externalId: metaExternalId(value.row.consent_id) };
+  return { pixelId: value.settings.pixelId, eventId: purchaseEventId(orderId), name: "Purchase", data: value.stored.data, externalId: metaExternalId(value.row.consent_id), matching: metaAdvancedMatching(value.stored.userData) };
 }

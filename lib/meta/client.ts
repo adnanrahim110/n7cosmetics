@@ -2,6 +2,7 @@
 import type { MetaBrowserEvent, MetaEventName, MetaPublicConfig } from "./shared";
 import { metaClickCookie, metaLandingClick, safeMetaPixelLocation, type MetaClick } from "./browser-policy";
 import { deliverMetaClientEvent } from "./client-delivery";
+import { metaAdvancedMatching, type MetaAdvancedMatching } from "./matching";
 
 type PixelFunction = ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue: unknown[][]; push?: PixelFunction; loaded: boolean; version: string };
 declare global { interface Window { fbq?: PixelFunction; _fbq?: PixelFunction } }
@@ -51,7 +52,7 @@ function loadPixelScript() {
   };
   document.head.appendChild(script);
 }
-function initializePixel(id: string, externalId = configuration.externalId, refreshMatching = false): boolean {
+function initializePixel(id: string, externalId = configuration.externalId, refreshMatching = false, matching: MetaAdvancedMatching = configuration.matching ?? {}): boolean {
   // A missing identifier must not initialize an unmatched browser event.
   if (!safePixelLocation() || !externalId || !/^[a-f0-9]{64}$/.test(externalId)) return false;
   if (!window.fbq) {
@@ -66,9 +67,11 @@ function initializePixel(id: string, externalId = configuration.externalId, refr
   }
   // Meta's official Pixel template refreshes advanced matching with init before
   // subsequent events. Do not put identity in commerce/custom_data parameters.
-  if (refreshMatching || initialized.get(id) !== externalId) {
-    window.fbq("init", id, { external_id: externalId });
-    initialized.set(id, externalId);
+  const userData = { ...metaAdvancedMatching(matching), external_id: externalId };
+  const matchingKey = JSON.stringify(userData);
+  if (refreshMatching || initialized.get(id) !== matchingKey) {
+    window.fbq("init", id, userData);
+    initialized.set(id, matchingKey);
   }
   return true;
 }
@@ -101,7 +104,7 @@ export function sendMetaBrowserEvent(event: MetaBrowserEvent): void {
     if (purchaseSent.has(key)) return;
     try { if (Number(localStorage.getItem(`n7_meta_${key}`)) > Date.now()) return; } catch { /* In-memory guard still applies. */ }
   }
-  if (!initializePixel(event.pixelId, event.externalId, true)) return;
+  if (!initializePixel(event.pixelId, event.externalId, true, event.matching ?? {})) return;
   // Only allow canonical commerce fields; Pixel also reads the checked document URL/referrer.
   window.fbq?.("trackSingle", event.pixelId, event.name, event.data, { eventID: event.eventId });
   if (event.name === "Purchase") {

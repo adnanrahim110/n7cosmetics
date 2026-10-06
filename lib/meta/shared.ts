@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_CART_ITEM_QUANTITY, MAX_CART_LINES } from "../commerce/cart-limits";
+import type { MetaAdvancedMatching } from "./matching";
 
 export const META_API_VERSION = "v26.0";
 export const META_CONSENT_COOKIE = "n7_marketing_consent";
@@ -13,8 +14,8 @@ export interface MetaCustomData {
   value?: number;
   num_items?: number;
 }
-export interface MetaBrowserEvent { pixelId: string; eventId: string; name: MetaEventName | "Purchase"; data: MetaCustomData; externalId: string }
-export interface MetaPublicConfig { enabled: boolean; pixelId: string; consent: "granted" | "denied" | "unknown"; externalId?: string }
+export interface MetaBrowserEvent { pixelId: string; eventId: string; name: MetaEventName | "Purchase"; data: MetaCustomData; externalId: string; matching?: MetaAdvancedMatching }
+export interface MetaPublicConfig { enabled: boolean; pixelId: string; consent: "granted" | "denied" | "unknown"; externalId?: string; matching?: MetaAdvancedMatching }
 
 // This identifier is the contract for the future catalogue export, including bundles.
 export function metaContentId(variantId: string): string { return `n7_variant_${variantId}`; }

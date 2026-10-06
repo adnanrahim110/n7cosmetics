@@ -49,10 +49,11 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:unit
-      - name: Verify migration preservation, Meta delivery and dashboard reports
+      - name: Verify migration preservation, Meta delivery, catalogue sync and dashboard reports
         run: |
           pnpm release:verify-flow
           pnpm meta:verify-flow
+          pnpm meta:verify-catalog
           pnpm dashboard:verify-flow
         env:
           DB_HOST: 127.0.0.1

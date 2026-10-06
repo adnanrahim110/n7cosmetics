@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import type { RowDataPacket } from "mysql2/promise";
 import { ArrowLeft, ArrowUpRight, Images, LayoutTemplate } from "lucide-react";
 import Link from "next/link";
@@ -7,6 +6,7 @@ import CustomSelect, { type CustomSelectOption } from "@/components/admin/Custom
 import Notice from "@/components/admin/Notice";
 import PageHeader from "@/components/admin/PageHeader";
 import StorefrontComingSoonEditor from "@/components/admin/StorefrontComingSoonEditor";
+import StorefrontPageSection from "@/components/admin/StorefrontPageSection";
 import { resolveStorefrontPageEditorTarget } from "@/lib/admin/storefront-page-editor";
 import { getStorefrontPageConfiguration, getStorefrontPageConfigurationByKey } from "@/lib/commerce/collections";
 import { selectRows } from "@/lib/db/query";
@@ -22,41 +22,6 @@ interface ProductOptionRow extends RowDataPacket {
 
 const input = "mt-1 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm leading-5 outline-none transition focus:border-amber-700 focus:ring-2 focus:ring-amber-100";
 const label = "block text-[13px] font-medium leading-5 text-zinc-700";
-
-function Block({
-  id,
-  icon,
-  title,
-  description,
-  action,
-  children,
-}: {
-  id: string;
-  icon: ReactNode;
-  title: string;
-  description: string;
-  action: (formData: FormData) => void | Promise<void>;
-  children: ReactNode;
-}) {
-  return (
-    <details className="group scroll-mt-20 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm open:border-zinc-300" id={id} open>
-      <summary className="flex cursor-pointer list-none items-center gap-4 px-5 py-4 marker:content-none hover:bg-zinc-50">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-800">{icon}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-zinc-950">{title}</span>
-          <span className="mt-0.5 block text-xs leading-5 text-zinc-500">{description}</span>
-        </span>
-        <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-lg border border-zinc-200 text-zinc-500 transition group-open:rotate-180">⌄</span>
-      </summary>
-      <form action={action} className="border-t border-zinc-100 p-5">
-        <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">{children}</div>
-        <div className="mt-5 flex justify-end border-t border-zinc-100 pt-4">
-          <button className="rounded-lg bg-zinc-950 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-zinc-800" type="submit">Save changes</button>
-        </div>
-      </form>
-    </details>
-  );
-}
 
 export default async function StorefrontPageEditor({
   params,
@@ -116,7 +81,7 @@ export default async function StorefrontPageEditor({
       {query.error ? <Notice>Check the fields and product selections in the {query.error} section.</Notice> : null}
 
       <div className="mt-6 space-y-4">
-        <Block action={saveHero} description="Page-specific headline, supporting copy, highlights, and up to three featured products." icon={<Images aria-hidden="true" size={18} />} id="hero" title="Hero section">
+        <StorefrontPageSection action={saveHero} description="Page-specific headline, supporting copy, highlights, and up to three featured products." icon={<Images aria-hidden="true" size={18} />} id="hero" title="Hero section">
           <label className={label}>Eyebrow<input className={input} defaultValue={configuration.hero.eyebrow} maxLength={160} name="eyebrow" required /></label>
           <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
             <label className={label}>Title<input className={input} defaultValue={configuration.hero.title.lead} maxLength={160} name="titleLead" required /></label>
@@ -132,15 +97,15 @@ export default async function StorefrontPageEditor({
             <CustomSelect defaultValue={configuration.hero.productIds} label="Hero products" maximumSelected={3} multiple name="productIds" options={productOptions} placeholder="Use collection products automatically" />
             <p className="mt-1.5 text-[11px] leading-5 text-zinc-500">Choose up to three database products in display order. Leave empty to select automatically from this page&apos;s database collection.</p>
           </div>
-        </Block>
+        </StorefrontPageSection>
 
-        <Block action={saveDetail} description="The page-specific header and optional coming-soon state for the database-driven product index." icon={<LayoutTemplate aria-hidden="true" size={18} />} id="detail" title="Detail section">
+        <StorefrontPageSection action={saveDetail} description="The page-specific header and optional coming-soon state for the database-driven product index." icon={<LayoutTemplate aria-hidden="true" size={18} />} id="detail" title="Detail section">
           <label className={label}>Eyebrow<input className={input} defaultValue={configuration.detail.eyebrow} maxLength={160} name="eyebrow" required /></label>
           <label className={label}>Section title<input className={input} defaultValue={configuration.detail.title} maxLength={190} name="title" required /></label>
           <label className={`${label} sm:col-span-2`}>Header statement<textarea className={input} defaultValue={configuration.detail.description} maxLength={1000} name="description" required rows={3} /></label>
           <label className={`${label} sm:col-span-2`}>Credit line<input className={input} defaultValue={configuration.detail.credit} maxLength={190} name="credit" required /></label>
           {target.kind !== "sale" ? <StorefrontComingSoonEditor content={configuration.detail.comingSoon} /> : null}
-        </Block>
+        </StorefrontPageSection>
       </div>
     </div>
   );
