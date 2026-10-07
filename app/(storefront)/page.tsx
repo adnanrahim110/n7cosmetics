@@ -10,7 +10,25 @@ import ReviewsSection from "@/components/sections/ReviewsSection";
 import ScentStorySection from "@/components/sections/ScentStorySection";
 import SignatureFragrances from "@/components/sections/SignatureFragrances";
 import { getHomepageStorefrontContent } from "@/lib/commerce/homepage";
-export const metadata = { alternates: { canonical: "/" } };
+import type { Metadata } from "next";
+
+const homepageTitle = "Yusuf Bhai Perfumes UK | N7 Cosmetics Official Distributor";
+const homepageDescription =
+  "Shop Yusuf Bhai perfumes in the UK from N7 Cosmetics, an official distributor. Explore Yusuf Bhai Originals and expertly recreated fragrance profiles.";
+
+export const metadata: Metadata = {
+  title: homepageTitle,
+  description: homepageDescription,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: homepageTitle,
+    description: homepageDescription,
+    url: "/",
+    siteName: "N7 Cosmetics",
+    locale: "en_GB",
+    type: "website",
+  },
+};
 
 export default async function Home() {
   const content = await getHomepageStorefrontContent();

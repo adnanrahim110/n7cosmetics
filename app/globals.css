@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "lenis/dist/lenis.css";
 
+/* Preserve the product card's existing desktop versus touch layout. */
+@custom-variant card-desktop (@media (width >= 40rem) and (hover: hover) and (pointer: fine));
+
 .admin-scrollbar {
   --scrollbar-thumb: #a1a1aa;
   --scrollbar-track: #e4e4e7;

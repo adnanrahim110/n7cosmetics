@@ -25,6 +25,30 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/product-category/yusuf-bhai-originals",
+        destination: "/yusuf-bhai-originals",
+        permanent: true,
+      },
+      {
+        source: "/product-category/yusuf-bhai-originals/page/:page(\\d+)",
+        destination: "/yusuf-bhai-originals",
+        permanent: true,
+      },
+      {
+        source: "/product-category/yusuf-bhai-originals/:category(deja-vu|noble|teeb)",
+        destination: "/yusuf-bhai-originals/:category",
+        permanent: true,
+      },
+      {
+        source: "/product-category/yusuf-bhai-originals/:category(deja-vu|noble|teeb)/page/:page(\\d+)",
+        destination: "/yusuf-bhai-originals/:category",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
