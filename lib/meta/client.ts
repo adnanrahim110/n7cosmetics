@@ -3,6 +3,7 @@ import type { MetaBrowserEvent, MetaEventName, MetaPublicConfig } from "./shared
 import { metaClickCookie, metaLandingClick, safeMetaPixelLocation, type MetaClick } from "./browser-policy";
 import { deliverMetaClientEvent } from "./client-delivery";
 import { metaAdvancedMatching, type MetaAdvancedMatching } from "./matching";
+import { checkoutMetaMatching, type MetaMatchingInput } from "./matching-input";
 
 type PixelFunction = ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue: unknown[][]; push?: PixelFunction; loaded: boolean; version: string };
 declare global { interface Window { fbq?: PixelFunction; _fbq?: PixelFunction } }
@@ -14,6 +15,10 @@ let pixelScriptAttempts = 0;
 const initialized = new Map<string, string>();
 const purchaseSent = new Set<string>();
 const purchaseRetentionMs = 47 * 60 * 60 * 1000;
+let matchingSequence = 0;
+let matchingTail: Promise<boolean> = Promise.resolve(false);
+let matchingPending: { body: string; generation: number; promise: Promise<boolean> } | undefined;
+let matchingApplied = "";
 
 function prunePurchaseMarkers(clear = false) {
   try {
@@ -97,6 +102,55 @@ export function configureMeta(config: MetaPublicConfig): void {
 export function stopMeta(): void { configureMeta({ ...configuration, consent: "denied" }); }
 // A temporary config failure pauses delivery without discarding an unconsented landing click.
 export function suspendMeta(): void { configureMeta({ ...configuration, enabled: false }); }
+export function updateMetaMatching(input: MetaMatchingInput): Promise<boolean> {
+  if (!configuration.enabled || configuration.consent !== "granted" || !configuration.externalId) return Promise.resolve(false);
+  const generation = consentGeneration;
+  const pixelId = configuration.pixelId, externalId = configuration.externalId;
+  const active = () => generation === consentGeneration && configuration.enabled && configuration.consent === "granted";
+  const profile = checkoutMetaMatching(input);
+  if (!profile) return Promise.resolve(false);
+  const body = JSON.stringify(profile);
+  if (matchingPending?.generation === generation && matchingPending.body === body) return matchingPending.promise;
+  // Assign sequence before asynchronous hashing, so completion order cannot
+  // reorder two changes. Raw details live only in the pending request's memory.
+  const sequence = ++matchingSequence;
+  if (matchingPending) matchingApplied = "";
+  const promise = (async () => {
+    try {
+      // Cache only a fingerprint after success; never persist raw contact data.
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body));
+      if (!active() || sequence !== matchingSequence) return false;
+      const key = `${generation}:${Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("")}`;
+      if (matchingApplied === key) return true;
+      matchingApplied = "";
+      // Serialize writes; skip superseded updates that have not started yet.
+      const work = matchingTail.then(async () => {
+        if (!active() || sequence !== matchingSequence) return false;
+        try {
+          const response = await fetch("/api/meta/matching", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body,
+            credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(5000),
+          });
+          if (!response.ok || response.status === 204 || !active() || sequence !== matchingSequence) return false;
+          const value: unknown = await response.json();
+          if (!active() || sequence !== matchingSequence || !value || typeof value !== "object" || !("pixelId" in value) || !("externalId" in value) || !("matching" in value)) return false;
+          if (value.pixelId !== pixelId || value.externalId !== externalId) return false;
+          const matching = metaAdvancedMatching(value.matching);
+          if (!matching.em) return false;
+          configuration = { ...configuration, matching };
+          if (pixelId) initializePixel(pixelId, externalId, true, matching);
+          matchingApplied = key;
+          return true;
+        } catch { return false; }
+      });
+      matchingTail = work;
+      return await work;
+    } catch { return false; }
+  })();
+  matchingPending = { body, generation, promise };
+  void promise.then(() => { if (matchingPending?.promise === promise) matchingPending = undefined; });
+  return promise;
+}
 export function sendMetaBrowserEvent(event: MetaBrowserEvent): void {
   if (!configuration.enabled || configuration.consent !== "granted" || !event.pixelId || event.pixelId !== configuration.pixelId || !safePixelLocation()) return;
   const key = `${event.pixelId}:${event.eventId}`;

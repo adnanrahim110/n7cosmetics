@@ -71,23 +71,34 @@ export default function ProductSummary({
         text={product.name}
         tone="ink"
       />
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {inspiredBy ? (
-          <span className="inline-flex max-w-full items-center border border-[#967C55]/24 bg-[#967C55]/8 px-2 py-1.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-[#7A5D38] wrap-anywhere">
-            Inspired by {inspiredBy}
+          <span className="inline-flex max-w-full items-center border border-[#967C55]/24 bg-[#967C55]/8 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-primary-700 wrap-anywhere">
+            Inspired by&nbsp;<span className="text-primary-800 font-bold">{inspiredBy}</span>
           </span>
-        ) : null}
+        ) : (
+          <span className="inline-flex font-body max-w-full items-center border border-primary-400/40 bg-primary-400/40 px-2 py-1.5 text-xs tracking-wide text-primary-900 wrap-anywhere">
+            <User className="mr-0.5" size={13} strokeWidth={2} />
+            <strong className="mr-1">Orientation:</strong>{" "}
+            {audienceLabels[product.audience]}
+          </span>
+        )}
         <ProductCodeBar
           code={product.productCode}
           compact
           className="text-[9px]!"
         />
+
         <div className="flex flex-col items-start text-[11px] text-black">
-          <div className="inline-flex items-center gap-2">
+          <div className="inline-flex items-center gap-1">
             <RatingStars rating={reviews.averageRating} size={13} />
-            <span className="font-semibold">
+            <span className="font-semibold text-xs">
               {reviews.totalReviews
-                ? `${reviews.averageRating.toFixed(1)}/5`
+                ? `${
+                    Number.isInteger(reviews.averageRating)
+                      ? reviews.averageRating
+                      : reviews.averageRating.toFixed(1)
+                  }/5`
                 : "No reviews yet"}
             </span>
           </div>
@@ -100,8 +111,8 @@ export default function ProductSummary({
           </a>
         </div>
       </div>
-      <div className="mt-1 flex flex-wrap gap-2">
-        {inspiredBy ? (
+      {inspiredBy ? (
+        <div className="mt-1 flex flex-wrap gap-2">
           <span className="inline-flex font-body max-w-full items-center border border-black/50 bg-white px-2 py-1.5 text-xs tracking-wide text-black wrap-anywhere">
             <CircleDivide
               className="rotate-45 mr-0.5"
@@ -110,13 +121,13 @@ export default function ProductSummary({
             />
             <strong className="mr-1">Concentration:</strong> Extrait De Parfum
           </span>
-        ) : null}
-        <span className="inline-flex font-body max-w-full items-center border border-primary-400/40 bg-primary-400/40 px-2 py-1.5 text-xs tracking-wide text-primary-900 wrap-anywhere">
-          <User className="mr-0.5" size={13} strokeWidth={2} />
-          <strong className="mr-1">Orientation:</strong>{" "}
-          {audienceLabels[product.audience]}
-        </span>
-      </div>
+          <span className="inline-flex font-body max-w-full items-center border border-primary-400/40 bg-primary-400/40 px-2 py-1.5 text-xs tracking-wide text-primary-900 wrap-anywhere">
+            <User className="mr-0.5" size={13} strokeWidth={2} />
+            <strong className="mr-1">Orientation:</strong>{" "}
+            {audienceLabels[product.audience]}
+          </span>
+        </div>
+      ) : null}
       {shortDescription ? (
         <p className="mt-6 max-w-xl whitespace-pre-line text-base font-light leading-7 text-black/62 wrap-anywhere">
           {shortDescription}

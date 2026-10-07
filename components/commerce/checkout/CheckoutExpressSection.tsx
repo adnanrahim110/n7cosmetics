@@ -20,7 +20,7 @@ interface CheckoutExpressSectionProps {
 
 export default function CheckoutExpressSection({ quote, available, blocked, busy, marketingOptOut, onAvailabilityChange, onCheckoutDetails, onBusyChange }: CheckoutExpressSectionProps) {
   const config = usePaymentConfig();
-  const enabled = config.enabled && quote && quote.totalPence >= 30 && (!blocked || busy);
+  const enabled = config.enabled && quote && quote.totalPence >= 30;
   const unavailable = !config.loading && (!config.enabled || (available && !available.applePay && !available.googlePay));
   const cannotPay = !config.loading && config.enabled && !blocked && (!quote || quote.totalPence < 30);
 

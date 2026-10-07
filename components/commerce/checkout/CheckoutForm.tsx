@@ -10,6 +10,7 @@ import { clearSavedCheckoutDetails, emptyCheckoutAddress, loadSavedCheckoutDetai
 import { normalizePostcode } from "@/lib/commerce/shipping";
 import type { CheckoutInput } from "@/lib/commerce/validation";
 import { cn } from "@/lib/cn";
+import { useMetaCheckoutMatching } from "@/components/meta/useMetaCheckoutMatching";
 import { useCommerce } from "../CommerceProvider";
 import type { WalletAvailability } from "../ExpressPayment";
 import StripeProvider, { usePaymentConfig } from "../StripeProvider";
@@ -63,6 +64,11 @@ function CheckoutFields({ heading }: { heading: ReactNode }) {
   const [allItemsExpanded, setAllItemsExpanded] = useState(false);
   const itemsExpanded = cart.length > 3 && allItemsExpanded;
   const countryCode = "GB";
+  useMetaCheckoutMatching({
+    email: contactEmail, phone: billingDetails.phone,
+    fullName: billingDetails.firstName.trim() && billingDetails.lastName.trim() ? `${billingDetails.firstName} ${billingDetails.lastName}` : undefined,
+    city: billingDetails.city, region: billingDetails.region, postalCode: billingDetails.postalCode, countryCode,
+  });
   const deliveryAddress = differentShipping ? shippingDetails : billingDetails;
   const postalCode = normalizePostcode(deliveryAddress.postalCode);
   const basket = JSON.stringify({ postalCode });
@@ -296,7 +302,7 @@ function CheckoutFields({ heading }: { heading: ReactNode }) {
         {heading}
         {displayError ? <div role="alert" className={cn("mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-800", checkoutFocus)} id="checkout-form-error" tabIndex={-1}>{displayError}</div> : null}
         <div className="space-y-4">
-          <CheckoutExpressSection quote={quote} available={walletAvailability} blocked={pricingLoading || Boolean(pricingError) || quoting} busy={placing} marketingOptOut={marketingOptOut} onAvailabilityChange={setWalletAvailability} onCheckoutDetails={(input) => rememberCheckout(walletCheckoutDetails(input))} onBusyChange={setPlacing} />
+          <CheckoutExpressSection quote={quote ?? quoteState?.data ?? null} available={walletAvailability} blocked={pricingLoading || Boolean(pricingError) || quoting} busy={placing} marketingOptOut={marketingOptOut} onAvailabilityChange={setWalletAvailability} onCheckoutDetails={(input) => rememberCheckout(walletCheckoutDetails(input))} onBusyChange={setPlacing} />
           <CheckoutContactSection email={contactEmail} onEmailChange={setContactEmail} marketingOptOut={marketingOptOut} onMarketingOptOutChange={setMarketingOptOut} disabled={placing} />
           <CheckoutDeliverySection address={deliveryAddress} prefix={differentShipping ? "shipping" : "billing"} onAddressChange={changeDeliveryAddress} differentBilling={differentShipping} onDifferentBillingChange={changeDifferentBilling} rememberDetails={rememberDetails} onRememberDetailsChange={(remember) => { if (remember) { setRememberDetails(true); setDetailsMessage(""); } else forgetDetails(); }} hasSavedDetails={hasSavedDetails} onForgetDetails={forgetDetails} detailsMessage={detailsMessage} notes={notes} onNotesChange={setNotes} disabled={placing} />
           {differentShipping ? <CheckoutBillingSection address={billingDetails} onAddressChange={setBillingDetails} disabled={placing} /> : null}

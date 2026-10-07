@@ -6,7 +6,7 @@ import type { CheckoutInput } from "@/lib/commerce/validation";
 import { CheckoutValidationError } from "@/lib/commerce/checkout-validation";
 import { usePaymentConfig } from "./StripeProvider";
 import { useCommerce } from "./CommerceProvider";
-import { trackMeta } from "@/lib/meta/client";
+import { trackMeta, updateMetaMatching } from "@/lib/meta/client";
 import { CHECKOUT_ATTEMPT_KEY, readCheckoutAttempt, type CheckoutAttempt } from "@/lib/payments/checkout-attempt";
 
 type PaymentInput = Omit<CheckoutInput, "idempotencyKey">;
@@ -24,7 +24,15 @@ export function useStripePayment({ preserveCart = false }: { preserveCart?: bool
     try {
       const { error: submitError } = await elements.submit();
       if (submitError) throw new Error(submitError.message || "Check your payment details.");
-      if (window.location.pathname !== "/checkout") void trackMeta("InitiateCheckout", payload.items, { couponCode: payload.couponCode });
+      const expressCheckout = window.location.pathname !== "/checkout";
+      const billing = payload.billingAddress;
+      // Wallet details become known here. Matching and analytics remain optional
+      // and run independently of payment, including during network failures.
+      void updateMetaMatching({
+        email: payload.customer.email, phone: payload.customer.phone, fullName: billing.fullName,
+        city: billing.city, region: billing.region, postalCode: billing.postalCode, countryCode: billing.countryCode,
+      });
+      if (expressCheckout) void trackMeta("InitiateCheckout", payload.items, { couponCode: payload.couponCode });
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(preserveCart ? { payload, preserveCart } : payload)));
       const fingerprint = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
       let previous: CheckoutAttempt | null = null;

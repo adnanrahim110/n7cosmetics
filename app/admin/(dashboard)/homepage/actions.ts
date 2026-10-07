@@ -17,6 +17,7 @@ import { requireAdministrator } from "@/lib/auth/session";
 import { getAvailableSaleNavigationItems } from "@/lib/commerce/sales";
 import { executeMutation, selectOne, selectRows } from "@/lib/db/query";
 import { withTransaction } from "@/lib/db/transaction";
+import { faqsContentSchema } from "@/lib/homepage/faqs";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -704,6 +705,25 @@ export async function saveReviewsAction(formData: FormData): Promise<void> {
     });
   if (!parsed.success) invalid("reviews");
   await saveSection("home", "reviews", "Reviews", parsed.data);
+}
+
+export async function saveFaqsAction(formData: FormData): Promise<void> {
+  const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
+  const parsed = faqsContentSchema.safeParse({
+    eyebrow: formString(formData, "eyebrow"),
+    titleLead: formString(formData, "titleLead"),
+    titleAccent: formString(formData, "titleAccent"),
+    description: formString(formData, "description"),
+    items: parseJson(formString(formData, "faqsJson")),
+  });
+  if (!parsed.success) invalid("faqs");
+  try {
+    await writeSection("home", "faqs", "FAQs", parsed.data);
+  } catch (error) {
+    console.error("Unable to save home page FAQs", error);
+    redirect("/admin/homepage?error=faqs-save#faqs");
+  }
+  await finishSectionSave(administrator.id, "home", "faqs", "FAQs");
 }
 
 export async function saveFeaturesAction(formData: FormData): Promise<void> {

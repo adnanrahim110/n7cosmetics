@@ -44,14 +44,14 @@ export default function ProductDetailActions({
     currency: "GBP",
   }).format((product.pricePence * selectedQuantity) / 100);
   const actionClass =
-    "order-3 col-span-2 flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-sm px-4 py-3 text-xs font-semibold uppercase tracking-wider transition-colors focus-visible:ring-2 focus-visible:ring-[#78552f] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:order-none sm:col-span-1";
+    "order-3 col-span-2 flex min-h-12 min-w-0 items-center justify-center gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider transition-colors focus-visible:ring-2 focus-visible:ring-[#78552f] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:order-none sm:col-span-1";
   return (
     <>
       <div className="mt-5" ref={actionsRef}>
         <div className="grid grid-cols-[minmax(0,1fr)_3rem] items-start gap-3 sm:grid-cols-[auto_minmax(0,1fr)_3rem]">
           <div
             aria-label="Product quantity"
-            className="flex min-h-12 w-fit items-center overflow-hidden rounded-sm border border-stone-900/20"
+            className="flex min-h-12 w-fit items-center overflow-hidden border border-stone-900/20"
           >
             <button
               aria-label="Decrease quantity"
@@ -132,7 +132,7 @@ export default function ProductDetailActions({
             }
             aria-pressed={wishlisted}
             className={cn(
-              "grid size-12 place-items-center rounded-sm border border-stone-900/20 transition-colors hover:border-[#78552f] hover:bg-[#eee5d8] focus-visible:ring-2 focus-visible:ring-[#78552f] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50 motion-reduce:transition-none",
+              "grid size-12 place-items-center border border-stone-900/20 transition-colors hover:border-[#78552f] hover:bg-[#eee5d8] focus-visible:ring-2 focus-visible:ring-[#78552f] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50 motion-reduce:transition-none",
               wishlisted && "bg-[#eee5d8] text-[#78552f]",
             )}
             disabled={!hydrated || walletBusy}

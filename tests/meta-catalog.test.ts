@@ -3,6 +3,7 @@ import test from "node:test";
 import { buildCatalogItem, catalogBatchStatus, catalogDeleteRequest, catalogPayloadHash, catalogPublicUrl, type CatalogProduct } from "../lib/meta/catalog-product";
 import { catalogReady, metaCatalogSettingsSchema } from "../lib/meta/catalog-settings";
 import { metaContentId } from "../lib/meta/shared";
+import { catalogObservation, catalogEligibility, catalogImageState } from "../lib/meta/catalog-observation";
 
 const product: CatalogProduct = {
   productId: "42", variantId: "9007199254740993", name: "Aventus", productCode: "101",
@@ -11,6 +12,41 @@ const product: CatalogProduct = {
   size: "100 ml", availableQuantity: 17, soldOut: false,
 };
 const website = "https://n7cosmetics.co.uk";
+const revision = "a".repeat(64);
+const remoteProduct = { id: "123456789", retailer_id: "n7_variant_42", image_url: `${website}/media/product-image`, image_fetch_status: "FETCHED" };
+
+test("Image download and general review approval do not imply catalogue ad approval", () => {
+  const observation = catalogObservation({ ...remoteProduct, review_status: "approved", capability_to_review_status: [{ key: "DA", value: "NO_REVIEW" }, { key: "MINI_SHOPS", value: "APPROVED" }] }, remoteProduct.image_url, revision);
+  assert.equal(catalogImageState(observation), "READY");
+  assert.equal(catalogEligibility(observation), "UNKNOWN");
+});
+
+test("Explicit ad approval needs the current image and no blocking errors", () => {
+  const product = { ...remoteProduct, capability_to_review_status: [{ key: "DA", value: "APPROVED" }] };
+  assert.equal(catalogEligibility(catalogObservation(product, product.image_url, revision)), "ELIGIBLE");
+  assert.equal(catalogEligibility(catalogObservation({ ...product, image_fetch_status: "NO_STATUS" }, product.image_url, revision)), "PENDING");
+  assert.equal(catalogEligibility(catalogObservation(product, `${website}/media/new-image`, revision)), "PENDING");
+});
+
+test("Meta's reported invalid image error remains visible even before a fetch status", () => {
+  const observation = catalogObservation({ ...remoteProduct, image_fetch_status: "NO_STATUS", errors: [{ error_type: "invalid_images", error_priority: "high", title: "Missing or invalid images", description: "<a href='https://facebook.com'>Check images</a><br />Meta&#039;s image requirements<script>secret()</script>" }] }, remoteProduct.image_url, revision);
+  assert.equal(catalogImageState(observation), "FAILED");
+  assert.equal(catalogEligibility(observation), "BLOCKED");
+  assert.equal(observation.issues[0].message, "Check images Meta's image requirements");
+});
+
+test("Rejections, unavailable products and fetch failures never become eligible", () => {
+  for (const image_fetch_status of ["FETCH_FAILED", "PARTIAL_FETCH"]) assert.equal(catalogEligibility(catalogObservation({ ...remoteProduct, image_fetch_status }, remoteProduct.image_url, revision)), "BLOCKED");
+  assert.equal(catalogEligibility(catalogObservation({ ...remoteProduct, capability_to_review_status: [{ key: "DA", value: "REJECTED" }] }, remoteProduct.image_url, revision)), "BLOCKED");
+  assert.equal(catalogEligibility(catalogObservation(undefined, remoteProduct.image_url, revision)), "BLOCKED");
+  assert.equal(catalogEligibility(null), "UNKNOWN");
+});
+
+test("Unknown future image results cannot falsely grant ad eligibility", () => {
+  const observation = catalogObservation({ ...remoteProduct, image_fetch_status: "FUTURE_STATUS", capability_to_review_status: [{ key: "DA", value: "APPROVED" }] }, remoteProduct.image_url, revision);
+  assert.equal(catalogImageState(observation), "UNKNOWN");
+  assert.equal(catalogEligibility(observation), "UNKNOWN");
+});
 
 test("Catalogue batch IDs match events without losing large variant IDs", () => {
   const { item } = buildCatalogItem(product, website);

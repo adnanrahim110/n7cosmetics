@@ -2,6 +2,7 @@ import { setTimeout } from "node:timers/promises";
 import { processMetaQueue } from "./queue";
 import { processMetaCatalog } from "./catalog-sync";
 import { recordMetaWorkerHealth } from "./diagnostics";
+import { refreshMetaCatalogObservations } from "./catalog-observation-sync";
 
 export interface MetaWorkerTasks {
   events: () => Promise<number>;
@@ -10,7 +11,9 @@ export interface MetaWorkerTasks {
   report: (source: "events" | "catalogue") => void;
 }
 const tasks: MetaWorkerTasks = {
-  events: () => processMetaQueue(25), catalogue: processMetaCatalog, health: recordMetaWorkerHealth,
+  events: () => processMetaQueue(25),
+  catalogue: async () => { const confirmed = await processMetaCatalog(); await refreshMetaCatalogObservations(); return confirmed; },
+  health: recordMetaWorkerHealth,
   report: source => console.error(source === "events" ? "Meta delivery unavailable; check database, encryption key and Meta settings." : "Meta catalogue sync unavailable; check migrations and catalogue settings."),
 };
 

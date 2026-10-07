@@ -136,6 +136,19 @@ export interface FeaturesContent {
   items: FeatureContent[];
 }
 
+export interface FaqContent {
+  question: string;
+  answer: string;
+}
+
+export interface FaqsContent {
+  eyebrow: string;
+  titleLead: string;
+  titleAccent: string;
+  description: string;
+  items: FaqContent[];
+}
+
 export interface ReviewContent {
   text: string;
   author: string;
@@ -159,6 +172,7 @@ export interface HomepageConfiguration {
   scentStory: ScentStoryContent;
   audience: AudienceContent;
   reviews: ReviewsContent;
+  faqs: FaqsContent;
   features: FeaturesContent;
 }
 

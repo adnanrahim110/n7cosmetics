@@ -11,6 +11,7 @@ import { getCatalogSnapshot } from "../lib/meta/catalog-data";
 import { getMetaCatalogSummary } from "../lib/meta/catalog-status";
 import { processMetaCatalog, requestCatalogSync } from "../lib/meta/catalog-sync";
 import { metaContentId } from "../lib/meta/shared";
+import { refreshMetaCatalogObservations } from "../lib/meta/catalog-observation-sync";
 
 const batchSchema = z.object({
   item_type: z.literal("PRODUCT_ITEM"), allow_upsert: z.literal(true),
@@ -34,6 +35,7 @@ async function run() {
   process.env.APP_URL = "https://n7cosmetics.co.uk";
   let created = false, checks = 0, readCalls = 0, sequence = 0, postStatus = 200, pollHttpStatus = 200;
   let pollStatus = "finished", pollErrors = 0, receiptCount = 1;
+  let remoteMode = "normal", remoteCalls = 0;
   const batches: z.infer<typeof batchSchema>[] = [];
   const check = (value: unknown, message: string) => { assert.ok(value, message); checks++; };
   try {
@@ -48,6 +50,22 @@ async function run() {
       assert.equal(url.searchParams.has("access_token"), false);
       assert.equal(new Headers(init?.headers).get("authorization"), "Bearer fake-catalog-token");
       const apiError = (status: number) => Response.json({ error: { code: status === 503 ? 2 : 190, is_transient: status === 503, message: "Never persist fake-catalog-token or private@example.com" } }, { status });
+      if (url.pathname.endsWith("/products")) {
+        remoteCalls++;
+        assert.equal(init?.method, "GET");
+        const ids = z.object({ retailer_id: z.object({ is_any: z.array(z.string().regex(/^n7_variant_[1-9]\d*$/)).max(50) }) }).parse(JSON.parse(url.searchParams.get("filter") ?? "{}"));
+        if (remoteMode === "outage") return apiError(503);
+        if (remoteMode === "malformed") return Response.json({ unexpected: true });
+        if (remoteMode === "missing") return Response.json({ data: [] });
+        const rows = await selectRows<RowDataPacket & { retailer_id: string; desired_payload: unknown }>("SELECT retailer_id,desired_payload FROM meta_catalog_items WHERE catalog_id = ? AND operation = 'UPSERT' AND status = 'SYNCED'", [catalogId]);
+        const data = rows.filter(row => ids.retailer_id.is_any.includes(row.retailer_id)).map((row, index) => {
+          const request = batchSchema.shape.requests.element.parse(typeof row.desired_payload === "string" ? JSON.parse(row.desired_payload) : row.desired_payload);
+          return { id: String(900000 + index), retailer_id: row.retailer_id, image_url: request.data.image_link, image_fetch_status: index === 0 || remoteMode === "ready" ? "FETCHED" : "NO_STATUS", capability_to_review_status: [{ key: "DA", value: index === 0 ? "APPROVED" : "NO_REVIEW" }], errors: index > 0 && remoteMode !== "ready" ? [{ error_type: "invalid_images", error_priority: "high", title: "Missing or invalid images", description: "<b>Meta cannot display the image.</b>" }] : [] };
+        });
+        if (remoteMode === "changing") await executeMutation("UPDATE meta_catalog_items SET desired_hash = REPEAT('b',64) WHERE catalog_id = ? AND retailer_id = ?", [catalogId, ids.retailer_id.is_any[0]]);
+        if (remoteMode === "pagination") return Response.json({ data: data.slice(0, 1), paging: { next: "https://graph.facebook.com/never-follow-this-url", cursors: { after: "repeated-cursor" } } });
+        return Response.json({ data: [...data, { id: "999", retailer_id: "shopify_legacy", image_fetch_status: "FETCHED" }], paging: { next: "https://graph.facebook.com/unused" } });
+      }
       if (url.pathname.endsWith("/items_batch")) {
         const body = batchSchema.parse(JSON.parse(String(init?.body)));
         for (const request of body.requests) {
@@ -214,6 +232,42 @@ async function run() {
     check(!JSON.stringify(summary).includes("tokenEncrypted") && !JSON.stringify(summary).includes("fake-catalog-token"), "Admin status contains no access token or ciphertext");
     const finalJobs = await selectRows<Job>("SELECT * FROM meta_catalog_items WHERE catalog_id = ?", [catalogId]);
     check(finalJobs.every(row => row.retailer_id.startsWith("n7_variant_")), "Sync never takes ownership of Shopify, WooCommerce or unrelated catalogue IDs");
+
+    const remoteDue = async () => {
+      await executeMutation("UPDATE meta_catalog_remote_checks SET next_check_at = CURRENT_TIMESTAMP(3) WHERE catalog_id = ?", [catalogId]);
+      await executeMutation("UPDATE meta_catalog_items SET meta_checked_at = DATE_SUB(CURRENT_TIMESTAMP(3), INTERVAL 31 SECOND) WHERE catalog_id = ?", [catalogId]);
+    };
+    check(summary.remote.checked === 0 && summary.remote.adsEligible === 0 && summary.remote.adsUnknown === 2, "Successful product sync alone cannot become ad eligibility");
+    await Promise.all([refreshMetaCatalogObservations(), refreshMetaCatalogObservations()]);
+    let remote = (await getMetaCatalogSummary()).remote;
+    check(remoteCalls === 1 && remote.checked === 2, "A shared database lease prevents duplicate live Meta status reads");
+    check(remote.imagesReady === 1 && remote.imageFailures === 1 && remote.adsEligible === 1 && remote.adsBlocked === 1, "Image errors and explicit ad approval are counted independently");
+    check(remote.items.every(item => item.id.startsWith("n7_variant_")) && remote.items.some(item => item.issues[0]?.message === "Meta cannot display the image."), "Meta product errors are plain text and unrelated sources are ignored");
+    await refreshMetaCatalogObservations();
+    check(remoteCalls === 1, "Status reads respect the 30-second polling interval");
+    const observed = await selectOne<RowDataPacket & { meta_observation: unknown }>("SELECT meta_observation FROM meta_catalog_items WHERE retailer_id = ? AND catalog_id = ?", [standard.id, catalogId]);
+    await remoteDue(); remoteMode = "malformed"; await refreshMetaCatalogObservations();
+    check(Boolean((await getMetaCatalogSummary()).remote.error) && JSON.stringify((await selectOne<RowDataPacket>("SELECT meta_observation FROM meta_catalog_items WHERE retailer_id = ? AND catalog_id = ?", [standard.id, catalogId]))?.meta_observation) === JSON.stringify(observed?.meta_observation), "Malformed Meta status never overwrites prior observations or fabricates missing items");
+    await remoteDue(); remoteMode = "pagination"; await refreshMetaCatalogObservations();
+    check((await getMetaCatalogSummary()).remote.error?.includes("pagination"), "Incomplete or repeated Meta cursors retain previous data and report the failed check");
+    await remoteDue(); remoteMode = "outage";
+    await executeMutation("UPDATE meta_catalog_items SET meta_checked_at = DATE_SUB(CURRENT_TIMESTAMP(3), INTERVAL 3 MINUTE) WHERE catalog_id = ?", [catalogId]);
+    await refreshMetaCatalogObservations(); remote = (await getMetaCatalogSummary()).remote;
+    check(remote.checked === 0 && remote.adsEligible === 0 && remote.adsUnknown === 2 && Boolean(remote.error), "An API outage does not present expired cached approval as current");
+    check(!JSON.stringify(remote).includes("fake-catalog-token") && !JSON.stringify(remote).includes("private@example.com"), "Status error responses cannot expose token or raw API error text");
+    await remoteDue(); remoteMode = "ready"; await refreshMetaCatalogObservations(); remote = (await getMetaCatalogSummary()).remote;
+    check(remote.imagesReady === 2 && remote.adsEligible === 1 && remote.adsUnknown === 1 && !remote.error, "Recovered image downloads do not falsely approve NO_REVIEW products");
+    await save(); remote = (await getMetaCatalogSummary()).remote;
+    check(remote.checked === 0 && remote.adsEligible === 0, "Changed credentials invalidate observations from the previous settings revision");
+    await refreshMetaCatalogObservations();
+    check((await getMetaCatalogSummary()).remote.checked === 2, "New credentials trigger a fresh status read without waiting for the old interval");
+    await remoteDue(); remoteMode = "missing"; await refreshMetaCatalogObservations();
+    check((await getMetaCatalogSummary()).remote.items.every(item => item.issues[0]?.code === "not_found"), "Only a completed valid Meta response marks a missing remote item");
+    await remoteDue(); remoteMode = "changing"; await refreshMetaCatalogObservations();
+    remote = (await getMetaCatalogSummary()).remote;
+    check(remote.checked === 1 && remote.adsEligible === 0, "A concurrent product edit cannot store eligibility for an outdated payload");
+    await save(false); const beforePausedRead = remoteCalls; await refreshMetaCatalogObservations();
+    check(remoteCalls === beforePausedRead, "A paused catalogue connection stops outgoing status requests");
     console.log(`${checks} catalogue integration checks passed; all Meta calls mocked, disposable local database removed.`);
   } finally {
     globalThis.fetch = originalFetch;

@@ -6,6 +6,7 @@ import { hasDatabaseConfig } from "@/lib/env";
 import { selectRows } from "@/lib/db/query";
 import { defaultFooterContent, defaultHeaderContent, defaultHomepageConfiguration } from "@/lib/homepage/defaults";
 import { applyHeroProductPresentations, normalizeHeroProductPresentations } from "@/lib/homepage/hero";
+import { normalizeFaqsContent } from "@/lib/homepage/faqs";
 import type { FooterContent, HeaderContent, HomepageConfiguration, HomepageProduct, HomepageStorefrontContent } from "@/lib/homepage/types";
 import { getAvailableSaleNavigationItems } from "@/lib/commerce/sales";
 
@@ -64,6 +65,7 @@ export async function getHomepageConfiguration(): Promise<HomepageConfiguration>
     scentStory: merge(defaultHomepageConfiguration.scentStory, rows.get("scent-story")),
     audience: merge(defaultHomepageConfiguration.audience, rows.get("audience-collections")),
     reviews: merge(defaultHomepageConfiguration.reviews, rows.get("reviews")),
+    faqs: normalizeFaqsContent(rows.get("faqs"), defaultHomepageConfiguration.faqs),
     features: merge(defaultHomepageConfiguration.features, rows.get("features")),
   };
   config.hero.productIds = Array.isArray(config.hero.productIds)

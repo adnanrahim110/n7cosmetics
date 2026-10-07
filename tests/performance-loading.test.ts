@@ -4,6 +4,51 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { scheduleAfterLoad } from "../lib/browser/schedule-after-load";
 import { storefrontAssets, optimisedVideoSource, videoPoster } from "../lib/media/storefront-assets";
+import { readPublicStripeConfig, disabledStripeConfig } from "../lib/payments/public-config";
+import { createSharedPaymentLoader } from "../lib/payments/shared-loader";
+
+test("payment settings serialize only an enabled flag and a valid publishable key", () => {
+  const publishableKey = "pk_live_" + "a".repeat(24);
+  assert.deepEqual(readPublicStripeConfig({ enabled: true, publishableKey, secretKey: "private", webhookSecret: "private", revision: "private" }), { enabled: true, publishableKey });
+  for (const value of [null, {}, { enabled: false, publishableKey }, { enabled: "true", publishableKey }, { enabled: true, publishableKey: "sk_live_private" }]) assert.deepEqual(readPublicStripeConfig(value), disabledStripeConfig);
+});
+
+test("PDP, cart and checkout share pending and completed Stripe initialization", async () => {
+  let calls = 0;
+  let release: (value: { key: string }) => void = () => undefined;
+  const waiting = new Promise<{ key: string }>(resolve => { release = resolve; });
+  const load = createSharedPaymentLoader(async () => { calls++; return waiting; });
+  const pdp = load("key"), cart = load("key"), checkout = load("key");
+  assert.equal(pdp, cart); assert.equal(cart, checkout);
+  await Promise.resolve();
+  assert.equal(calls, 1);
+  release({ key: "key" });
+  assert.deepEqual(await pdp, { key: "key" });
+  assert.equal(load("key"), pdp, "A later route reuses the ready instance");
+  assert.equal(calls, 1);
+});
+
+test("payment initialization failures are contained and a later mount can recover", async () => {
+  let calls = 0;
+  const load = createSharedPaymentLoader(async key => {
+    calls++;
+    if (calls === 1) throw new Error("Temporary script outage");
+    return { key };
+  });
+  assert.equal(await load("key"), null);
+  assert.deepEqual(await load("key"), { key: "key" });
+  assert.equal(calls, 2);
+});
+
+test("a new payment key initializes independently of the previous account", async () => {
+  const calls: string[] = [];
+  const load = createSharedPaymentLoader(async key => { calls.push(key); return { key }; });
+  const first = load("old"), next = load("new");
+  assert.notEqual(first, next);
+  assert.deepEqual(await next, { key: "new" });
+  assert.deepEqual(await first, { key: "old" });
+  assert.deepEqual(calls, ["old", "new"]);
+});
 
 function environment({ complete = false, idle = true } = {}) {
   const listeners = new Map<string, () => void>();

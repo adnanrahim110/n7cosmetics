@@ -2,6 +2,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import { selectOne, selectRows } from "../db/query";
 import { getCatalogSnapshot } from "./catalog-data";
 import { catalogReady, getMetaCatalogSettings } from "./catalog-settings";
+import { getCatalogRemoteSummary, type CatalogRemoteSummary } from "./catalog-remote-status";
 
 export interface MetaCatalogSummary {
   ready: boolean; enabled: boolean; catalogId: string; name: string | null;
@@ -9,6 +10,7 @@ export interface MetaCatalogSummary {
   counts: Record<string, number>; lastScan: string | null; lastSuccess: string | null;
   lastChecked: string | null; error: string | null; workerRecent: boolean;
   issues: { id: string; name: string; message: string; status: string }[];
+  remote: CatalogRemoteSummary;
 }
 const date = (value: Date | string | null) => value ? new Date(value).toISOString() : null;
 export async function getMetaCatalogSummary(): Promise<MetaCatalogSummary> {
@@ -29,5 +31,6 @@ export async function getMetaCatalogSummary(): Promise<MetaCatalogSummary> {
     excluded: snapshot.filter(item => item.error).length, counts: Object.fromEntries(counts.map(row => [row.status, Number(row.total)])),
     lastScan: date(state?.last_scanned_at ?? null), lastSuccess: date(state?.last_success_at ?? null), lastChecked: date(state?.last_checked_at ?? null),
     error: state?.last_error ?? null, workerRecent: Boolean(worker?.fresh), issues,
+    remote: await getCatalogRemoteSummary(settings, snapshot),
   };
 }

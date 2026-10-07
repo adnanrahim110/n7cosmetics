@@ -10,7 +10,8 @@ import { readMetaJson } from "../lib/meta/http";
 import { metaClickCookie, metaLandingClick, safeMetaPixelLocation } from "../lib/meta/browser-policy";
 import { deliverMetaClientEvent } from "../lib/meta/client-delivery";
 import { metaDeliveryStatus, type MetaDeliveryInput } from "../lib/meta/delivery-status";
-import { captureMetaLandingClick, configureMeta, sendMetaBrowserEvent, stopMeta, suspendMeta } from "../lib/meta/client";
+import { captureMetaLandingClick, configureMeta, sendMetaBrowserEvent, stopMeta, suspendMeta, updateMetaMatching } from "../lib/meta/client";
+import { checkoutMetaMatching, metaMatchingInputSchema } from "../lib/meta/matching-input";
 import { runMetaWorker, type MetaWorkerTasks } from "../lib/meta/worker";
 
 test("A slow conversion queue does not delay catalogue processing", async () => {
@@ -101,6 +102,120 @@ test("Matching coverage retains presence flags without personal values", () => {
   assert.equal(result.external_id, true); assert.equal(result.ipv6, true); assert.equal(result.fbc, false);
   assert.ok(Object.values(result).every(value => typeof value === "boolean"));
   assert.equal(JSON.stringify(result).includes("private"), false);
+});
+
+test("Checkout matching permits validated contact fields and omits unfinished optional values", () => {
+  assert.equal(checkoutMetaMatching({ email: "unfinished@" }), null);
+  const partial = checkoutMetaMatching({ email: " Person@Example.test ", phone: "abc", fullName: "", city: "L", region: "", postalCode: "SW", countryCode: "GB" });
+  assert.deepEqual(JSON.parse(JSON.stringify(partial)), { email: "person@example.test", countryCode: "GB" });
+  const valid = { email: "Person@Example.test", phone: "07123 456789", fullName: "Meta Test", city: "London", region: "Greater London", postalCode: "sw1a 1aa", countryCode: "GB" as const };
+  assert.equal(metaMatchingInputSchema.parse(valid).postalCode, "SW1A 1AA");
+  for (const extra of [{ line1: "1 Private Street" }, { notes: "Private notes" }, { externalId: "another-visitor" }, { pixelId: "another-pixel" }]) {
+    assert.equal(metaMatchingInputSchema.safeParse({ ...valid, ...extra }).success, false);
+  }
+  assert.equal(metaMatchingInputSchema.safeParse({ ...valid, region: "a".repeat(121) }).success, false);
+});
+
+test("Checkout updates manual Pixel matching before an order, without duplicate events or raw storage", async () => {
+  const globals = ["location", "document", "window", "localStorage", "fetch"];
+  const originals = globals.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
+  const calls: unknown[][] = [], bodies: string[] = [];
+  const pixelId = "888123456", externalId = metaExternalId("checkout-matching");
+  const input = { email: "Person@Example.test", phone: "07123 456789", fullName: "Meta Test", city: "London", region: "Greater London", postalCode: "SW1A 1AA", countryCode: "GB" as const };
+  const matching = metaAdvancedMatching(metaMatchData(input.email, input.phone, input));
+  let response = { pixelId, externalId, matching };
+  let release: () => void = () => undefined;
+  let waiting: Promise<void> | undefined;
+  let started: () => void = () => undefined;
+  const values = [
+    { href: "https://n7.test/checkout", hostname: "n7.test", protocol: "https:" },
+    { referrer: "", cookie: "" },
+    { fbq: (...args: unknown[]) => calls.push(args), dispatchEvent() {} },
+    { length: 0, key: () => null, getItem: () => null, setItem() { assert.fail("Matching must not write browser storage"); } },
+    async (url: string, init: RequestInit) => {
+      assert.equal(url, "/api/meta/matching");
+      assert.equal(init.credentials, "same-origin");
+      bodies.push(String(init.body)); started();
+      await waiting;
+      return Response.json(response);
+    },
+  ];
+  globals.forEach((key, index) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value: values[index] }));
+  try {
+    configureMeta({ enabled: true, pixelId, consent: "unknown" });
+    assert.equal(await updateMetaMatching(input), false);
+    assert.equal(bodies.length, 0, "No request before consent");
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId });
+    assert.equal(await updateMetaMatching({ email: "invalid" }), false);
+    assert.equal(bodies.length, 0);
+    assert.equal(await updateMetaMatching(input), true);
+    assert.deepEqual(calls.at(-1), ["init", pixelId, { ...matching, external_id: externalId }]);
+    assert.equal(calls.some(args => args[0] === "trackSingle"), false, "Matching is not a synthetic commerce event");
+    assert.equal(JSON.stringify(calls).includes("Person@Example.test"), false);
+    assert.equal(await updateMetaMatching(input), true);
+    assert.equal(bodies.length, 1, "Repeated unchanged details are deduplicated");
+
+    waiting = new Promise<void>(resolve => { release = resolve; });
+    const requestStarted = new Promise<void>(resolve => { started = resolve; });
+    const pending = updateMetaMatching({ ...input, email: "next@example.test" });
+    await requestStarted;
+    stopMeta();
+    const afterWithdrawal = calls.length;
+    release();
+    assert.equal(await pending, false);
+    assert.equal(calls.length, afterWithdrawal, "A late response cannot regrant consent or initialize Pixel");
+    assert.equal(await updateMetaMatching(input), false);
+    assert.equal(bodies.length, 2);
+
+    waiting = undefined;
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId });
+    response = { pixelId, externalId: metaExternalId("other-consent"), matching };
+    assert.equal(await updateMetaMatching(input), false, "A changed server consent identity is not attached to the old Pixel session");
+    response = { pixelId, externalId, matching };
+    assert.equal(await updateMetaMatching(input), true, "A failed response must allow a later retry");
+  } finally {
+    release(); stopMeta();
+    globals.forEach((key, index) => { const descriptor = originals[index]; if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); });
+  }
+});
+
+test("Slower matching updates cannot overwrite newer buyer details", async () => {
+  const globals = ["location", "document", "window", "localStorage", "fetch"];
+  const originals = globals.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
+  const calls: unknown[][] = [], submitted: string[] = [];
+  const pixelId = "888999123", externalId = metaExternalId("matching-sequence");
+  let release: () => void = () => undefined;
+  let started: () => void = () => undefined;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  const requestStarted = new Promise<void>(resolve => { started = resolve; });
+  const values = [
+    { href: "https://n7.test/checkout", hostname: "n7.test", protocol: "https:" }, { referrer: "", cookie: "" },
+    { fbq: (...args: unknown[]) => calls.push(args), dispatchEvent() {} },
+    { length: 0, key: () => null, getItem: () => null },
+    async (_url: string, init: RequestInit) => {
+      const input = metaMatchingInputSchema.parse(JSON.parse(String(init.body)));
+      submitted.push(input.email); started();
+      if (submitted.length === 1) await waiting;
+      return Response.json({ pixelId, externalId, matching: metaAdvancedMatching(metaMatchData(input.email, "")) });
+    },
+  ];
+  globals.forEach((key, index) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value: values[index] }));
+  try {
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId });
+    const first = updateMetaMatching({ email: "first@example.test" });
+    await requestStarted;
+    const second = updateMetaMatching({ email: "second@example.test" });
+    const duplicate = updateMetaMatching({ email: "second@example.test" });
+    assert.deepEqual(submitted, ["first@example.test"], "The second write waits for the first to commit");
+    release();
+    assert.deepEqual(await Promise.all([first, second, duplicate]), [false, true, true]);
+    assert.deepEqual(submitted, ["first@example.test", "second@example.test"]);
+    assert.deepEqual(calls.at(-1), ["init", pixelId, { em: hashMetaValue("second@example.test"), external_id: externalId }]);
+    assert.equal(calls.some(args => args[0] === "init" && JSON.stringify(args).includes(hashMetaValue("first@example.test"))), false);
+  } finally {
+    release(); stopMeta();
+    globals.forEach((key, index) => { const descriptor = originals[index]; if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); });
+  }
 });
 
 test("Valid campaign parameters allow Pixel while receipt and payment secrets remain blocked", () => {

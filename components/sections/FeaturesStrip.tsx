@@ -22,7 +22,7 @@ export default function FeaturesStrip({
   const items = content?.items?.length ? content.items : fallbackItems;
 
   return (
-    <section className="relative overflow-hidden border-y border-[#1a1a1a]/10 bg-[#FDFCF8] py-12 sm:py-16 md:py-24">
+    <section className="relative overflow-hidden bg-[#FDFCF8] py-12 sm:py-16 md:py-24">
       <div className="w-full max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1.5fr] divide-y md:divide-y-0 md:divide-x divide-[#1a1a1a]/10">
           {items.slice(0, featureIcons.length).map((feature, index) => {

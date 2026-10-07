@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { selectRows } from "../db/query";
 import { decryptSecret } from "../security/encryption";
+import { disabledStripeConfig, readPublicStripeConfig, type PublicStripeConfig } from "./public-config";
 
 export interface StripeSettings {
   enabled: boolean;
@@ -42,11 +43,15 @@ export function stripeKeysReady(settings: Pick<StripeSettings, "mode" | "publish
 }
 
 export async function getPublicPaymentAvailability(): Promise<boolean> {
+  return (await getPublicStripeConfiguration()).enabled;
+}
+
+export async function getPublicStripeConfiguration(): Promise<PublicStripeConfig> {
   try {
     const settings = await getStripeSettings();
-    return settings.enabled && stripeKeysReady(settings);
+    return readPublicStripeConfig({ enabled: settings.enabled && stripeKeysReady(settings), publishableKey: settings.publishableKey });
   } catch {
-    return false;
+    return disabledStripeConfig;
   }
 }
 

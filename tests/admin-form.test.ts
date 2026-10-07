@@ -6,7 +6,8 @@ import { resolveAdminToastFeedback } from "../lib/admin/toast-feedback";
 import { automatedProductSku } from "../lib/admin/product-identifiers";
 import { parseProductListFilters, productListFilterQuery } from "../lib/admin/product-list-filters";
 import { applyHeroProductPresentations, normalizeHeroProductPresentations } from "../lib/homepage/hero";
-import type { HomepageProduct } from "../lib/homepage/types";
+import { faqLimits, faqsContentSchema, normalizeFaqsContent } from "../lib/homepage/faqs";
+import type { FaqsContent, HomepageProduct } from "../lib/homepage/types";
 import { normalizeSocialMediaLinks } from "../lib/social-media";
 import { categoriesMatchCollections, categoryHref, isCategoryCollectionSlug } from "../lib/commerce/category-config";
 import { validateMediaFolder } from "../lib/media/storage";
@@ -19,6 +20,53 @@ import {
   defaultCategoryPageConfiguration,
   storefrontCategoryDatabaseKey,
 } from "../lib/storefront-pages/config";
+
+const faqConfiguration: FaqsContent = {
+  eyebrow: "Customer care",
+  titleLead: "Your questions",
+  titleAccent: "answered",
+  description: "Helpful information before you order.",
+  items: [{ question: "Where can I find delivery options?", answer: "Check the delivery options at checkout." }],
+};
+
+test("FAQ submissions trim copy and preserve the administrator's chosen order", () => {
+  const items = [
+    { question: "  Second question  ", answer: "  Second answer\nwith another line.  " },
+    { question: "First question", answer: "First answer" },
+  ];
+  const parsed = faqsContentSchema.parse({ ...faqConfiguration, titleLead: "  Questions  ", items });
+  assert.equal(parsed.titleLead, "Questions");
+  assert.deepEqual(parsed.items, [
+    { question: "Second question", answer: "Second answer\nwith another line." },
+    items[1],
+  ]);
+});
+
+test("FAQ submissions reject incomplete items and excessive content", () => {
+  for (const items of [
+    [{ question: " ", answer: "Answer" }],
+    [{ question: "Question", answer: " " }],
+    [{ question: "x".repeat(faqLimits.question + 1), answer: "Answer" }],
+    [{ question: "Question", answer: "x".repeat(faqLimits.answer + 1) }],
+    Array.from({ length: faqLimits.items + 1 }, () => faqConfiguration.items[0]),
+  ]) {
+    assert.equal(faqsContentSchema.safeParse({ ...faqConfiguration, items }).success, false);
+  }
+});
+
+test("saving an empty FAQ list hides the section without restoring fallback items", () => {
+  const content = { ...faqConfiguration, titleAccent: "", description: "", items: [] };
+  assert.deepEqual(normalizeFaqsContent(JSON.stringify(content), faqConfiguration), content);
+});
+
+test("missing or malformed stored FAQs safely fall back without mutating defaults", () => {
+  for (const value of [undefined, null, "{invalid", { ...faqConfiguration, items: "invalid" }, { ...faqConfiguration, items: [null] }]) {
+    const normalized = normalizeFaqsContent(value, faqConfiguration);
+    assert.deepEqual(normalized, faqConfiguration);
+    assert.notEqual(normalized.items, faqConfiguration.items);
+    assert.notEqual(normalized.items[0], faqConfiguration.items[0]);
+  }
+});
 
 test("coming soon uploads accept hyphenated folders without allowing unsafe paths", () => {
   for (const folder of ["storefront-pages/coming-soon", "products/images", "homepage/hero", "reviews/images"]) {

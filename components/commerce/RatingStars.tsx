@@ -7,9 +7,9 @@ export default function RatingStars({ rating, size = 15, className = "" }: { rat
         const fill = Math.max(0, Math.min(1, rating - star + 1));
         return (
           <span className="relative inline-grid" key={star}>
-            <Star aria-hidden="true" className="text-[#ad8b62]" size={size} strokeWidth={1.5} />
+            <Star aria-hidden="true" className="text-primary-500" size={size} strokeWidth={1.5} />
             <span aria-hidden="true" className="absolute inset-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
-              <Star className="fill-[#ad8b62] text-[#ad8b62]" size={size} strokeWidth={1.5} />
+              <Star className="fill-primary-500 text-primary-500" size={size} strokeWidth={1.5} />
             </span>
           </span>
         );

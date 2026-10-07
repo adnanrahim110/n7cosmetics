@@ -5,6 +5,8 @@ import {
 import CustomSelect from "@/components/admin/CustomSelect";
 import DestinationSelect from "@/components/admin/DestinationSelect";
 import HeroProductsEditor from "@/components/admin/HeroProductsEditor";
+import Block from "@/components/admin/HomepageContentBlock";
+import HomepageFaqsSection from "@/components/admin/HomepageFaqsSection";
 import MediaDropzone from "@/components/admin/MediaDropzone";
 import NavigationEditor from "@/components/admin/NavigationEditor";
 import Notice from "@/components/admin/Notice";
@@ -17,11 +19,11 @@ import {
 import { getAvailableSaleNavigationItems } from "@/lib/commerce/sales";
 import { selectRows } from "@/lib/db/query";
 import type { RowDataPacket } from "mysql2/promise";
-import type { ReactNode } from "react";
 import {
   saveAudienceAction,
   saveBrandFilmAction,
   saveFeaturesAction,
+  saveFaqsAction,
   saveFooterAction,
   saveHeaderAction,
   saveHeroAction,
@@ -56,58 +58,6 @@ const productOptions = (products: ProductOption[]) =>
   }));
 const mediaValue = (url: string, name: string, type: "image" | "video") =>
   url ? [{ url, name, type }] : [];
-
-function Block({
-  id,
-  title,
-  description,
-  action,
-  children,
-  defaultOpen = false,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  action: (formData: FormData) => void | Promise<void>;
-  children: ReactNode;
-  defaultOpen?: boolean;
-}) {
-  return (
-    <details
-      className="group scroll-mt-20 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm open:border-zinc-300"
-      id={id}
-      open={defaultOpen}
-    >
-      <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3 marker:content-none hover:bg-zinc-50">
-        <span className="min-w-0 flex-1">
-          <span className="block font-body text-sm font-semibold text-zinc-950">
-            {title}
-          </span>
-          <span className="mt-0.5 hidden truncate text-xs text-zinc-500 sm:block">
-            {description}
-          </span>
-        </span>
-        <span
-          aria-hidden="true"
-          className="grid size-7 shrink-0 place-items-center rounded-md border border-zinc-200 text-sm text-zinc-500 transition group-open:rotate-180"
-        >
-          ⌄
-        </span>
-      </summary>
-      <form action={action} className="border-t border-zinc-100 p-4">
-        <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">{children}</div>
-        <div className="mt-4 flex justify-end border-t border-zinc-100 pt-3">
-          <button
-            className="rounded-md bg-zinc-950 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800"
-            type="submit"
-          >
-            Save changes
-          </button>
-        </div>
-      </form>
-    </details>
-  );
-}
 
 export default async function HomepagePage({
   searchParams,
@@ -152,7 +102,9 @@ export default async function HomepagePage({
       ) : null}
       {query.error ? (
         <Notice>
-          Check the fields in the {query.error.replaceAll("-", " ")} block.
+          {query.error === "faqs-save"
+            ? "Unable to save FAQs. Please try again."
+            : `Check the fields in the ${query.error.replaceAll("-", " ")} block.`}
         </Notice>
       ) : null}
       <div className="mt-5 space-y-3">
@@ -862,6 +814,12 @@ export default async function HomepagePage({
             <ReviewsEditor defaultItems={configuration.reviews.reviews} />
           </div>
         </Block>
+
+        <HomepageFaqsSection
+          action={saveFaqsAction}
+          content={configuration.faqs}
+          defaultOpen={query.saved === "faqs" || query.error === "faqs" || query.error === "faqs-save"}
+        />
 
         <Block
           action={saveFeaturesAction}

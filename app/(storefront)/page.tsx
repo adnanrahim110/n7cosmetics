@@ -2,6 +2,7 @@ import AudienceCollections from "@/components/sections/AudienceCollections";
 import BestSellers from "@/components/sections/BestSellers";
 import BrandFilmSection from "@/components/sections/BrandFilmSection";
 import FeaturesStrip from "@/components/sections/FeaturesStrip";
+import FaqsSection from "@/components/sections/FaqsSection";
 import FragranceOfWeek from "@/components/sections/FragranceOfWeek";
 import HeroSection from "@/components/sections/HeroSection";
 import RecreationsSlider from "@/components/sections/RecreationsSlider";
@@ -37,6 +38,7 @@ export default async function Home() {
       />
       <ReviewsSection content={configuration.reviews} />
       <ScentStorySection story={configuration.scentStory} />
+      <FaqsSection content={configuration.faqs} />
       <FeaturesStrip content={configuration.features} />
     </>
   );

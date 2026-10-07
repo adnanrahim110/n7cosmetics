@@ -86,6 +86,15 @@ async function run() {
         await verifyReleaseData(db, beforeMatching); checks++;
         const [rows] = await setup.query<mysql.RowDataPacket[]>("SELECT matching_fields_json FROM meta_event_jobs WHERE event_id = 'preserved-event'");
         assert.equal(rows[0].matching_fields_json, null); checks++;
+      } else if (name.startsWith("034")) {
+        await setup.query("INSERT INTO meta_catalog_state (catalog_id,catalog_name) VALUES ('123456789','Preserved catalogue')");
+        await setup.query(`INSERT INTO meta_catalog_items (catalog_id,retailer_id,product_name,operation,desired_payload,desired_hash,sent_hash,status)
+          VALUES ('123456789','n7_variant_1','Preserved catalogue item','UPSERT','{}',REPEAT('a',64),REPEAT('a',64),'SYNCED')`);
+        const beforeObservations = JSON.parse(JSON.stringify(await snapshotReleaseData(db)));
+        await applyMigration(name);
+        await verifyReleaseData(db, beforeObservations); checks++;
+        const [rows] = await setup.query<mysql.RowDataPacket[]>("SELECT status,meta_observation,meta_observed_hash,meta_checked_at FROM meta_catalog_items WHERE retailer_id = 'n7_variant_1'");
+        assert.deepEqual(rows.map(row => [row.status, row.meta_observation, row.meta_observed_hash, row.meta_checked_at]), [["SYNCED", null, null, null]]); checks++;
       } else await applyMigration(name);
     }
     await verifyReleaseData(db, beforeCleanup); checks++;

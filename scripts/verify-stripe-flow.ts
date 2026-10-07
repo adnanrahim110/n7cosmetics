@@ -12,7 +12,7 @@ import { executeMutation, selectOne, selectRows } from "../lib/db/query";
 import { createOrder } from "../lib/commerce/orders";
 import type { CheckoutInput } from "../lib/commerce/validation";
 import { applyPaymentIntent, reconcileStripeCheckout, reconcileStripeCheckouts, validIntentForOrder, type PaymentIntentSnapshot } from "../lib/payments/stripe";
-import { getStripeSettings, stripeKeysReady } from "../lib/payments/settings";
+import { getPublicStripeConfiguration, getStripeSettings, stripeKeysReady } from "../lib/payments/settings";
 import { encryptSecret } from "../lib/security/encryption";
 
 async function run() {
@@ -89,6 +89,12 @@ async function run() {
     const settings = { "stripe.enabled": true, "stripe.mode": "test", "stripe.publishable_key": "pk_test_" + "c".repeat(24), "stripe.secret_key_encrypted": encryptSecret(fixtureSecret), "stripe.webhook_secret_encrypted": encryptSecret(signingSecret) };
     for (const [key, value] of Object.entries(settings)) await executeMutation("INSERT INTO site_settings (setting_key, setting_group, value_json, is_public) VALUES (?, 'stripe', ?, 0) ON DUPLICATE KEY UPDATE value_json = VALUES(value_json)", [key, JSON.stringify(value)]);
     check(stripeKeysReady(await getStripeSettings()), "Saved encrypted settings must load without environment credentials");
+    const publicSettings = await getPublicStripeConfiguration();
+    check(publicSettings.enabled && publicSettings.publishableKey === settings["stripe.publishable_key"] && Object.keys(publicSettings).sort().join(",") === "enabled,publishableKey", "Server-rendered payment settings expose only the current publishable key and availability");
+    check(!JSON.stringify(publicSettings).includes(fixtureSecret) && !JSON.stringify(publicSettings).includes(signingSecret), "Payment preloading never exposes secret keys or webhook credentials");
+    await executeMutation("UPDATE site_settings SET value_json = 'false' WHERE setting_key = 'stripe.enabled'");
+    check(!(await getPublicStripeConfiguration()).enabled && (await getPublicStripeConfiguration()).publishableKey === null, "Disabling payment removes the public initialization key");
+    await executeMutation("UPDATE site_settings SET value_json = 'true' WHERE setting_key = 'stripe.enabled'");
     check(!settings["stripe.secret_key_encrypted"].includes(fixtureSecret), "Database ciphertext must not contain secret key plaintext");
     const stripe = new Stripe(fixtureSecret);
     const payload = JSON.stringify({ id: "evt_signature", object: "event", type: "payment_intent.succeeded", data: { object: intent(order.id) } });

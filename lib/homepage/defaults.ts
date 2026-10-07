@@ -98,6 +98,34 @@ export const defaultHomepageConfiguration: HomepageConfiguration = {
     description: homeContent.reviewsSection.description,
     reviews: homeContent.reviews,
   },
+  faqs: {
+    eyebrow: "A little guidance",
+    titleLead: "Considered",
+    titleAccent: "answers",
+    description: "From finding your signature scent to caring for your collection, a few helpful details before you choose.",
+    items: [
+      {
+        question: "How do I choose a fragrance that suits me?",
+        answer: "Start with the notes you enjoy, whether fresh, floral, woody or warm. Explore the fragrance notes and descriptions on each product page, or contact our team for help narrowing down your choice.",
+      },
+      {
+        question: "What is the difference between originals and recreations?",
+        answer: "Originals are distinct compositions in the Yusuf Bhai collection. Recreations are independent interpretations of familiar scent profiles. Each product page includes details to help you explore the fragrance.",
+      },
+      {
+        question: "Where can I find delivery information?",
+        answer: "Visit our Shipping & Returns page for delivery information. The available delivery methods, charges and estimated times for your address are confirmed at checkout.",
+      },
+      {
+        question: "How should I store my fragrance?",
+        answer: "Keep your fragrance in a cool, dry place, away from direct sunlight and heat. Close the cap after use and avoid storing the bottle somewhere with frequent temperature changes.",
+      },
+      {
+        question: "How can I get help with my order?",
+        answer: "Visit our Contact page and select the topic that best matches your enquiry. Include your order number when asking about an existing order so our team can help you.",
+      },
+    ],
+  },
   features: {
     items: [
       { title: "Reliable Delivery", subtitle: "Options confirmed at checkout" },

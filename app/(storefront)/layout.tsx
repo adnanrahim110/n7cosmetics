@@ -5,14 +5,18 @@ import { getPublicSiteSettings } from "@/lib/commerce/settings";
 import { getGlobalStorefrontContent } from "@/lib/commerce/homepage";
 import { getStorefrontProductLabels } from "@/lib/commerce/catalog";
 import { getStorefrontStock } from "@/lib/commerce/stock-data";
+import { getPublicStripeConfiguration } from "@/lib/payments/settings";
+import StripeRuntimeProvider from "@/components/commerce/StripeRuntimeProvider";
 
 export const dynamic = "force-dynamic";
 
 export default async function StorefrontLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const [settings, content, productLabels, stock] = await Promise.all([getPublicSiteSettings(), getGlobalStorefrontContent(), getStorefrontProductLabels(), getStorefrontStock()]);
+  const [settings, content, productLabels, stock, paymentConfig] = await Promise.all([getPublicSiteSettings(), getGlobalStorefrontContent(), getStorefrontProductLabels(), getStorefrontStock(), getPublicStripeConfiguration()]);
   return (
     <SmoothScroller>
-      <AppShell footerContent={content.footer} headerContent={content.header} productLabels={productLabels} initialStock={stock} settings={settings}>{children}</AppShell>
+      <StripeRuntimeProvider initialConfig={paymentConfig}>
+        <AppShell footerContent={content.footer} headerContent={content.header} productLabels={productLabels} initialStock={stock} settings={settings}>{children}</AppShell>
+      </StripeRuntimeProvider>
     </SmoothScroller>
   );
 }
