@@ -4,11 +4,13 @@ import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import ProductGallery from "@/components/commerce/ProductGallery";
 import ProductReviews from "@/components/commerce/ProductReviews";
 import ProductInformationAccordion from "@/components/commerce/product-page/ProductInformationAccordion";
+import ProductReturnsSummary from "@/components/commerce/product-page/ProductReturnsSummary";
 import Title from "@/components/ui/Title";
 import RatingStars from "@/components/commerce/RatingStars";
 import { getStorefrontBundle } from "@/lib/commerce/bundles";
 import { getProductReviewSummary } from "@/lib/commerce/reviews";
 import { productStructuredData, structuredDataJson } from "@/lib/commerce/seo";
+import { pageMetadata } from "@/lib/metadata";
 import { ArrowLeft, BadgeCheck, Check, Clock3, PackageCheck, ShieldCheck, Truck } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -21,41 +23,20 @@ interface BundlePageProps {
   params: Promise<{ slug: string }>;
 }
 
-function absoluteUrl(path: string): string {
-  const fallback = "https://n7cosmetics.co.uk";
-  try {
-    return new URL(path, process.env.APP_URL || fallback).toString();
-  } catch {
-    return new URL(path, fallback).toString();
-  }
-}
-
 function money(pence: number): string {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 }
 
 export async function generateMetadata({ params }: BundlePageProps): Promise<Metadata> {
   const bundle = await getStorefrontBundle((await params).slug);
-  if (!bundle) return {};
-  const description = bundle.seoDescription ?? bundle.shortDescription ?? bundle.description ?? undefined;
-  const image = bundle.images[0] ? absoluteUrl(bundle.images[0].url) : null;
-  return {
+  if (!bundle) notFound();
+  const description = bundle.seoDescription ?? bundle.shortDescription ?? bundle.description ?? `Explore the ${bundle.name} fragrance bundle from N7 Cosmetics in the UK.`;
+  return pageMetadata({
     title: bundle.seoTitle ?? `${bundle.name} | N7 Cosmetics`,
     description,
-    alternates: { canonical: `/bundles/${bundle.slug}` },
-    openGraph: {
-      title: bundle.seoTitle ?? bundle.name,
-      description,
-      type: "website",
-      images: image ? [{ url: image, alt: bundle.images[0].alt }] : [],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: bundle.seoTitle ?? bundle.name,
-      description,
-      images: image ? [image] : [],
-    },
-  };
+    path: `/bundles/${bundle.slug}`,
+    image: bundle.images[0],
+  });
 }
 
 export default async function BundlePage({ params }: BundlePageProps) {
@@ -157,7 +138,8 @@ export default async function BundlePage({ params }: BundlePageProps) {
                   <dl className="grid grid-cols-2 gap-x-5 gap-y-3 pb-5 text-sm"><div><dt className="text-black/38">Format</dt><dd className="mt-1">{bundle.variantTitle}</dd></div><div><dt className="text-black/38">Products</dt><dd className="mt-1">{bundle.components.reduce((total, component) => total + component.quantity, 0)} included</dd></div>{bundle.weightGrams ? <div><dt className="text-black/38">Pack weight</dt><dd className="mt-1">{bundle.weightGrams} g</dd></div> : null}</dl>
                 </ProductInformationAccordion>
                 <ProductInformationAccordion title="Delivery & returns">
-                  <p className="pb-5 text-sm font-light leading-7 text-black/58">Delivery options are calculated at checkout. For returns eligibility and timeframes, see our <Link className="text-[#7a5825] underline underline-offset-4" href="/shipping-returns">shipping and returns policy</Link>.</p>
+                  <p className="pb-4 text-sm font-light leading-7 text-black/58">Delivery options are calculated at checkout.</p>
+                  <ProductReturnsSummary className="pb-4 text-sm leading-7" />
                 </ProductInformationAccordion>
               </div>
             </div>

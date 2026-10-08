@@ -78,7 +78,12 @@ const navigationItem = z.object({
   type: z.enum(["link", "mega", "dropdown"]),
   items: z.array(navigationSubItem).max(20),
 });
-const review = z.object({ text: text(1000), author: text(120) });
+const review = z.object({
+  text: text(1000),
+  author: text(120),
+  product: optionalText(120).optional(),
+  rating: z.number().min(1).max(5).optional(),
+});
 const footerLink = z.object({ label: text(120), href: link });
 interface ProductSlugRow extends RowDataPacket {
   slug: string;

@@ -1,5 +1,7 @@
 "use client";
 
+import { productImageAlt } from "@/lib/commerce/product-image";
+
 import { ArrowRight } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import * as motion from "motion/react-m";
@@ -153,7 +155,7 @@ export default function FragranceOfWeek({
             <div className="absolute -inset-12 z-10">
               <Image
                 src={product.image}
-                alt={`${product.name} fragrance bottle`}
+                alt={productImageAlt(product)}
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-contain drop-shadow-[0_38px_28px_rgba(75,48,22,0.24)] transition-transform duration-700 group-hover:-translate-y-2 group-hover:scale-[1.025]"

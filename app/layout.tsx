@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import "./globals.css";
 import MotionProvider from "@/components/layout/MotionProvider";
+import { pageMetadata } from "@/lib/metadata";
 
 const siteUrl = (process.env.APP_URL || "https://n7cosmetics.co.uk").replace(
   /\/$/,
@@ -40,27 +41,16 @@ const kindred = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: "N7 Cosmetics | Luxury Signature Fragrances",
-  description:
-    "Discover the pinnacle of luxury perfumery. Handcrafted signature fragrances, exquisite recreations, and curated collections designed for distinct personalities.",
-  keywords: [
-    "luxury perfume",
-    "fragrance",
-    "N7 Cosmetics",
-    "signature scent",
-    "cologne",
-    "parfum",
-    "UK perfumes",
-  ],
-  openGraph: {
+  ...pageMetadata({
     title: "N7 Cosmetics | Luxury Signature Fragrances",
     description:
-      "Discover the pinnacle of luxury perfumery. Handcrafted signature fragrances.",
-    url: siteUrl,
-    siteName: "N7 Cosmetics",
-    locale: "en_GB",
-    type: "website",
+      "Discover the pinnacle of luxury perfumery. Handcrafted signature fragrances, exquisite recreations, and curated collections designed for distinct personalities.",
+    path: "/",
+  }),
+  metadataBase: new URL(siteUrl),
+  alternates: null,
+  verification: {
+    google: "x3NyolxUdMKJ6dVQVCYDseHpWVGMlBYfE3_W-TTnLEc",
   },
 };
 

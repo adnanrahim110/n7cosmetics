@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/metadata";
 import {
   ArrowDown,
   Mail,
@@ -12,12 +13,12 @@ import SocialMediaLinks from "@/components/ui/SocialMediaLinks";
 import Title from "@/components/ui/Title";
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/contact" },
+export const metadata: Metadata = pageMetadata({
+  path: "/contact",
   title: "Contact N7 Cosmetics | Customer Care",
   description:
     "Contact N7 Cosmetics for order support, delivery and return questions, product advice, or business enquiries.",
-};
+});
 
 export default async function ContactPage() {
   const settings = await getPublicSiteSettings();

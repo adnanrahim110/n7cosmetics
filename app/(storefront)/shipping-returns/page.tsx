@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/metadata";
 import {
   LegalContactCard,
-  LegalList,
   LegalPage,
   LegalSection,
 } from "@/components/legal/LegalPage";
+import ReturnsPolicySection from "@/components/legal/ReturnsPolicySection";
+import PrivacyMarketingSection from "@/components/legal/PrivacyMarketingSection";
 import {
   formatDeliveryEstimate,
   formatPolicyMoney,
@@ -12,17 +14,17 @@ import {
 } from "@/lib/commerce/legal";
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/shipping-returns" },
+export const metadata: Metadata = pageMetadata({
+  path: "/shipping-returns",
   title: "Shipping & Returns | N7 Cosmetics",
   description:
     "Read N7 Cosmetics delivery times, shipping charges, returns conditions, and customer support information.",
-};
+});
 
 const navigation = [
   { href: "#shipping", label: "Shipping policy" },
-  { href: "#returns", label: "Returns policy" },
-  { href: "#marketing", label: "Marketing consent" },
+  { href: "#returns", label: "Returns & refunds" },
+  { href: "#marketing", label: "Privacy & marketing" },
   { href: "#help", label: "Need help?" },
 ] as const;
 
@@ -109,34 +111,8 @@ export default async function ShippingReturnsPage() {
         )}
       </LegalSection>
 
-      <LegalSection id="returns" number="02" title="Returns policy">
-        <p>
-          If you are not satisfied with your purchase, we offer a simple return
-          process. Please note the following conditions:
-        </p>
-        <LegalList>
-          <li>
-            Items must be returned in their original condition, unopened and
-            unused, within 30 days of receiving the product.
-          </li>
-          <li>
-            The customer is responsible for return postage costs unless the
-            item received was damaged or incorrect.
-          </li>
-        </LegalList>
-        <p>
-          Contact our team before sending a return so we can confirm the next
-          steps and help your return reach the correct destination.
-        </p>
-      </LegalSection>
-
-      <LegalSection id="marketing" number="03" title="Consent for marketing">
-        <p>
-          By completing your purchase, you consent to the collection and
-          storage of your data for marketing purposes. We respect your privacy
-          and protect your data in line with GDPR requirements.
-        </p>
-      </LegalSection>
+      <ReturnsPolicySection email={settings.email || "info@n7cosmetics.co.uk"} />
+      <PrivacyMarketingSection />
 
       <LegalSection id="help" number="04" title="Questions and support">
         <LegalContactCard

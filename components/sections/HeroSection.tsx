@@ -1,5 +1,7 @@
 "use client";
 
+import { productImageAlt } from "@/lib/commerce/product-image";
+
 import { ArrowRight } from "lucide-react";
 import { AnimatePresence, useReducedMotion } from "motion/react";
 import * as motion from "motion/react-m";
@@ -358,7 +360,7 @@ const HeroSection = ({
             >
               <Image
                 src={activeProduct.image}
-                alt={`${activeProduct.name} fragrance bottle`}
+                alt={productImageAlt(activeProduct)}
                 width={576}
                 height={1023}
                 sizes="(max-width: 640px) 72vw, (max-width: 1024px) 56vw, 48vw"

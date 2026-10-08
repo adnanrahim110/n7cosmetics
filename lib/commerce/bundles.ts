@@ -2,6 +2,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import { selectRows } from "@/lib/db/query";
 import { hasDatabaseConfig } from "@/lib/env";
 import { getStorefrontProduct, type StorefrontProduct } from "./catalog";
+import { productImageAlt } from "./product-image";
 
 export interface StorefrontBundleComponent {
   productId: string;
@@ -88,7 +89,7 @@ export async function getStorefrontBundle(slug: string): Promise<StorefrontBundl
       trackInventory: Boolean(row.track_inventory),
       quantity: Number(row.quantity),
       image: row.image_url,
-      imageAlt: row.image_alt ?? `${row.name} product image`,
+      imageAlt: productImageAlt({ name: row.name, productCode: row.product_code }, row.image_alt),
     })),
   };
 }

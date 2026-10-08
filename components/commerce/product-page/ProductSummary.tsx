@@ -106,7 +106,7 @@ export default function ProductSummary({
             href="#reviews"
             className="relative text-stone-600 underline transition-colors after:absolute after:inset-x-0 after:-inset-y-4 hover:text-black focus-visible:ring-2 focus-visible:ring-stone-700 motion-reduce:transition-none"
           >
-            {reviews.totalReviews} verified{" "}
+            {reviews.totalReviews}{" "}
             {reviews.totalReviews === 1 ? "review" : "reviews"}
           </a>
         </div>

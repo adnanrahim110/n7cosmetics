@@ -7,7 +7,8 @@ import CollectionHero from "@/components/collections/CollectionHero";
 import { collectionDesigns } from "@/components/collections/collection-config";
 import { getCategoryPage } from "@/lib/commerce/collections";
 import { categoryHref } from "@/lib/commerce/category-config";
-import { storefrontUrl } from "@/lib/commerce/seo";
+import { productImageAlt } from "@/lib/commerce/product-image";
+import { pageMetadata } from "@/lib/metadata";
 
 type PageProps = { params: Promise<{ collectionSlug: string; categorySlug: string }> };
 const loadPage = cache(getCategoryPage);
@@ -17,15 +18,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const page = await loadPage(collectionSlug, categorySlug);
   if (!page) notFound();
   const title = page.category.seo_title || `${page.category.name} | ${page.category.collection_name} | N7 Cosmetics`;
-  const description = page.category.seo_description || page.category.description || page.collection.intro || undefined;
-  const image = page.collection.heroProducts?.[0]?.image || page.collection.products[0]?.image;
-  return {
+  const description = page.category.seo_description || page.category.description || page.collection.intro || `Explore ${page.category.name} fragrances in the ${page.category.collection_name} collection at N7 Cosmetics.`;
+  const imageProduct = page.collection.heroProducts?.find(product => product.image) || page.collection.products.find(product => product.image);
+  return pageMetadata({
     title,
     description,
-    alternates: { canonical: categoryHref(collectionSlug, categorySlug) },
-    openGraph: { title, description, url: categoryHref(collectionSlug, categorySlug), type: "website", ...(image ? { images: [{ url: storefrontUrl(image), alt: page.category.name }] } : {}) },
-    twitter: { card: "summary_large_image", title, description, ...(image ? { images: [storefrontUrl(image)] } : {}) },
-  };
+    path: categoryHref(collectionSlug, categorySlug),
+    image: imageProduct ? { url: imageProduct.image, alt: productImageAlt(imageProduct) } : undefined,
+  });
 }
 
 export default async function CategoryPage({ params }: PageProps) {

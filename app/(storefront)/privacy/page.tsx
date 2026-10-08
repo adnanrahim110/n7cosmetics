@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/metadata";
 import {
   LegalContactCard,
   LegalPage,
@@ -6,12 +7,12 @@ import {
 } from "@/components/legal/LegalPage";
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/privacy" },
+export const metadata: Metadata = pageMetadata({
+  path: "/privacy",
   title: "Privacy Policy | N7 Cosmetics",
   description:
     "Learn how N7 Cosmetics collects, uses, retains, and protects personal information and how to exercise your data rights.",
-};
+});
 
 const navigation = [
   { href: "#who-we-are", label: "Who we are" },

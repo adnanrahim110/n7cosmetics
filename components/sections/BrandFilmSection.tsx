@@ -9,7 +9,13 @@ import { useEffect, useRef, useState } from "react";
 import Title from "@/components/ui/Title";
 import type { BrandFilmContent } from "@/lib/homepage/types";
 import { scheduleAfterLoad } from "@/lib/browser/schedule-after-load";
-import { optimisedVideoSource, videoPoster } from "@/lib/media/storefront-assets";
+import {
+  brandFilmMobileMediaQuery,
+  brandFilmPortraitMediaQuery,
+  brandFilmVideoSource,
+  videoPoster,
+  type BrandFilmViewport,
+} from "@/lib/media/storefront-assets";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -17,13 +23,30 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const shouldReduceMotion = useReducedMotion();
   const [videoEnabled, setVideoEnabled] = useState(false);
+  const [videoViewport, setVideoViewport] = useState<BrandFilmViewport | null>(null);
   const poster = videoPoster(film.video);
+  const videoSource = videoViewport ? brandFilmVideoSource(film.video, videoViewport) : undefined;
 
   useEffect(() => scheduleAfterLoad(() => setVideoEnabled(true)), []);
 
   useEffect(() => {
+    const mobile = window.matchMedia(brandFilmMobileMediaQuery);
+    const portrait = window.matchMedia(brandFilmPortraitMediaQuery);
+    const updateViewport = () => setVideoViewport(
+      mobile.matches ? portrait.matches ? "mobile-portrait" : "mobile-landscape" : "desktop",
+    );
+    updateViewport();
+    mobile.addEventListener("change", updateViewport);
+    portrait.addEventListener("change", updateViewport);
+    return () => {
+      mobile.removeEventListener("change", updateViewport);
+      portrait.removeEventListener("change", updateViewport);
+    };
+  }, []);
+
+  useEffect(() => {
     const video = videoRef.current;
-    if (!video || (poster && !videoEnabled)) return;
+    if (!video || !videoSource || (poster && !videoEnabled)) return;
 
     if (shouldReduceMotion) {
       video.pause();
@@ -45,7 +68,7 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
     observer.observe(video);
     document.addEventListener("visibilitychange", visibilityChanged);
     return () => { observer.disconnect(); document.removeEventListener("visibilitychange", visibilityChanged); video.pause(); };
-  }, [shouldReduceMotion, videoEnabled, film.video, poster]);
+  }, [shouldReduceMotion, videoEnabled, film.video, poster, videoSource]);
 
   return (
     <section
@@ -55,7 +78,7 @@ export default function BrandFilmSection({ film }: { film: BrandFilmContent }) {
       {poster ? <link rel="preload" as="image" href={poster} fetchPriority="high" /> : null}
       <video
         ref={videoRef}
-        src={!poster || (videoEnabled && !shouldReduceMotion) ? optimisedVideoSource(film.video) : undefined}
+        src={!poster || (videoEnabled && !shouldReduceMotion) ? videoSource : undefined}
         poster={poster}
         muted
         loop

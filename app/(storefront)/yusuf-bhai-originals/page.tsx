@@ -2,12 +2,13 @@ import CollectionCatalog from "@/components/collections/CollectionCatalog";
 import ProductHero from "@/components/collections/CollectionHero";
 import { collectionDesigns } from "@/components/collections/collection-config";
 import { getCollectionPage } from "@/lib/commerce/collections";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata = {
-  alternates: { canonical: "/yusuf-bhai-originals" },
+export const metadata = pageMetadata({
+  path: "/yusuf-bhai-originals",
   title: "Yusuf Bhai Originals | N7 Cosmetics",
   description: "Explore 21 original Yusuf Bhai fragrances across the Noble, Teeb and Deja Vu collections, available from N7 Cosmetics in the UK.",
-};
+});
 
 export default async function YusufBhaiOriginalsPage() {
   const collection = await getCollectionPage("originals");

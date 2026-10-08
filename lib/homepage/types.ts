@@ -152,6 +152,7 @@ export interface FaqsContent {
 export interface ReviewContent {
   text: string;
   author: string;
+  product?: string;
   rating?: number;
 }
 export interface ReviewsContent {

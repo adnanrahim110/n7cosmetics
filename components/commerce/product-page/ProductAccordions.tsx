@@ -1,5 +1,6 @@
 import { useId } from "react";
 import ProductInformationAccordion from "./ProductInformationAccordion";
+import ProductReturnsSummary from "./ProductReturnsSummary";
 
 type AccordionSection = {
   heading?: string;
@@ -31,13 +32,6 @@ const accordions: readonly ProductAccordion[] = [
         heading: "Fast & Reliable UK Delivery",
         paragraphs: [
           "At N7 Cosmetics, we strive to dispatch all orders quickly and securely to ensure your fragrances arrive in perfect condition. Orders are typically processed within 1–2 business days, with delivery times varying depending on location and courier services.",
-        ],
-      },
-      {
-        heading: "Returns Policy",
-        paragraphs: [
-          "Due to the nature of fragrance and cosmetic products, opened or used items cannot be returned for hygiene and safety reasons. If you receive a damaged, defective, or incorrect item, please contact our support team within 48 hours of delivery with photographs of the product and packaging.",
-          "We are committed to customer satisfaction and will review each case individually to provide a suitable resolution. For assistance regarding orders, shipping updates, or returns, please contact our customer support team through our Contact Us page.",
         ],
       },
     ],
@@ -83,6 +77,7 @@ export default function ProductAccordions() {
                 </div>
               </div>
             ))}
+            {title === "Shipping & returns" ? <ProductReturnsSummary /> : null}
           </div>
         </ProductInformationAccordion>
       ))}

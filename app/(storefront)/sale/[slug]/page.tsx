@@ -5,7 +5,8 @@ import Title from "@/components/ui/Title";
 import { getActiveSalePage } from "@/lib/commerce/sales";
 import type { Metadata } from "next";
 import { cache } from "react";
-import { storefrontUrl } from "@/lib/commerce/seo";
+import { productImageAlt } from "@/lib/commerce/product-image";
+import { pageMetadata } from "@/lib/metadata";
 
 const loadSale = cache(getActiveSalePage);
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -14,10 +15,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!sale) notFound();
   const title = `${sale.saleName} | N7 Cosmetics`;
   const description = sale.intro || "Explore a limited-time fragrance offer from N7 Cosmetics, available only while stock lasts.";
-  const image = sale.heroProducts?.[0]?.image || sale.products[0]?.image;
-  return { title, description, alternates: { canonical: `/sale/${slug}` },
-    openGraph: { title, description, url: `/sale/${slug}`, type: "website", ...(image ? { images: [storefrontUrl(image)] } : {}) },
-    twitter: { card: "summary_large_image", title, description, ...(image ? { images: [storefrontUrl(image)] } : {}) } };
+  const imageProduct = sale.heroProducts?.find(product => product.image) || sale.products.find(product => product.image);
+  return pageMetadata({
+    title,
+    description,
+    path: `/sale/${slug}`,
+    image: imageProduct ? { url: imageProduct.image, alt: productImageAlt(imageProduct) } : undefined,
+  });
 }
 
 export default async function SalePage({

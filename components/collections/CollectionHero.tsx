@@ -1,5 +1,7 @@
 "use client";
 
+import { productImageAlt } from "@/lib/commerce/product-image";
+
 import type { StorefrontCollectionPageContent } from "@/lib/storefront-pages/config";
 import { ArrowDown } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
@@ -246,7 +248,7 @@ export default function ProductHero({
                   <div className="relative mx-auto h-44 w-[70%]">
                     <Image
                       src={featuredProduct.image}
-                      alt={featuredProduct.name}
+                      alt={productImageAlt(featuredProduct)}
                       fill
                       priority
                       sizes="(width < 640px) 65vw, 1px"
@@ -320,7 +322,7 @@ export default function ProductHero({
                   <div className="relative size-full">
                     <Image
                       src={featuredProduct.image}
-                      alt={featuredProduct.name}
+                      alt={productImageAlt(featuredProduct)}
                       fill
                       priority
                       sizes="(max-width: 1024px) 70vw, 30vw"
@@ -367,7 +369,7 @@ export default function ProductHero({
                       <div className="relative size-full">
                         <Image
                           src={product.image}
-                          alt={product.name}
+                          alt={productImageAlt(product)}
                           fill
                           priority
                           sizes="(max-width: 1024px) 43vw, 19vw"
@@ -427,7 +429,7 @@ export default function ProductHero({
                       <div className="relative size-full">
                         <Image
                           src={featuredProduct.image}
-                          alt={featuredProduct.name}
+                          alt={productImageAlt(featuredProduct)}
                           fill
                           priority
                           sizes="(max-width: 1024px) 42vw, 21vw"
@@ -470,7 +472,7 @@ export default function ProductHero({
                           <div className="relative size-full">
                             <Image
                               src={product.image}
-                              alt={product.name}
+                              alt={productImageAlt(product)}
                               fill
                               priority
                               sizes="(max-width: 1024px) 22vw, 10vw"

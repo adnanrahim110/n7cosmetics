@@ -3,8 +3,21 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { newsletterTokenValid } from "@/lib/email/newsletter";
 import { manageNewsletterAction } from "../actions";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = { title: "N7 fragrance updates", robots: { index: false, follow: false }, referrer: "no-referrer" };
+export async function generateMetadata({ params }: { params: Promise<{ action: string }> }): Promise<Metadata> {
+  const { action } = await params;
+  if (action !== "confirm" && action !== "unsubscribe") notFound();
+  return pageMetadata({
+    title: `${action === "confirm" ? "Confirm fragrance updates" : "Unsubscribe from fragrance updates"} | N7 Cosmetics`,
+    description: action === "confirm"
+      ? "Confirm your subscription to N7 Cosmetics fragrance updates and offers."
+      : "Manage your subscription to N7 Cosmetics fragrance updates and offers.",
+    path: `/newsletter/${action}`,
+    robots: { index: false, follow: false },
+    referrer: "no-referrer",
+  });
+}
 
 export default async function NewsletterPage({ params, searchParams }: { params: Promise<{ action: string }>; searchParams: Promise<{ token?: string; result?: string }> }) {
   const { action } = await params;

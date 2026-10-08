@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/cn";
 import type { ProductCardDetails } from "@/lib/commerce/product-card";
+import { productImageAlt } from "@/lib/commerce/product-image";
 import { Heart } from "lucide-react";
 import { useAnimate, useReducedMotion } from "motion/react";
 import Image from "next/image";
@@ -17,6 +18,7 @@ export interface ProductCardProduct extends Partial<ProductCardDetails> {
   href?: string;
   name: string;
   image: string;
+  imageAlt?: string;
   price: string;
   pricePence: number;
   rating: number;
@@ -156,7 +158,7 @@ export default function ProductCard({ product, cartAction }: { product: ProductC
             )}>
               <Image
                 src={product.image}
-                alt={product.name}
+                alt={productImageAlt({ ...product, productType: href.startsWith("/bundles/") ? "BUNDLE" : "STANDARD" }, product.imageAlt)}
                 fill
                 sizes="(max-width: 639px) calc(50vw - 40px), (max-width: 1023px) calc(50vw - 32px), 280px"
                 className={cn("object-contain drop-shadow-[0_18px_18px_rgba(48,33,19,0.2)] card-desktop:p-0 card-desktop:drop-shadow-none", soldOut && "opacity-55", productCode ? "px-3 pt-3 pb-12" : "p-3")}
@@ -187,7 +189,7 @@ export default function ProductCard({ product, cartAction }: { product: ProductC
               aria-label={`${wishlisted ? "Remove" : "Add"} ${product.name} ${wishlisted ? "from" : "to"} wishlist`}
               aria-pressed={wishlisted}
               className={cn(
-                "pointer-events-auto absolute right-0 top-0 grid size-11 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#967C55] card-desktop:static card-desktop:size-10 motion-reduce:transition-none",
+                "pointer-events-auto absolute right-0 top-0 grid size-11 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#967C55] card-desktop:relative card-desktop:size-10 motion-reduce:transition-none",
                 !soldOut && "card-desktop:translate-x-3.5 card-desktop:opacity-0 card-desktop:transition-all card-desktop:duration-500 card-desktop:delay-100 card-desktop:ease-[0.65,0,0.35,1] card-desktop:group-hover:translate-x-0 card-desktop:group-hover:opacity-100 card-desktop:group-focus-within:translate-x-0 card-desktop:group-focus-within:opacity-100 card-desktop:focus-visible:translate-x-0 card-desktop:focus-visible:opacity-100",
               )}
             >

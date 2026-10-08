@@ -19,17 +19,21 @@ import {
 import { CollectionComingSoonCard } from "./CollectionComingSoonCard";
 import CollectionControls from "./CollectionControls";
 import CollectionLoadingControls from "./CollectionLoadingControls";
+import CollectionPagination from "./CollectionPagination";
+import type { CollectionPagination as Pagination } from "@/lib/commerce/collection-pagination";
 
 interface CollectionCatalogProps {
   collection: StorefrontCollectionPageContent;
   design: CollectionDesign;
   shouldReduceMotion?: boolean | null;
+  pagination?: Pagination;
 }
 
 export default function CollectionCatalog({
   collection,
   design,
   shouldReduceMotion: shouldReduceMotionOverride,
+  pagination,
 }: CollectionCatalogProps) {
   const prefersReducedMotion = useReducedMotion();
   const shouldReduceMotion =
@@ -45,7 +49,8 @@ export default function CollectionCatalog({
   const [sortBy, setSortByState] = useState<SortOption>("name");
   const [visibleCount, setVisibleCount] = useState(productBatchSize);
   const isBundle = collection.slug === "bundles";
-  const usesInfiniteScroll = collection.products.length > productBatchSize;
+  const usesPagination = Boolean(pagination) && !selectedCategories.length && !selectedPriceBands.length && !query.trim() && sortBy === "name";
+  const usesInfiniteScroll = !usesPagination && collection.products.length > productBatchSize;
   const showCollectionControls =
     collection.products.length >= 12 &&
     collection.slug !== "bundles" &&
@@ -91,7 +96,9 @@ export default function CollectionCatalog({
     sortBy,
   ]);
 
-  const visibleProducts = filteredProducts.slice(0, visibleCount);
+  const visibleProducts = usesPagination && pagination
+    ? filteredProducts.slice(pagination.offset, pagination.end)
+    : filteredProducts.slice(0, visibleCount);
 
   useEffect(() => {
     const trigger = infiniteScrollTriggerRef.current;
@@ -138,7 +145,7 @@ export default function CollectionCatalog({
     setSelectedCategoriesState([]);
     setSelectedPriceBandsState([]);
     setQueryState("");
-    setSortByState("featured");
+    setSortByState(pagination ? "name" : "featured");
     resetVisibleProducts();
   };
 
@@ -213,7 +220,7 @@ export default function CollectionCatalog({
 
         <AnimatePresence mode="popLayout">
           <motion.div
-            key={`${selectedCategories.join(".")}-${selectedPriceBands.join(".")}-${query}-${sortBy}`}
+            key={`${selectedCategories.join(".")}-${selectedPriceBands.join(".")}-${query}-${sortBy}-${pagination?.page ?? 1}`}
             layout
             className={`grid grid-cols-2 gap-5 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-18 md:gap-x-8 lg:grid-cols-3 lg:gap-x-10 lg:gap-y-22 xl:grid-cols-4 ${isBundle ? "xl:grid-cols-3" : ""}`}
           >
@@ -298,7 +305,9 @@ export default function CollectionCatalog({
           </motion.div>
         </AnimatePresence>
 
-        <CollectionLoadingControls
+        {usesPagination && pagination ? (
+          <CollectionPagination pagination={pagination} pathname="/recreations" />
+        ) : <CollectionLoadingControls
           usesInfiniteScroll={usesInfiniteScroll}
           visibleCount={visibleCount}
           totalCount={filteredProducts.length}
@@ -308,7 +317,7 @@ export default function CollectionCatalog({
           onLoadMore={() =>
             setVisibleCount((count) => count + productBatchSize)
           }
-        />
+        />}
       </div>
     </section>
   );

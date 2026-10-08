@@ -3,6 +3,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import { selectOne, selectRows } from "@/lib/db/query";
 import { hasDatabaseConfig } from "@/lib/env";
 import { readScentProfile, type ScentProfile } from "./scent-profile";
+import { productImageAlt } from "./product-image";
 
 export interface ProductNoteGroups {
   top: string[];
@@ -175,7 +176,10 @@ export async function getStorefrontProduct(slug: string, expectedType: "STANDARD
       selectRows<ProductImageRow>("SELECT url, alt_text FROM product_images WHERE product_id = ? ORDER BY sort_order, id", [row.id]),
       selectRows<ProductVideoRow>("SELECT url, title FROM product_videos WHERE product_id = ? ORDER BY sort_order, id", [row.id]),
     ]);
-    const images = imageRows.map((image, index) => ({ url: image.url, alt: image.alt_text ?? `${row.name} product image ${index + 1}` }));
+    const images = imageRows.map((image) => ({
+      url: image.url,
+      alt: productImageAlt({ name: row.name, brand: row.brand, productCode: row.product_code, productType: row.product_type }, image.alt_text),
+    }));
     const videos = videoRows.map((video, index) => ({ url: video.url, title: video.title ?? `${row.name} product video ${index + 1}` }));
     if (!images.length) return null;
     const noteGroups = noteGroupsFromJson(row.fragrance_notes_json);
@@ -264,6 +268,6 @@ export async function getRelatedStorefrontProducts(
     ...productCardDetails(row),
     rating: Number(row.average_rating) || 0,
     image: row.image_url,
-    imageAlt: row.image_alt ?? `${row.name} product image`,
+    imageAlt: productImageAlt({ name: row.name, brand: row.brand, productCode: row.product_code }, row.image_alt),
   }));
 }

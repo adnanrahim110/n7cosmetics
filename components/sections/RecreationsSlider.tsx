@@ -1,5 +1,7 @@
 "use client";
 
+import { productImageAlt } from "@/lib/commerce/product-image";
+
 import ViewportSwiper from "@/components/ui/ViewportSwiper";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AnimatePresence, useReducedMotion } from "motion/react";
@@ -161,7 +163,7 @@ export default function RecreationsSlider({
                     }}
                   >
                     <Image
-                      alt={mobileActiveProduct.name}
+                      alt={productImageAlt(mobileActiveProduct)}
                       className="object-contain drop-shadow-[0_28px_24px_rgba(42,28,18,0.22)]"
                       fill
                       sizes="(max-width: 767px) 92vw, 52vw"
@@ -477,7 +479,7 @@ export default function RecreationsSlider({
                           <div className="relative h-[85%] w-full transition-transform duration-1000 ease-[0.65,0,0.35,1] group-hover:scale-110">
                             <Image
                               src={product.image}
-                              alt={product.name}
+                              alt={productImageAlt(product)}
                               fill
                               sizes="(max-width: 640px) 100vw, 50vw"
                               className="object-contain drop-shadow-2xl"

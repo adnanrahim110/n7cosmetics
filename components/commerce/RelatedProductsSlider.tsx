@@ -70,6 +70,7 @@ export default function RelatedProductsSlider({ products }: { products: Storefro
                   slug: product.slug,
                   name: product.name,
                   image: product.image,
+                  imageAlt: product.imageAlt,
                   price: money(product.pricePence),
                   pricePence: product.pricePence,
                   rating: product.rating,

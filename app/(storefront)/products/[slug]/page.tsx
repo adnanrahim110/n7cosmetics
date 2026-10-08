@@ -11,6 +11,7 @@ import { getProductReviewSummary } from "@/lib/commerce/reviews";
 import { productStructuredData, structuredDataJson } from "@/lib/commerce/seo";
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
 import { getPublicPaymentAvailability } from "@/lib/payments/settings";
+import { pageMetadata } from "@/lib/metadata";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -20,43 +21,23 @@ interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
-function absoluteUrl(path: string): string {
-  const fallback = "https://n7cosmetics.co.uk";
-  try {
-    return new URL(path, process.env.APP_URL || fallback).toString();
-  } catch {
-    return new URL(path, fallback).toString();
-  }
-}
-
 export async function generateMetadata({
   params,
 }: ProductPageProps): Promise<Metadata> {
   const product = await getStorefrontProduct((await params).slug);
-  if (!product) return {};
+  if (!product) notFound();
   const description =
     product.seoDescription ??
     product.shortDescription ??
     product.description ??
-    undefined;
-  const image = product.images[0] ? absoluteUrl(product.images[0].url) : null;
-  return {
+    `Explore ${product.name}, available from N7 Cosmetics in the UK.`;
+  const image = product.images[0];
+  return pageMetadata({
     title: product.seoTitle ?? `${product.name} | N7 Cosmetics`,
     description,
-    alternates: { canonical: `/products/${product.slug}` },
-    openGraph: {
-      title: product.seoTitle ?? product.name,
-      description,
-      type: "website",
-      images: image ? [{ url: image, alt: product.images[0].alt }] : [],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: product.seoTitle ?? product.name,
-      description,
-      images: image ? [image] : [],
-    },
-  };
+    path: `/products/${product.slug}`,
+    image,
+  });
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {

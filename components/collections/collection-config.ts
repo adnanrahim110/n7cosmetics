@@ -1,7 +1,8 @@
 import type { CollectionSlug } from "../../content/collections";
+import { collectionPageSize } from "@/lib/commerce/collection-pagination";
 
 export const collectionEase = [0.22, 1, 0.36, 1] as const;
-export const productBatchSize = 12;
+export const productBatchSize = collectionPageSize;
 
 export interface CollectionDesign {
   accent: string;

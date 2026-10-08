@@ -77,7 +77,7 @@ function ZoomableGalleryImage({
           draggable={false}
           fill
           priority={priority}
-          sizes="(max-width: 1024px) 100vw, 52vw"
+          sizes="(max-width: 639px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 64px), (max-width: 1279px) calc(53vw - 60px), 608px"
           src={item.url}
         />
         {loadOriginal ? (

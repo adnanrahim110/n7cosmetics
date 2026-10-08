@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { scheduleAfterLoad } from "../lib/browser/schedule-after-load";
-import { storefrontAssets, optimisedVideoSource, videoPoster } from "../lib/media/storefront-assets";
+import { storefrontAssets, optimisedVideoSource, videoPoster, brandFilmVideoSource } from "../lib/media/storefront-assets";
 import { readPublicStripeConfig, disabledStripeConfig } from "../lib/payments/public-config";
 import { createSharedPaymentLoader } from "../lib/payments/shared-loader";
 
@@ -142,5 +142,18 @@ test("custom admin-selected videos never receive another film's source or poster
   for (const source of ["/media/12345678-1234-1234-1234-123456789012", "https://example.com/custom.mp4", "/videos/another.mp4"]) {
     assert.equal(optimisedVideoSource(source), source);
     assert.equal(videoPoster(source), undefined);
+    assert.equal(brandFilmVideoSource(source, "mobile-portrait"), source);
+    assert.equal(brandFilmVideoSource(source, "mobile-landscape"), source);
   }
+});
+
+test("the homepage film uses matching mobile variants without altering desktop or other films", () => {
+  for (const source of ["/videos/v2.mp4", storefrontAssets.brandFilm]) {
+    assert.equal(brandFilmVideoSource(source, "desktop"), storefrontAssets.brandFilm);
+    assert.equal(brandFilmVideoSource(source, "mobile-portrait"), storefrontAssets.brandFilmMobile);
+    assert.equal(brandFilmVideoSource(source, "mobile-landscape"), storefrontAssets.brandFilmMobileLandscape);
+  }
+  assert.equal(brandFilmVideoSource("/videos/v1.mp4", "mobile-portrait"), storefrontAssets.detailFilm);
+  assert.equal(videoPoster(storefrontAssets.brandFilmMobile), storefrontAssets.brandFilmPoster);
+  assert.equal(videoPoster(storefrontAssets.brandFilmMobileLandscape), storefrontAssets.brandFilmPoster);
 });
