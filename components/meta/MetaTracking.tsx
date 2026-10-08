@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { captureMetaLandingClick, configureMeta, stopMeta, suspendMeta, trackMeta } from "@/lib/meta/client";
 import type { MetaPublicConfig } from "@/lib/meta/shared";
+import { metaCategoryPath } from "@/lib/meta/category-path";
 import { useCommerce } from "@/components/commerce/CommerceProvider";
 
 export default function MetaTracking() {
@@ -59,6 +60,7 @@ export default function MetaTracking() {
     void trackMeta("PageView");
     const match = pathname.match(/^\/(?:products|bundles)\/([a-z0-9-]+)$/);
     if (match) void trackMeta("ViewContent", [{ slug: match[1], quantity: 1 }]);
+    if (metaCategoryPath(pathname)) void trackMeta("ViewCategory");
     if (pathname !== "/checkout") lastCheckout.current = "";
   }, [granted, config?.pixelId, pathname]);
   useEffect(() => {

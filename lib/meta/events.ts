@@ -8,6 +8,7 @@ import { metaCommerceData, metaEventSchema, safeEventPath, type MetaCustomData }
 import { capiReady, type MetaSettings } from "./settings";
 import { metaMatchingCoverage } from "./matching-coverage";
 import { metaExternalId } from "./identity";
+import { resolveMetaCategoryData } from "./category-data";
 
 export interface MetaServerEvent {
   event_name: string; event_id: string; event_time: number; action_source: "website";
@@ -27,6 +28,7 @@ export async function queueMetaEvent(event: MetaServerEvent, settings: MetaSetti
 }
 export async function resolveEventData(input: z.infer<typeof metaEventSchema>): Promise<MetaCustomData> {
   if (["PageView", "Search"].includes(input.name)) return {}; // Never forward free-text searches or URL query strings.
+  if (input.name === "ViewCategory") return resolveMetaCategoryData(input.path);
   if (!input.items.length || new Set(input.items.map(item => item.slug)).size !== input.items.length) throw new Error("Products are required.");
   if (["InitiateCheckout", "AddPaymentInfo"].includes(input.name)) {
     const quote = await calculateCartPricing({ items: input.items, couponCode: input.couponCode || undefined, reservationKey: input.reservationKey });

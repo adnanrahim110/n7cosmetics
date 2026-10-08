@@ -1,6 +1,6 @@
 import type { RowDataPacket } from "mysql2/promise";
-import { selectOne, selectRows } from "@/lib/db/query";
-import { hasDatabaseConfig } from "@/lib/env";
+import { selectOne, selectRows } from "../db/query";
+import { hasDatabaseConfig } from "../env";
 import { categoryCollectionSlugs, categoryHref, isCategoryCollectionSlug } from "./category-config";
 
 export interface CategoryRecord extends RowDataPacket {

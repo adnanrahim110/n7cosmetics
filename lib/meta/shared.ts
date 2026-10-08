@@ -4,10 +4,12 @@ import type { MetaAdvancedMatching } from "./matching";
 
 export const META_API_VERSION = "v26.0";
 export const META_CONSENT_COOKIE = "n7_marketing_consent";
-export const metaEventNames = ["PageView", "ViewContent", "Search", "AddToCart", "InitiateCheckout", "AddPaymentInfo"] as const;
+export const metaEventNames = ["PageView", "ViewContent", "ViewCategory", "Search", "AddToCart", "InitiateCheckout", "AddPaymentInfo"] as const;
 export type MetaEventName = typeof metaEventNames[number];
 export interface MetaCustomData {
   content_type?: "product";
+  content_name?: string;
+  content_category?: string;
   content_ids?: string[];
   contents?: { id: string; quantity: number; item_price: number }[];
   currency?: string;
