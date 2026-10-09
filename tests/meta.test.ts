@@ -10,43 +10,30 @@ import { readMetaJson } from "../lib/meta/http";
 import { metaClickCookie, metaLandingClick, safeMetaPixelLocation } from "../lib/meta/browser-policy";
 import { deliverMetaClientEvent } from "../lib/meta/client-delivery";
 import { metaDeliveryStatus, type MetaDeliveryInput } from "../lib/meta/delivery-status";
-import { captureMetaLandingClick, configureMeta, sendMetaBrowserEvent, stopMeta, suspendMeta, updateMetaMatching } from "../lib/meta/client";
+import { captureMetaLandingClick, configureMeta, sendMetaBrowserEvent, stopMeta, suspendMeta, trackMeta, updateMetaMatching } from "../lib/meta/client";
 import { checkoutMetaMatching, metaMatchingInputSchema } from "../lib/meta/matching-input";
 import { runMetaWorker, type MetaWorkerTasks } from "../lib/meta/worker";
 import { metaCategoryPath } from "../lib/meta/category-path";
-import { prepareMetaPixelMatching, type MetaPixelIdentity } from "../lib/meta/pixel-matching";
+import { prepareMetaPixelMatching } from "../lib/meta/pixel-matching";
 
-test("Anonymous Pixel initialization leaves room for checkout contact data under the SDK's duplicate-init rule", () => {
+test("Changed Pixel snapshots require a fresh document and retain every current hash", () => {
   const externalId = metaExternalId("sdk-matching");
   const email = hashMetaValue("known@example.test"), phone = hashMetaValue("447123456789");
-  let identity: MetaPixelIdentity | undefined;
-  let applied: Record<string, string> = {};
-  let accepted = 0;
-  const apply = (matching: unknown) => {
-    const next = prepareMetaPixelMatching(identity, externalId, matching);
-    assert.ok(next);
-    if (next.initialize) {
-      // Faithfully model the SDK rule: an already nonempty userData object
-      // rejects another init, regardless of whether newer hashes were supplied.
-      assert.equal(Object.keys(applied).length, 0, "Cannot rely on reinitializing a nonempty SDK identity");
-      applied = { ...next.userData }; accepted++;
-    }
-    identity = next.identity;
-  };
-  apply({});
-  assert.deepEqual(applied, {}, "A visitor ID alone must not lock out later contact data");
-  apply({ em: email, ph: phone });
-  assert.deepEqual(applied, { em: email, ph: phone, external_id: externalId });
-  apply({ em: email, ph: phone });
-  assert.equal(accepted, 2, "Identical matching does not trigger duplicate init");
-  apply({ em: email, ph: phone, st: hashMetaValue("greaterlondon") });
-  assert.equal(accepted, 2, "Additional fields are retained by CAPI; another init cannot update the browser snapshot");
-  assert.equal(prepareMetaPixelMatching(identity, externalId, { em: hashMetaValue("other@example.test"), ph: phone }), null);
-  assert.equal(prepareMetaPixelMatching(identity, externalId, {}), null, "Removed contact data must not inherit old SDK hashes");
-  assert.equal(prepareMetaPixelMatching(identity, metaExternalId("different-consent"), { em: email, ph: phone }), null);
+  const anonymous = prepareMetaPixelMatching(undefined, externalId, {});
+  assert.ok(anonymous);
+  assert.deepEqual(anonymous.userData, { external_id: externalId });
+  const first = prepareMetaPixelMatching(anonymous.identity, externalId, { em: email });
+  assert.ok(first?.initialize);
+  const complete = prepareMetaPixelMatching(first.identity, externalId, { em: email, ph: phone });
+  assert.ok(complete?.initialize, "Adding phone must not freeze the earlier email-only profile");
+  assert.deepEqual(complete.userData, { em: email, ph: phone, external_id: externalId });
+  assert.equal(prepareMetaPixelMatching(complete.identity, externalId, { em: email, ph: phone })?.initialize, false);
+  const corrected = prepareMetaPixelMatching(complete.identity, externalId, { em: hashMetaValue("corrected@example.test") });
+  assert.ok(corrected?.initialize);
+  assert.equal(corrected.userData.ph, undefined, "A different buyer never inherits an old phone hash");
+  assert.ok(prepareMetaPixelMatching(corrected.identity, metaExternalId("new-consent"), {})?.initialize);
   assert.equal(prepareMetaPixelMatching(undefined, "unhashed", { em: email }), null);
-  assert.deepEqual(prepareMetaPixelMatching(undefined, externalId, { em: "unhashed" })?.userData, {});
-  assert.deepEqual(prepareMetaPixelMatching(undefined, externalId, { em: email, ph: phone })?.userData, applied, "A new document initializes directly with its full known profile");
+  assert.deepEqual(prepareMetaPixelMatching(undefined, externalId, { em: "unhashed" })?.userData, { external_id: externalId });
 });
 
 test("Category views recognise storefront listings without treating products or private routes as categories", () => {
@@ -161,7 +148,7 @@ test("Checkout matching permits validated contact fields and omits unfinished op
   assert.equal(metaMatchingInputSchema.safeParse({ ...valid, region: "a".repeat(121) }).success, false);
 });
 
-test("Checkout updates manual Pixel matching before an order, without duplicate events or raw storage", async () => {
+test("Checkout persists current matching before an order without pretending to send a Pixel event", async () => {
   const globals = ["location", "document", "window", "localStorage", "fetch"];
   const originals = globals.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
   const calls: unknown[][] = [], bodies: string[] = [];
@@ -194,7 +181,7 @@ test("Checkout updates manual Pixel matching before an order, without duplicate 
     assert.equal(await updateMetaMatching({ email: "invalid" }), false);
     assert.equal(bodies.length, 0);
     assert.equal(await updateMetaMatching(input), true);
-    assert.deepEqual(calls.at(-1), ["init", pixelId, { ...matching, external_id: externalId }]);
+    assert.equal(calls.length, 0, "Saving a profile does not initialize or lock a Pixel SDK instance");
     assert.equal(calls.some(args => args[0] === "trackSingle"), false, "Matching is not a synthetic commerce event");
     assert.equal(JSON.stringify(calls).includes("Person@Example.test"), false);
     assert.equal(await updateMetaMatching(input), true);
@@ -227,17 +214,21 @@ test("Checkout updates manual Pixel matching before an order, without duplicate 
 test("Slower matching updates cannot overwrite newer buyer details", async () => {
   const globals = ["location", "document", "window", "localStorage", "fetch"];
   const originals = globals.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
-  const calls: unknown[][] = [], submitted: string[] = [];
+  const calls: unknown[][] = [], submitted: string[] = [], eventProfiles: string[] = [];
   const pixelId = "888999123", externalId = metaExternalId("matching-sequence");
   let release: () => void = () => undefined;
   let started: () => void = () => undefined;
   const waiting = new Promise<void>(resolve => { release = resolve; });
   const requestStarted = new Promise<void>(resolve => { started = resolve; });
   const values = [
-    { href: "https://n7.test/checkout", hostname: "n7.test", protocol: "https:" }, { referrer: "", cookie: "" },
+    { href: "https://n7.test/checkout", pathname: "/checkout", hostname: "n7.test", protocol: "https:" }, { referrer: "", cookie: "" },
     { fbq: (...args: unknown[]) => calls.push(args), dispatchEvent() {} },
     { length: 0, key: () => null, getItem: () => null },
     async (_url: string, init: RequestInit) => {
+      if (_url === "/api/meta/events") {
+        assert.equal(JSON.parse(String(init.body)).path, "/checkout", "Matching latency cannot change the action's source route");
+        eventProfiles.push(submitted.at(-1) ?? ""); return new Response(null, { status: 204 });
+      }
       const input = metaMatchingInputSchema.parse(JSON.parse(String(init.body)));
       submitted.push(input.email); started();
       if (submitted.length === 1) await waiting;
@@ -249,13 +240,17 @@ test("Slower matching updates cannot overwrite newer buyer details", async () =>
     configureMeta({ enabled: true, pixelId, consent: "granted", externalId });
     const first = updateMetaMatching({ email: "first@example.test" });
     await requestStarted;
+    const event = trackMeta("PageView");
+    Reflect.set(values[0], "pathname", "/cart");
     const second = updateMetaMatching({ email: "second@example.test" });
     const duplicate = updateMetaMatching({ email: "second@example.test" });
     assert.deepEqual(submitted, ["first@example.test"], "The second write waits for the first to commit");
     release();
     assert.deepEqual(await Promise.all([first, second, duplicate]), [false, true, true]);
+    await event;
     assert.deepEqual(submitted, ["first@example.test", "second@example.test"]);
-    assert.deepEqual(calls.at(-1), ["init", pixelId, { em: hashMetaValue("second@example.test"), external_id: externalId }]);
+    assert.deepEqual(eventProfiles, ["second@example.test"], "An event waits for the newest profile even if editing supersedes the write it first awaited");
+    assert.equal(calls.length, 0, "Only events create SDK snapshots; profile updates cannot freeze buyer data");
     assert.equal(calls.some(args => args[0] === "init" && JSON.stringify(args).includes(hashMetaValue("first@example.test"))), false);
   } finally {
     release(); stopMeta();
@@ -276,6 +271,7 @@ test("Click matching uses a real landing fbclid and preserves its arrival time",
   const click = metaLandingClick("https://n7.test/?fbclid=real-click_123", 1700000000000);
   assert.deepEqual(click, { id: "real-click_123", arrivedAt: 1700000000000 });
   assert.equal(metaClickCookie(click!), "fb.1.1700000000000.real-click_123");
+  assert.equal(metaClickCookie(click!, "n7cosmetics.co.uk"), "fb.2.1700000000000.real-click_123");
   for (const url of ["https://n7.test/", "https://n7.test/?fbclid=", "https://n7.test/?fbclid=contains%20spaces", "https://n7.test/?fbclid=" + "a".repeat(501)]) assert.equal(metaLandingClick(url), undefined);
 });
 
@@ -300,9 +296,11 @@ test("Delayed consent retains the landing click across navigation without pre-co
     location.href = "https://n7.test/products/a-fragrance";
     configureMeta({ enabled: true, pixelId: "123456789", consent: "granted", externalId: metaExternalId("visitor-a") });
     assert.equal(cookies.get("_fbc"), "fb.1.1700000000000.real-ad-click");
-    assert.equal(scripts.length, 1);
-    const fbq = Reflect.get(values[2], "fbq") as { queue: unknown[][] };
-    assert.deepEqual(fbq.queue.find(args => args[0] === "init"), ["init", "123456789", {}]);
+    assert.equal(scripts.length, 0, "The parent document does not load a Pixel SDK");
+    assert.match(cookies.get("_fbp") ?? "", /^fb\.1\.\d{13}\.\d+$/);
+    const browserId = cookies.get("_fbp");
+    configureMeta({ enabled: true, pixelId: "123456789", consent: "granted", externalId: metaExternalId("visitor-a"), matching: { em: hashMetaValue("synthetic@example.test") } });
+    assert.equal(cookies.get("_fbp"), browserId, "Matching/config refresh preserves the existing browser identifier");
     stopMeta();
     assert.equal(cookies.has("_fbc"), false);
     configureMeta({ enabled: true, pixelId: "123456789", consent: "granted" });
@@ -313,73 +311,69 @@ test("Delayed consent retains the landing click across navigation without pre-co
   }
 });
 
-test("Pixel applies checkout matching after anonymous events without duplicate init or stale buyer hashes", () => {
+test("Client Pixel snapshots deliver corrected buyers and deduplicate acknowledged purchases", async () => {
   const globals = ["location", "document", "window", "localStorage"];
   const originals = globals.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
-  const calls: unknown[][] = [];
-  let applied: Record<string, unknown> = {};
+  const listeners = new Set<(event: Record<string, unknown>) => void>();
+  const frames: { src: string; hidden: boolean; title: string; tabIndex: number; referrerPolicy: string; contentWindow: { postMessage(message: Record<string, unknown>): void }; remove(): void; snapshot?: Record<string, unknown> }[] = [];
+  const hits: { event: unknown; snapshot: unknown }[] = [];
+  const pixelId = "777123456", externalId = metaExternalId("first-consent");
+  const base = { pixelId, eventId: "view-event", name: "ViewContent" as const, data: { content_ids: ["n7_variant_55"] }, externalId };
+  const doc = {
+    referrer: "", cookie: "",
+    createElement() {
+      const frame = {
+        src: "", hidden: false, title: "", tabIndex: 0, referrerPolicy: "", snapshot: undefined as Record<string, unknown> | undefined,
+        contentWindow: { postMessage(message: Record<string, unknown>) {
+          if (message.type === "n7:meta-pixel-init") {
+            assert.equal(frame.snapshot, undefined, "Each real SDK instance is initialized only once");
+            frame.snapshot = { ...(message.matching as Record<string, unknown>), external_id: message.externalId };
+            emit(frame, "ready");
+          }
+          if (message.type === "n7:meta-pixel-event") {
+            const event = message.event as { eventId: string };
+            hits.push({ event, snapshot: frame.snapshot }); emit(frame, "queued", event.eventId);
+          }
+        } },
+        remove() {},
+      };
+      frames.push(frame); return frame;
+    },
+    body: { appendChild(frame: typeof frames[number]) { queueMicrotask(() => emit(frame, "loaded")); } },
+  };
+  function emit(frame: typeof frames[number], type: string, eventId?: string) {
+    const channel = new URL(frame.src, "https://n7.test").searchParams.get("channel");
+    for (const listener of listeners) listener({ origin: "https://n7.test", source: frame.contentWindow, data: { type: `n7:meta-pixel-${type}`, channel, eventId } });
+  }
   const values = [
-    { href: "https://n7.test/products/meta-test", hostname: "n7.test", protocol: "https:" },
-    { referrer: "", cookie: "" },
-    { fbq: (...args: unknown[]) => {
-      calls.push(args);
-      if (args[0] === "init") {
-        assert.equal(Object.keys(applied).length, 0, "The real SDK rejects replacing nonempty matching data");
-        const data = args[2];
-        assert.ok(data && typeof data === "object" && !Array.isArray(data));
-        applied = { ...data };
-      }
-    }, dispatchEvent() {} },
+    { href: "https://n7.test/checkout", origin: "https://n7.test", hostname: "n7.test", protocol: "https:" }, doc,
+    { dispatchEvent() {}, addEventListener(_type: string, fn: (event: Record<string, unknown>) => void) { listeners.add(fn); }, removeEventListener(_type: string, fn: (event: Record<string, unknown>) => void) { listeners.delete(fn); } },
     { length: 0, key: () => null, getItem: () => null, setItem() {} },
   ];
-  globals.forEach((key, index) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value: values[index] }));
-  const pixelId = "777123456";
-  const firstId = metaExternalId("first-consent"), secondId = metaExternalId("renewed-consent");
-  const event = { pixelId, eventId: "view-event", name: "ViewContent" as const, data: { content_ids: ["n7_variant_55"] }, externalId: firstId };
+  globals.forEach((key, i) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value: values[i] }));
   try {
-    configureMeta({ enabled: true, pixelId, consent: "granted" });
-    assert.equal(calls.some(args => args[0] === "init"), false, "Missing config identity must not initialize an unmatched Pixel");
-    configureMeta({ enabled: true, pixelId, consent: "granted", externalId: firstId });
-    assert.deepEqual(calls.at(-1), ["init", pixelId, {}]);
-    sendMetaBrowserEvent(event);
-    assert.deepEqual(calls.at(-1), ["trackSingle", pixelId, "ViewContent", event.data, { eventID: event.eventId }]);
-    const matching = metaAdvancedMatching(metaMatchData("known@example.test", "07123 456789", { fullName: "Known Buyer", city: "London", region: "Greater London", postalCode: "SW1A 1AA", countryCode: "GB" }));
-    configureMeta({ enabled: true, pixelId, consent: "granted", externalId: firstId, matching });
-    assert.deepEqual(applied, { ...matching, external_id: firstId }, "Checkout contact data actually enters the SDK's previously empty identity");
-    const category = { ...event, eventId: "category-view", name: "ViewCategory" as const, matching, data: { content_name: "For him", content_category: "For him", content_ids: ["n7_variant_55"] } };
-    sendMetaBrowserEvent(category);
-    assert.deepEqual(calls.at(-1), ["trackSingleCustom", pixelId, "ViewCategory", category.data, { eventID: category.eventId }]);
-    assert.equal(JSON.stringify(calls).includes("known@example.test"), false, "Raw contact data never reaches Pixel calls");
-    assert.equal("em" in category.data, false, "Matching remains separate from category parameters");
-    sendMetaBrowserEvent({ ...event, eventId: "next-view", matching });
-    assert.deepEqual(calls.at(-1), ["trackSingle", pixelId, "ViewContent", event.data, { eventID: "next-view" }]);
-    assert.equal(calls.filter(args => args[0] === "init").length, 2, "One anonymous init and one contact upgrade suffice");
-    assert.equal("st" in event.data, false, "County belongs to matching data, not commerce parameters");
-    const beforeStale = calls.length;
-    sendMetaBrowserEvent({ ...event, eventId: "changed-buyer", matching: { ...matching, em: hashMetaValue("other@example.test") } });
-    sendMetaBrowserEvent({ ...event, eventId: "unknown-county", matching: { ...matching, st: "unhashed-county" } });
-    assert.equal(calls.length, beforeStale, "Changed or removed hashes cannot inherit the SDK's old profile");
-    const beforeInvalid = calls.length;
-    sendMetaBrowserEvent({ ...event, externalId: "" });
-    sendMetaBrowserEvent({ ...event, externalId: "unhashed-visitor" });
-    assert.equal(calls.length, beforeInvalid, "Invalid matching identifiers cannot produce browser events");
-    const purchase = { ...event, eventId: "purchase-matching-test", name: "Purchase" as const, matching };
-    sendMetaBrowserEvent(purchase);
-    const beforeDuplicate = calls.length;
-    sendMetaBrowserEvent(purchase);
-    assert.equal(calls.length, beforeDuplicate, "Matching refresh must not duplicate a Purchase");
-    configureMeta({ enabled: true, pixelId, consent: "granted", externalId: secondId, matching });
-    const beforeRenewed = calls.length;
-    sendMetaBrowserEvent({ ...event, eventId: "renewed-view", externalId: secondId, matching });
-    assert.equal(calls.length, beforeRenewed, "A renewed identity must not reuse the previous consent's SDK profile");
-    stopMeta();
-    const afterWithdrawal = calls.length;
-    sendMetaBrowserEvent(event);
-    sendMetaBrowserEvent(category);
-    assert.equal(calls.length, afterWithdrawal, "Withdrawal blocks matching refresh and tracking");
+    configureMeta({ enabled: true, pixelId, consent: "unknown" });
+    assert.equal(await sendMetaBrowserEvent(base), false); assert.equal(frames.length, 0);
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId });
+    assert.equal(await sendMetaBrowserEvent(base), true);
+    const email = metaAdvancedMatching(metaMatchData("known@example.test", ""));
+    const full = metaAdvancedMatching(metaMatchData("known@example.test", "07123 456789", { fullName: "Known Buyer", city: "London", region: "Greater London", postalCode: "SW1A 1AA", countryCode: "GB" }));
+    assert.equal(await sendMetaBrowserEvent({ ...base, eventId: "email-only", matching: email }), true);
+    assert.equal(await sendMetaBrowserEvent({ ...base, eventId: "completed", matching: full }), true);
+    const corrected = { ...full, em: hashMetaValue("corrected@example.test") };
+    assert.equal(await sendMetaBrowserEvent({ ...base, eventId: "corrected", name: "AddPaymentInfo", matching: corrected }), true);
+    assert.deepEqual(hits.at(-1)?.snapshot, { ...corrected, external_id: externalId });
+    assert.equal(frames.length, 4, "Every changed profile gets a fresh SDK document");
+    const purchase = { ...base, eventId: "purchase-matching-test", name: "Purchase" as const, matching: corrected };
+    assert.deepEqual(await Promise.all([sendMetaBrowserEvent(purchase), sendMetaBrowserEvent(purchase)]), [true, true]);
+    const count = hits.length; assert.equal(await sendMetaBrowserEvent(purchase), true); assert.equal(hits.length, count);
+    assert.equal(await sendMetaBrowserEvent({ ...base, externalId: metaExternalId("other-consent") }), false);
+    stopMeta(); assert.equal(await sendMetaBrowserEvent(base), false); assert.equal(listeners.size, 0);
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId });
+    assert.equal(await sendMetaBrowserEvent({ ...base, eventId: "regranted" }), true);
+    assert.deepEqual(hits.at(-1)?.snapshot, { external_id: externalId }, "Renewed consent cannot inherit the previous buyer");
   } finally {
-    stopMeta();
-    globals.forEach((key, index) => { const descriptor = originals[index]; if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); });
+    stopMeta(); globals.forEach((key, i) => { const original = originals[i]; if (original) Object.defineProperty(globalThis, key, original); else Reflect.deleteProperty(globalThis, key); });
   }
 });
 

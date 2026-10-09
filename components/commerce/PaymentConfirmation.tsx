@@ -18,7 +18,7 @@ export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: stri
   const [returnPath, setReturnPath] = useState("/checkout");
   useEffect(() => {
     if (!receipt?.metaPurchase) return;
-    const send = () => { if (receipt.metaPurchase) sendMetaBrowserEvent(receipt.metaPurchase); };
+    const send = () => { if (receipt.metaPurchase) void sendMetaBrowserEvent(receipt.metaPurchase); };
     send(); window.addEventListener("n7:meta-ready", send);
     return () => window.removeEventListener("n7:meta-ready", send);
   }, [receipt]);

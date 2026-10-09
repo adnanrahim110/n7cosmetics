@@ -15,7 +15,7 @@
     "start": "node server.js",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:unit": "tsc -p tsconfig.tests.json && node --test .tests-dist/tests/admin-form.test.js .tests-dist/tests/destination.test.js .tests-dist/tests/commerce-validation.test.js .tests-dist/tests/review-validation.test.js .tests-dist/tests/auth-password.test.js .tests-dist/tests/contact-email.test.js .tests-dist/tests/image-zoom.test.js .tests-dist/tests/product-search.test.js .tests-dist/tests/product-deletion.test.js .tests-dist/tests/cart-pricing.test.js .tests-dist/tests/email.test.js .tests-dist/tests/order-receipt.test.js .tests-dist/tests/legacy-format.test.js .tests-dist/tests/legacy-redirects.test.js .tests-dist/tests/shipping.test.js .tests-dist/tests/dispatch.test.js .tests-dist/tests/customer-export.test.js .tests-dist/tests/checkout-preferences.test.js .tests-dist/tests/stock.test.js .tests-dist/tests/meta.test.js .tests-dist/tests/dashboard.test.js .tests-dist/tests/performance-loading.test.js .tests-dist/tests/collection-pagination.test.js .tests-dist/tests/meta-catalog.test.js",
+    "test:unit": "tsc -p tsconfig.tests.json && node --test .tests-dist/tests/admin-form.test.js .tests-dist/tests/destination.test.js .tests-dist/tests/commerce-validation.test.js .tests-dist/tests/review-validation.test.js .tests-dist/tests/auth-password.test.js .tests-dist/tests/contact-email.test.js .tests-dist/tests/image-zoom.test.js .tests-dist/tests/product-search.test.js .tests-dist/tests/product-deletion.test.js .tests-dist/tests/cart-pricing.test.js .tests-dist/tests/email.test.js .tests-dist/tests/order-receipt.test.js .tests-dist/tests/legacy-format.test.js .tests-dist/tests/legacy-redirects.test.js .tests-dist/tests/shipping.test.js .tests-dist/tests/dispatch.test.js .tests-dist/tests/customer-export.test.js .tests-dist/tests/checkout-preferences.test.js .tests-dist/tests/stock.test.js .tests-dist/tests/meta.test.js .tests-dist/tests/meta-pixel.test.js .tests-dist/tests/dashboard.test.js .tests-dist/tests/performance-loading.test.js .tests-dist/tests/collection-pagination.test.js .tests-dist/tests/meta-catalog.test.js",
     "db:migrate": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/migrate.js",
     "shipping:verify-flow": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-shipping-flow.js",
     "release:verify-flow": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-release-flow.js",
@@ -42,6 +42,7 @@
     "meta:worker": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/meta-worker.js",
     "meta:worker:deploy": "node .scripts-dist/scripts/meta-worker.js",
     "meta:verify-flow": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-meta-flow.js",
+    "meta:verify-pixel-frame": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-meta-pixel-frame.js",
     "dashboard:verify-flow": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-dashboard-flow.js",
     "meta:verify-catalog": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-meta-catalog-flow.js"
   },

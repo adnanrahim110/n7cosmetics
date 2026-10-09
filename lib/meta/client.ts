@@ -1,19 +1,14 @@
 "use client";
 import type { MetaBrowserEvent, MetaEventName, MetaPublicConfig } from "./shared";
-import { metaClickCookie, metaLandingClick, safeMetaPixelLocation, type MetaClick } from "./browser-policy";
+import { metaClickCookie, metaCookieDomainIndex, metaLandingClick, safeMetaPixelLocation, type MetaClick } from "./browser-policy";
 import { deliverMetaClientEvent } from "./client-delivery";
-import { metaAdvancedMatching, type MetaAdvancedMatching } from "./matching";
+import { metaAdvancedMatching } from "./matching";
 import { checkoutMetaMatching, type MetaMatchingInput } from "./matching-input";
-import { prepareMetaPixelMatching, type MetaPixelIdentity } from "./pixel-matching";
-
-type PixelFunction = ((...args: unknown[]) => void) & { callMethod?: (...args: unknown[]) => void; queue: unknown[][]; push?: PixelFunction; loaded: boolean; version: string };
-declare global { interface Window { fbq?: PixelFunction; _fbq?: PixelFunction } }
+import { metaPixelTransport } from "./pixel-transport";
 let configuration: MetaPublicConfig = { enabled: false, pixelId: "", consent: "unknown" };
 let consentGeneration = 0;
 // A landing URL stays in this tab's memory only. No cookie/storage/request is used before consent.
 let landingClick: MetaClick | undefined;
-let pixelScriptAttempts = 0;
-const initialized = new Map<string, MetaPixelIdentity>();
 const purchaseSent = new Set<string>();
 const purchaseRetentionMs = 47 * 60 * 60 * 1000;
 let matchingSequence = 0;
@@ -43,57 +38,25 @@ export function captureMetaLandingClick(): void {
   const click = metaLandingClick(location.href);
   if (click && click.id !== landingClick?.id) landingClick = click;
 }
-function loadPixelScript() {
-  if (pixelScriptAttempts >= 2) return;
-  pixelScriptAttempts++;
-  const script = document.createElement("script");
-  script.async = true; script.src = "https://connect.facebook.net/en_US/fbevents.js";
-  script.referrerPolicy = "strict-origin";
-  script.onerror = () => {
-    script.remove();
-    const generation = consentGeneration;
-    window.setTimeout(() => {
-      if (generation === consentGeneration && configuration.enabled && configuration.consent === "granted" && safePixelLocation()) loadPixelScript();
-    }, 1500);
-  };
-  document.head.appendChild(script);
-}
-function initializePixel(id: string, externalId = configuration.externalId, matching: MetaAdvancedMatching = configuration.matching ?? {}): boolean {
-  // Browser delivery still requires the server's valid consent identity.
-  if (!safePixelLocation()) return false;
-  const next = prepareMetaPixelMatching(initialized.get(id), externalId, matching);
-  if (!next) return false;
-  if (!window.fbq) {
-    const fbq = function (...args: unknown[]) { if (fbq.callMethod) fbq.callMethod(...args); else fbq.queue.push(args); } as PixelFunction;
-    fbq.queue = []; fbq.loaded = true; fbq.version = "2.0"; fbq.push = fbq;
-    window.fbq = fbq; window._fbq = fbq;
-    loadPixelScript();
-  }
-  window.fbq("consent", "grant");
-  if (!initialized.has(id)) {
-    window.fbq("set", "autoConfig", false, id);
-  }
-  if (next.initialize) window.fbq("init", id, next.userData);
-  initialized.set(id, next.identity);
-  return true;
-}
-function safePixelLocation(): boolean {
-  // Pixel reads the document URL itself; keep receipt tokens and Stripe secrets out.
-  return safeMetaPixelLocation(location.href, document.referrer);
-}
 export function configureMeta(config: MetaPublicConfig): void {
-  if (JSON.stringify(configuration) !== JSON.stringify(config)) consentGeneration++;
+  if (configuration.enabled !== config.enabled || configuration.pixelId !== config.pixelId || configuration.consent !== config.consent || configuration.externalId !== config.externalId) consentGeneration++;
   configuration = config;
   if (config.consent === "denied") landingClick = undefined;
   else captureMetaLandingClick();
   prunePurchaseMarkers(config.consent === "denied");
+  metaPixelTransport.configure(config.pixelId, config.externalId, config.enabled && config.consent === "granted");
   if (!config.enabled || config.consent !== "granted") {
-    window.fbq?.("consent", "revoke"); deleteMetaCookies(); return;
+    deleteMetaCookies(); return;
+  }
+  // Bootstrap the same first-party browser identifier the SDK uses. This also
+  // lets the first CAPI request share it before the asynchronous SDK is ready.
+  if (config.pixelId && !document.cookie.split(";").some(part => /^_fbp=fb\.\d\.\d{13}\.[A-Za-z0-9_-]{1,500}$/.test(part.trim()))) {
+    const random = crypto.getRandomValues(new Uint32Array(1))[0] % 2147483647;
+    document.cookie = `_fbp=fb.${metaCookieDomainIndex(location.hostname)}.${Date.now()}.${random}; Max-Age=7776000; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
   }
   // Only derive a click cookie from an actual fbclid, and only after consent.
   const existingFbc = document.cookie.split(";").map(part => part.trim()).find(part => part.startsWith("_fbc="));
-  if (landingClick && !existingFbc?.endsWith(`.${landingClick.id}`)) document.cookie = `_fbc=${metaClickCookie(landingClick)}; Max-Age=7776000; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
-  if (config.pixelId) initializePixel(config.pixelId);
+  if (landingClick && !existingFbc?.endsWith(`.${landingClick.id}`)) document.cookie = `_fbc=${metaClickCookie(landingClick, location.hostname)}; Max-Age=7776000; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
   window.dispatchEvent(new Event("n7:meta-ready"));
 }
 export function stopMeta(): void { configureMeta({ ...configuration, consent: "denied" }); }
@@ -135,7 +98,8 @@ export function updateMetaMatching(input: MetaMatchingInput): Promise<boolean> {
           const matching = metaAdvancedMatching(value.matching);
           if (!matching.em) return false;
           configuration = { ...configuration, matching };
-          if (pixelId) initializePixel(pixelId, externalId, matching);
+          // Success means the validated profile is saved and synchronized.
+          // Actual browser calls are acknowledged separately by the transport.
           matchingApplied = key;
           return true;
         } catch { return false; }
@@ -148,30 +112,40 @@ export function updateMetaMatching(input: MetaMatchingInput): Promise<boolean> {
   void promise.then(() => { if (matchingPending?.promise === promise) matchingPending = undefined; });
   return promise;
 }
-export function sendMetaBrowserEvent(event: MetaBrowserEvent): void {
-  if (!configuration.enabled || configuration.consent !== "granted" || !event.pixelId || event.pixelId !== configuration.pixelId || !safePixelLocation()) return;
+export async function sendMetaBrowserEvent(event: MetaBrowserEvent, source = { url: location.href, referrer: document.referrer }): Promise<boolean> {
+  // Retain the action's public URL across asynchronous matching and SPA routing.
+  if (!configuration.enabled || configuration.consent !== "granted" || !event.pixelId || event.pixelId !== configuration.pixelId || event.externalId !== configuration.externalId || !safeMetaPixelLocation(source.url, source.referrer)) return false;
   const key = `${event.pixelId}:${event.eventId}`;
   if (event.name === "Purchase") {
-    if (purchaseSent.has(key)) return;
-    try { if (Number(localStorage.getItem(`n7_meta_${key}`)) > Date.now()) return; } catch { /* In-memory guard still applies. */ }
+    if (purchaseSent.has(key)) return true;
+    try { if (Number(localStorage.getItem(`n7_meta_${key}`)) > Date.now()) return true; } catch { /* In-memory guard still applies. */ }
   }
-  if (!initializePixel(event.pixelId, event.externalId, event.matching ?? {})) return;
-  // Only allow canonical commerce fields; Pixel also reads the checked document URL/referrer.
-  const command = event.name === "ViewCategory" ? "trackSingleCustom" : "trackSingle";
-  window.fbq?.(command, event.pixelId, event.name, event.data, { eventID: event.eventId });
+  const generation = consentGeneration;
+  const delivered = await metaPixelTransport.send(event, source.url);
+  if (!delivered || generation !== consentGeneration || configuration.consent !== "granted") return false;
   if (event.name === "Purchase") {
     purchaseSent.add(key);
     try { localStorage.setItem(`n7_meta_${key}`, String(Date.now() + purchaseRetentionMs)); } catch { /* Storage is optional. */ }
   }
+  return true;
 }
 export async function trackMeta(name: MetaEventName, items: { slug: string; quantity: number }[] = [], extra: { couponCode?: string; reservationKey?: string } = {}): Promise<void> {
   if (!configuration.enabled || configuration.consent !== "granted") return;
   const generation = consentGeneration;
+  const path = location.pathname;
+  const source = { url: location.href, referrer: document.referrer };
   try {
+    // Do not race a confirmed wallet/checkout profile with event collection.
+    while (matchingPending?.generation === generation) {
+      const pending = matchingPending.promise;
+      await pending;
+      if (matchingPending?.promise === pending) break;
+    }
+    if (generation !== consentGeneration || configuration.consent !== "granted") return;
     const event = await deliverMetaClientEvent(
-      JSON.stringify({ name, eventId: crypto.randomUUID(), path: location.pathname, items, ...extra }),
+      JSON.stringify({ name, eventId: crypto.randomUUID(), path, items, ...extra }),
       () => generation === consentGeneration && configuration.enabled && configuration.consent === "granted",
     );
-    if (event && generation === consentGeneration) sendMetaBrowserEvent(event);
+    if (event && generation === consentGeneration) await sendMetaBrowserEvent(event, source);
   } catch { /* Analytics must never block a visitor action. */ }
 }

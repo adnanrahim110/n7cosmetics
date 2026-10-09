@@ -49,12 +49,14 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:unit
-      - name: Verify migration preservation, Meta delivery, catalogue sync and dashboard reports
+      - name: Verify migrations, Meta delivery, catalogue, dashboard and production Pixel routes
         run: |
           pnpm release:verify-flow
           pnpm meta:verify-flow
           pnpm meta:verify-catalog
           pnpm dashboard:verify-flow
+          pnpm build:deploy
+          pnpm meta:verify-pixel-frame
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: "3306"
