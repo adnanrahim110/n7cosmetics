@@ -24,6 +24,133 @@ import { encryptSecret } from "../lib/security/encryption";
 import { reportDays } from "../lib/admin/dashboard-reports";
 import { dashboardTab, metricValue, visibleDashboardTabs } from "../lib/admin/dashboard-display";
 import { canAccessMetaAds } from "../lib/auth/permissions";
+import { customerInsights, type CustomerInsightRow } from "../lib/admin/dashboard-customer-insights";
+import { timingHours, timingPattern } from "../lib/admin/dashboard-timing";
+import { fetchMetaTiming, hourlyInsightsPath, parseMetaTiming } from "../lib/meta/timing";
+
+const customerInsightFixture = (overrides: Partial<CustomerInsightRow> = {}): CustomerInsightRow => ({
+  buyer: "buyer-one", hour: "2026-09-01T12:00:00Z", orders: 1,
+  country_code: "GB", city: "London", region: "Greater London", postal_code: "SW1A 1AA",
+  ...overrides,
+});
+
+test("Customer areas deduplicate buyers while retaining repeat orders and normalized place names", () => {
+  const range = dashboardRange({ range: "custom", start: "2026-09-01", end: "2026-09-02" }, new Date("2026-09-30T12:00:00Z"));
+  const { areas } = customerInsights(range, [
+    customerInsightFixture({ hour: "2026-08-31T23:00:00Z", orders: 2 }),
+    customerInsightFixture({ hour: "2026-09-02T12:00:00Z", city: " london ", region: " greater   london ", postal_code: " sw1a1aa " }),
+    customerInsightFixture({ buyer: "buyer-two" }),
+    customerInsightFixture({ city: "Manchester", region: "Greater Manchester", postal_code: "M1 1AA", orders: 5 }),
+    customerInsightFixture({ buyer: "previous-buyer", hour: "2026-08-31T22:00:00Z" }),
+    customerInsightFixture({ buyer: "later-buyer", hour: "2026-09-02T23:00:00Z" }),
+  ]);
+  assert.deepEqual(areas.cities.byCustomers, [
+    { label: "London", customers: 2, orders: 4 },
+    { label: "Manchester", customers: 1, orders: 5 },
+  ]);
+  assert.equal(areas.cities.byOrders[0].label, "Manchester");
+  assert.deepEqual(areas.counties.byCustomers[0], { label: "Greater London", customers: 2, orders: 4 });
+  assert.deepEqual(areas.postcodes.byOrders, [
+    { label: "M", customers: 1, orders: 5 },
+    { label: "SW", customers: 2, orders: 4 },
+  ]);
+});
+
+test("Customer areas disclose missing addresses and do not infer counties or rank foreign destinations", () => {
+  const range = dashboardRange({ range: "today" }, new Date("2026-09-01T12:00:00Z"));
+  const { areas } = customerInsights(range, [
+    customerInsightFixture({ city: " ", region: null, postal_code: "invalid" }),
+    customerInsightFixture({ country_code: null, orders: 2 }),
+    customerInsightFixture({ buyer: "overseas-buyer", country_code: "US", city: "Boston", region: "MA", postal_code: "02108" }),
+    customerInsightFixture({ buyer: "buyer-two", country_code: "uk", postal_code: "M11AA" }),
+  ]);
+  assert.deepEqual(areas.cities.byCustomers, [{ label: "London", customers: 1, orders: 1 }]);
+  assert.deepEqual(areas.cities.missing, { customers: 1, orders: 3 });
+  assert.deepEqual(areas.counties.missing, { customers: 1, orders: 3 });
+  assert.deepEqual(areas.postcodes.byCustomers, [{ label: "M", customers: 1, orders: 1 }]);
+});
+
+test("Both area rankings select their own top ten and empty ranges contain no invented locations", () => {
+  const range = dashboardRange({ range: "today" }, new Date("2026-09-01T12:00:00Z"));
+  const rows = Array.from({ length: 12 }, (_, index) => customerInsightFixture({ buyer: `buyer-${index}`, city: `City ${index}`, orders: index + 1 }));
+  const { areas } = customerInsights(range, rows);
+  assert.equal(areas.cities.byCustomers.length, 10);
+  assert.equal(areas.cities.byOrders.length, 10);
+  assert.equal(areas.cities.byOrders[0].orders, 12);
+  assert.deepEqual(customerInsights(range, []).areas.cities, { byCustomers: [], byOrders: [], missing: { customers: 0, orders: 0 } });
+});
+
+test("Buying-time averages include inactive hours and deduplicate buyers within each actual hour", () => {
+  const now = new Date("2026-09-30T12:00:00Z");
+  const range = dashboardRange({ range: "custom", start: "2026-09-01", end: "2026-09-14" }, now);
+  const { timing } = customerInsights(range, [
+    customerInsightFixture({ hour: "2026-09-01T12:00:00Z", orders: 3 }),
+    customerInsightFixture({ hour: "2026-09-01T12:00:00Z", city: "Manchester", orders: 1 }),
+    customerInsightFixture({ hour: "2026-09-08T12:00:00Z", orders: 2 }),
+  ], now);
+  const tuesday = timingHours(timing, 1, "orders")[13];
+  assert.deepEqual(tuesday, { hour: 13, total: 6, samples: 2, average: 3 });
+  assert.equal(timingHours(timing, 1, "customers")[13].total, 2);
+  assert.equal(timingHours(timing, null, "orders")[13].average, 6 / 14);
+  assert.equal(timingHours(timing, 1, "orders")[14].average, 0);
+});
+
+test("Hourly averages respect UK clock changes, absent weekdays and incomplete current hours", () => {
+  const spring = timingPattern(dashboardRange({ range: "custom", start: "2026-03-29", end: "2026-03-29" }, new Date("2026-04-01T12:00:00Z")), ["orders"], new Date("2026-04-01T12:00:00Z"));
+  assert.equal(timingHours(spring, 6, "orders")[1].samples, 0);
+  assert.equal(timingHours(spring, 6, "orders")[2].samples, 1);
+  const autumnNow = new Date("2026-10-30T12:00:00Z");
+  const autumn = timingPattern(dashboardRange({ range: "custom", start: "2026-10-25", end: "2026-10-25" }, autumnNow), ["orders"], autumnNow);
+  assert.equal(timingHours(autumn, 6, "orders")[1].samples, 2);
+  const now = new Date("2026-09-01T12:30:00Z");
+  const range = dashboardRange({ range: "today" }, now);
+  const { timing } = customerInsights(range, [customerInsightFixture({ orders: 10 })], now);
+  assert.equal(timingHours(timing, null, "orders")[12].samples, 1);
+  assert.deepEqual(timingHours(timing, null, "orders")[13], { hour: 13, total: 0, samples: 0, average: null });
+  assert.equal(timingHours(timing, 0, "orders")[12].average, null);
+});
+
+test("Meta hourly reports retain the selected dates and request supported delivery measures", async () => {
+  process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+  process.env.MEDIA_STORAGE_DIR = ".test-media";
+  const settings = { ...defaultMetaSettings, adAccountId: "123", reportingTokenEncrypted: encryptSecret("fixture-token") };
+  const now = new Date("2026-10-01T12:00:00Z");
+  for (const query of [{ range: "7" }, { range: "30" }, { range: "90" }, { range: "custom", start: "2026-09-01", end: "2026-09-14" }, { range: "all" }]) {
+    const range = dashboardRange(query, now, "2026-09-01");
+    const paths: string[] = [];
+    const result = await fetchMetaTiming(settings, range, async (path, token) => {
+      assert.equal(token, "fixture-token");
+      paths.push(path);
+      return path.includes("insights?") ? { data: [] } : { timezone_name: "America/New_York" };
+    }, now);
+    assert.equal(result.status, "ready");
+    assert.equal(result.timing?.timeZone, "America/New_York");
+    const params = new URL(paths[1], "https://graph.facebook.com/").searchParams;
+    assert.deepEqual(JSON.parse(params.get("time_range")!), { since: range.start, until: range.end });
+    assert.equal(params.get("breakdowns"), "hourly_stats_aggregated_by_advertiser_time_zone");
+    assert.equal(params.get("time_increment"), "1");
+    assert.equal(params.get("fields"), "date_start,date_stop,impressions,inline_link_clicks");
+    assert.equal(params.has("access_token"), false);
+  }
+  assert.ok(hourlyInsightsPath("123", "2026-09-01", "2026-09-14").startsWith("act_123/insights?"));
+});
+
+test("Meta hourly parsing averages clicks across inactive dates and rejects incomplete or duplicate data", async () => {
+  const now = new Date("2026-09-30T12:00:00Z");
+  const range = dashboardRange({ range: "custom", start: "2026-09-01", end: "2026-09-14" }, now);
+  const row = { date_start: "2026-09-01", date_stop: "2026-09-01", hourly_stats_aggregated_by_advertiser_time_zone: "13:00:00 - 13:59:59", inline_link_clicks: "6", impressions: "100" };
+  const timing = parseMetaTiming([row], range, "Europe/London", now);
+  assert.deepEqual(timingHours(timing, 1, "linkClicks")[13], { hour: 13, total: 6, samples: 2, average: 3 });
+  assert.throws(() => parseMetaTiming([row, row], range, "Europe/London", now));
+  assert.throws(() => parseMetaTiming([{ ...row, impressions: "invalid" }], range, "Europe/London", now));
+  assert.throws(() => parseMetaTiming([{ ...row, date_start: "2026-08-31" }], range, "Europe/London", now));
+  assert.throws(() => parseMetaTiming([{ ...row, hourly_stats_aggregated_by_advertiser_time_zone: "25:00:00 - 25:59:59" }], range, "Europe/London", now));
+  const settings = { ...defaultMetaSettings, adAccountId: "123", reportingTokenEncrypted: encryptSecret("fixture-token") };
+  const result = await fetchMetaTiming(settings, range, async path => path.includes("insights?") ? { data: [{ ...row, impressions: "invalid" }] } : { timezone_name: "Europe/London" }, now);
+  assert.equal(result.status, "error");
+  assert.equal(result.timing, undefined);
+  assert.equal((await fetchMetaTiming(defaultMetaSettings, range)).status, "unconfigured");
+});
 
 test("Dashboard uses the UK date and an equal preceding calendar period", () => {
   const range = dashboardRange(

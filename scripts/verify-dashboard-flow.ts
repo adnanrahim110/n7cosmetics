@@ -197,6 +197,10 @@ async function run() {
         "INSERT INTO order_items (order_id,product_id,product_name,variant_title,sku,unit_price_pence,quantity,line_total_pence) VALUES (?,?,'Dashboard fixture','100 ml','DASH',?,1,?)",
         [id, product.insertId, total - 300, total - 300],
       );
+      await executeMutation(
+        "INSERT INTO order_addresses (order_id,address_type,full_name,line_1,city,region,postal_code,country_code) VALUES (?,'SHIPPING','Fixture','Fixture address','London','Greater London','SW1A 1AA','GB')",
+        [id],
+      );
       return id;
     }
     async function refund(id: string, total: number, date: string) {
@@ -414,6 +418,12 @@ async function run() {
         customers.topCustomers[0].value === 12000,
       "Previous customer cohort and current paid customer value are calculated independently",
     );
+    check(
+      customers.current.orders === 3 && customers.days[0].values.orders === 3 &&
+        customers.areas.cities.byCustomers[0].customers === 1 && customers.areas.cities.byCustomers[0].orders === 3 &&
+        customers.areas.counties.byCustomers[0].label === "Greater London" && customers.areas.postcodes.byCustomers[0].label === "SW",
+      "Area and daily order counts match the paid GBP UK-date cohort and exclude tests, imports and other currencies",
+    );
     const newBuyer = await order("2026-09-02 12:00:00", 3300);
     await executeMutation(
       "UPDATE orders SET customer_email=' NewBuyer@Example.test ',customer_name='New Buyer' WHERE id=?",
@@ -422,6 +432,10 @@ async function run() {
     const repeatBuyer = await order("2026-09-01 14:00:00", 4300);
     await executeMutation(
       "UPDATE orders SET customer_email='newbuyer@example.test',customer_name='New Buyer' WHERE id=?",
+      [repeatBuyer],
+    );
+    await executeMutation(
+      "UPDATE order_addresses SET city='Manchester',region='Greater Manchester',postal_code='M11AA' WHERE order_id=? AND address_type='SHIPPING'",
       [repeatBuyer],
     );
     const customerRepeat = await getCustomerAnalytics(range);
@@ -444,6 +458,27 @@ async function run() {
       legacyCustomerReport.current.buyers === 1 &&
         legacyCustomerReport.current.returningBuyers === 1,
       "Imported buyer classification considers earlier real website purchases",
+    );
+    check(
+      customerRepeat.areas.cities.byCustomers[0].customers === 2 && customerRepeat.areas.cities.byCustomers[0].orders === 4 &&
+        customerRepeat.areas.cities.byCustomers[1].customers === 1 && customerRepeat.areas.cities.byCustomers[1].orders === 1 &&
+        legacyCustomerReport.areas.cities.byOrders[0].orders === 1,
+      "Normalized customers can appear in multiple areas while each order is counted once and source filters remain isolated",
+    );
+    const oneDay = await getCustomerAnalytics({ ...range, start: "2026-09-02", previousStart: "2026-09-01", previousEnd: "2026-09-01", days: 1 });
+    check(
+      oneDay.current.orders === 1 && oneDay.areas.cities.byCustomers.length === 1 &&
+        oneDay.areas.cities.byCustomers[0].customers === 1 && oneDay.areas.cities.byCustomers[0].orders === 1 &&
+        oneDay.timing.cells.reduce((sum, cell) => sum + cell.values.orders, 0) === 1,
+      "Changing the dashboard date period changes area rankings and hourly timing together",
+    );
+    const sameHour = await order("2026-09-02 12:15:00", 1000);
+    await executeMutation("UPDATE order_addresses SET city='Leeds',region='West Yorkshire',postal_code='LS1 1AA' WHERE order_id=? AND address_type='SHIPPING'", [sameHour]);
+    const splitHour = await getCustomerAnalytics(range);
+    check(
+      splitHour.current.orders === 6 && splitHour.current.buyers === 2 &&
+        splitHour.areas.cities.byOrders.find((area) => area.label === "Leeds")?.orders === 1,
+      "A buyer shipping to different areas within one hour retains separate orders without inflating customer totals",
     );
     check(
       (await getMetaOverview(range)).status === "unconfigured" && calls === 0,

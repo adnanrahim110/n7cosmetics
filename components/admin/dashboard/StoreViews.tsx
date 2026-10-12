@@ -20,6 +20,11 @@ import BreakdownChart from "./BreakdownChart";
 import ProductRankings from "./ProductRankings";
 import RecentOrders from "./RecentOrders";
 import OperationsPanel from "./OperationsPanel";
+import CustomerAreas from "./CustomerAreas";
+import CustomerTiming from "./CustomerTiming";
+import CustomerMetaTiming from "./CustomerMetaTiming";
+import { getMetaTiming } from "@/lib/meta/timing";
+import { cn } from "@/lib/cn";
 
 type Definition = {
   key: string;
@@ -331,8 +336,11 @@ export async function ProductsView({ range }: { range: DashboardRange }) {
     </div>
   );
 }
-export async function CustomersView({ range }: { range: DashboardRange }) {
-  const data = await getCustomerAnalytics(range);
+export async function CustomersView({ range, canViewMetaAds = false }: { range: DashboardRange; canViewMetaAds?: boolean }) {
+  const [data, meta] = await Promise.all([
+    getCustomerAnalytics(range),
+    canViewMetaAds ? getMetaTiming(range) : Promise.resolve(null),
+  ]);
   const definitions: Definition[] = [
     {
       key: "buyers",
@@ -352,19 +360,15 @@ export async function CustomersView({ range }: { range: DashboardRange }) {
       color: "#7c3aed",
       note: "Their first paid GBP order predates this period.",
     },
+    {
+      key: "orders",
+      label: "Paid orders",
+      color: "#d97706",
+      note: "Paid GBP orders, including repeat purchases, in this period.",
+    },
   ];
   const share = (values: Record<string, number>) =>
     values.buyers ? (values.returningBuyers / values.buyers) * 100 : null;
-  const countryName = (code: string) => {
-    try {
-      return /^[A-Z]{2}$/.test(code)
-        ? (new Intl.DisplayNames(["en-GB"], { type: "region" }).of(code) ??
-            code)
-        : code;
-    } catch {
-      return code;
-    }
-  };
   return (
     <div className="space-y-5">
       <StoreNote />
@@ -372,7 +376,7 @@ export async function CustomersView({ range }: { range: DashboardRange }) {
       <div className="grid gap-5 xl:grid-cols-2">
         <TimeSeriesPanel
           title="Customer activity"
-          description="Daily unique buyers. A buyer can appear on multiple days; daily counts are not summed for the period total."
+          description="Daily unique buyers and paid orders. A buyer can appear on multiple days; daily customer counts are not summed for the period total."
           series={seriesFor(data.days, data.previousDays, definitions)}
         />
         <div className="space-y-5">
@@ -413,14 +417,7 @@ export async function CustomersView({ range }: { range: DashboardRange }) {
         </div>
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
-        <BreakdownChart
-          title="Shipping destinations"
-          description="Top ten countries by paid GBP orders; based on order shipping addresses."
-          rows={data.countries.map((row) => ({
-            label: countryName(row.label),
-            value: Number(row.value),
-          }))}
-        />
+        <CustomerAreas areas={data.areas} />
         <section className={panel}>
           <h2 className="font-body text-base font-semibold">Top customers</h2>
           <p className="mt-1 text-xs leading-5 text-zinc-500">
@@ -461,6 +458,10 @@ export async function CustomersView({ range }: { range: DashboardRange }) {
             </p>
           ) : null}
         </section>
+      </div>
+      <div className={cn("grid gap-4", meta && "xl:grid-cols-2")}>
+        <CustomerTiming timing={data.timing} />
+        {meta ? <CustomerMetaTiming report={meta} start={range.start} end={range.end} /> : null}
       </div>
       <p className="text-xs leading-5 text-zinc-500">
         Buyers are matched by normalized order email, falling back to customer

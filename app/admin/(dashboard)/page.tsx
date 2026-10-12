@@ -28,10 +28,12 @@ async function DashboardContent({
   tab,
   range,
   canManage,
+  canViewMetaAds,
 }: {
   tab: DashboardTab;
   range: DashboardRange;
   canManage: boolean;
+  canViewMetaAds: boolean;
 }) {
   try {
     if (tab === "operations" || !canManage)
@@ -39,7 +41,7 @@ async function DashboardContent({
     if (tab === "sales") return await SalesView({ range });
     if (tab === "orders") return await OrdersView({ range });
     if (tab === "products") return await ProductsView({ range });
-    if (tab === "customers") return await CustomersView({ range });
+    if (tab === "customers") return await CustomersView({ range, canViewMetaAds });
     return await MetaOverview({ range, mode: tab });
   } catch {
     console.error("Dashboard section could not be loaded.");
@@ -129,7 +131,7 @@ export default async function AdminDashboardPage({
           }
         >
           {historyUnavailable ? null : (
-            <DashboardContent tab={tab} range={range} canManage={canManage} />
+            <DashboardContent tab={tab} range={range} canManage={canManage} canViewMetaAds={canViewMetaAds} />
           )}
         </Suspense>
       </div>

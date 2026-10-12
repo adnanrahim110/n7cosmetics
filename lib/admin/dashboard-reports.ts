@@ -8,6 +8,7 @@ import {
   type DashboardRange,
 } from "./dashboard-dates";
 import type { RecentOrder } from "./dashboard";
+import { customerInsights, type CustomerInsightRow } from "./dashboard-customer-insights";
 import { getMetaSettings } from "../meta/settings";
 import { metaMatchingFields, type MetaMatchingKey } from "../meta/matching-coverage";
 
@@ -130,41 +131,33 @@ export async function getProductAnalytics(range: DashboardRange) {
     types,
   };
 }
-interface BuyerHour extends RowDataPacket {
-  buyer: string;
-  hour: string;
+interface BuyerHour extends RowDataPacket, CustomerInsightRow {
   first_paid: Date;
-  orders: number;
   value: string;
   name: string;
   customer_id: string | null;
 }
 export async function getCustomerAnalytics(range: DashboardRange) {
   const end = dayStartUtc(shiftDate(range.end, 1));
-  const [rows, countries] = await withTransaction((connection) =>
-    Promise.all([
-      selectRows<BuyerHour>(
-        `WITH history AS (
+  const rows = await withTransaction((connection) =>
+    selectRows<BuyerHour>(
+      `WITH history AS (
       SELECT o.*, SHA2(COALESCE(NULLIF(LOWER(TRIM(o.customer_email)),''),CONCAT('customer:',o.customer_id),CONCAT('order:',o.id)),256) buyer,
       ${paidAt} paid_date FROM orders o WHERE ${realOrders()} AND ${paid} AND o.currency='GBP' AND ${paidAt}<?
     ), firsts AS (SELECT buyer,MIN(paid_date) first_paid FROM history GROUP BY buyer)
     SELECT h.buyer, DATE_FORMAT(h.paid_date,'%Y-%m-%dT%H:00:00Z') hour, MAX(f.first_paid) first_paid,
-      COUNT(*) orders, SUM(h.total_pence) value, MAX(h.customer_name) name, CAST(MAX(h.customer_id) AS CHAR) customer_id
-    FROM history h JOIN firsts f ON f.buyer=h.buyer WHERE (?='ALL' OR h.source=?) AND h.paid_date>=?
-    GROUP BY h.buyer,hour`,
-        [end, range.source, range.source, dayStartUtc(range.previousStart)],
-        connection,
-      ),
-      selectRows<BreakdownRow>(
-        `SELECT COALESCE(NULLIF(a.country_code,''),'Unknown') label, COUNT(*) value
-      FROM orders o LEFT JOIN order_addresses a ON a.order_id=o.id AND a.address_type='SHIPPING'
-      WHERE ${eligible} AND ${paid} AND o.currency='GBP' AND ${paidAt}>=? AND ${paidAt}<? GROUP BY label ORDER BY value DESC LIMIT 10`,
-        [range.source, range.source, dayStartUtc(range.start), end],
-        connection,
-      ),
-    ]),
+      COUNT(*) orders, SUM(h.total_pence) value, MAX(h.customer_name) name, CAST(MAX(h.customer_id) AS CHAR) customer_id,
+      a.country_code,a.city,a.region,a.postal_code
+    FROM history h JOIN firsts f ON f.buyer=h.buyer
+    LEFT JOIN order_addresses a ON a.order_id=h.id AND a.address_type='SHIPPING'
+    WHERE (?='ALL' OR h.source=?) AND h.paid_date>=?
+    GROUP BY h.buyer,hour,a.country_code,a.city,a.region,a.postal_code`,
+      [end, range.source, range.source, dayStartUtc(range.previousStart)],
+      connection,
+    ),
   );
-  const days = reportDays(range, ["buyers", "newBuyers", "returningBuyers"]);
+  const days = reportDays(range, ["buyers", "newBuyers", "returningBuyers", "orders"]);
+  const dailyOrders = new Map(days.map((day) => [day.date, day]));
   const daySets = new Map(
     days.map((day) => [
       day.date,
@@ -187,6 +180,7 @@ export async function getCustomerAnalytics(range: DashboardRange) {
       returningBuyers: new Set<string>(),
     },
   };
+  const orderCounts = { current: 0, previous: 0 };
   const top = new Map<
     string,
     { name: string; id: string | null; orders: number; value: number }
@@ -196,6 +190,9 @@ export async function getCustomerAnalytics(range: DashboardRange) {
       day = daySets.get(date);
     if (!day) continue;
     const period = date >= range.start ? "current" : "previous";
+    orderCounts[period] += Number(row.orders);
+    const reportDay = dailyOrders.get(date);
+    if (reportDay) reportDay.values.orders += Number(row.orders);
     const returning =
       new Date(row.first_paid) <
       dayStartUtc(period === "current" ? range.start : range.previousStart);
@@ -219,16 +216,18 @@ export async function getCustomerAnalytics(range: DashboardRange) {
   for (const day of days)
     for (const key of ["buyers", "newBuyers", "returningBuyers"] as const)
       day.values[key] = daySets.get(day.date)![key].size;
-  const totals = (period: keyof typeof sets) =>
-    Object.fromEntries(
-      Object.entries(sets[period]).map(([key, set]) => [key, set.size]),
-    );
+  const totals = (period: keyof typeof sets) => ({
+    buyers: sets[period].buyers.size,
+    newBuyers: sets[period].newBuyers.size,
+    returningBuyers: sets[period].returningBuyers.size,
+    orders: orderCounts[period],
+  });
   return {
     days: days.filter((day) => day.date >= range.start),
     previousDays: days.filter((day) => day.date < range.start),
     current: totals("current"),
     previous: totals("previous"),
-    countries,
+    ...customerInsights(range, rows),
     topCustomers: [...top.values()]
       .sort((a, b) => b.value - a.value)
       .slice(0, 10),
