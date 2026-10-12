@@ -15,7 +15,7 @@ export function visibleDashboardTabs(
   return dashboardTabs.filter(
     (tab) =>
       (canManage || tab.id === "operations") &&
-      (canViewMetaAds || tab.id !== "meta"),
+      (canViewMetaAds || (tab.id !== "meta" && tab.id !== "customers")),
   );
 }
 export function dashboardTab(

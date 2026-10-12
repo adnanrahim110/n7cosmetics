@@ -406,7 +406,9 @@ test("Every Meta card, chart and breakdown request shares the applied period aft
 
 test("Dashboard tab selection enforces the fulfilment role and rejects unknown tabs", () => {
   assert.equal(dashboardTab("meta", false, true), "operations");
-  assert.equal(dashboardTab("customers", true, false), "customers");
+  assert.equal(dashboardTab("customers", true, false), "sales");
+  assert.equal(dashboardTab("customers", true, true), "customers");
+  assert.equal(dashboardTab("customers", false, true), "operations");
   assert.equal(dashboardTab("unknown", true, false), "sales");
   assert.equal(dashboardTab(["meta"], true, true), "sales");
   assert.equal(metricValue(null, "pence"), "—");
@@ -422,15 +424,17 @@ test("Meta ads access belongs only to the designated administrator email", () =>
   assert.equal(canAccessMetaAds({ email: "shozaba261@gmail.com.example.com" }), false);
 });
 
-test("Meta ads visibility and direct dashboard URLs use the same permission", () => {
+test("Customers and Meta ads visibility and direct dashboard URLs use the same permission", () => {
   for (const email of ["shozaba261@gmail.com", "owner@n7cosmetics.co.uk"]) {
     const allowed = canAccessMetaAds({ email });
     const tabs = visibleDashboardTabs(true, allowed).map((tab) => tab.id);
     assert.equal(tabs.includes("meta"), allowed);
+    assert.equal(tabs.includes("customers"), allowed);
     assert.equal(dashboardTab("meta", true, allowed), allowed ? "meta" : "sales");
+    assert.equal(dashboardTab("customers", true, allowed), allowed ? "customers" : "sales");
     assert.equal(dashboardTab("traffic", true, allowed), "traffic");
-    assert.deepEqual(tabs.filter((tab) => tab !== "meta"), [
-      "sales", "orders", "products", "customers", "traffic", "operations",
+    assert.deepEqual(tabs.filter((tab) => tab !== "meta" && tab !== "customers"), [
+      "sales", "orders", "products", "traffic", "operations",
     ]);
   }
   assert.deepEqual(visibleDashboardTabs(false, true).map((tab) => tab.id), ["operations"]);
