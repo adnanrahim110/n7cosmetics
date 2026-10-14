@@ -11,6 +11,7 @@ import type { RecentOrder } from "./dashboard";
 import { customerInsights, type CustomerInsightRow } from "./dashboard-customer-insights";
 import { getMetaSettings } from "../meta/settings";
 import { metaMatchingFields, type MetaMatchingKey } from "../meta/matching-coverage";
+import { productSalesRows, type SoldProductItem, type ProductReservation } from "./dashboard-product-units";
 
 export function realOrders(alias = "o") {
   return `(${alias}.source='LEGACY' OR EXISTS (SELECT 1 FROM stripe_checkouts sc WHERE sc.order_id=${alias}.id AND sc.stripe_mode='live'))`;
@@ -39,7 +40,7 @@ export function reportDays(range: DashboardRange, keys: string[]) {
     }),
   );
 }
-function hourlyDays(range: DashboardRange, keys: string[], rows: HourRow[]) {
+function hourlyDays(range: DashboardRange, keys: string[], rows: { hour: string; [key: string]: unknown }[]) {
   const days = reportDays(range, keys),
     map = new Map(days.map((day) => [day.date, day]));
   for (const row of rows) {
@@ -101,34 +102,53 @@ export async function getOrderAnalytics(range: DashboardRange) {
   };
 }
 export async function getProductAnalytics(range: DashboardRange) {
+  interface ItemRow extends RowDataPacket, SoldProductItem {}
+  interface ReservationRow extends RowDataPacket, ProductReservation {}
   const args = [
     range.source,
     range.source,
-    dayStartUtc(range.start),
+    dayStartUtc(range.previousStart),
     dayStartUtc(shiftDate(range.end, 1)),
   ];
-  const [hours, types] = await withTransaction((connection) =>
+  const [items, reservations] = await withTransaction((connection) =>
     Promise.all([
-      selectRows<HourRow>(
-        `SELECT DATE_FORMAT(${paidAt},'%Y-%m-%dT%H:00:00Z') hour, SUM(oi.quantity) units,
-      SUM(oi.line_total_pence) itemValue, SUM(oi.discount_pence) itemDiscounts
-      FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE ${eligible} AND ${paid} AND o.currency='GBP'
-      AND ${paidAt}>=? AND ${paidAt}<? AND oi.parent_item_id IS NULL GROUP BY hour`,
-        [range.source, range.source, dayStartUtc(range.previousStart), args[3]],
+      selectRows<ItemRow>(
+        `SELECT CAST(oi.id AS CHAR) id, CAST(o.id AS CHAR) orderId,
+      CAST(oi.parent_item_id AS CHAR) parentId, CAST(oi.variant_id AS CHAR) variantId,
+      DATE_FORMAT(${paidAt},'%Y-%m-%dT%H:00:00Z') hour,
+      COALESCE(p.product_type,'UNAVAILABLE') productType, oi.quantity,
+      oi.line_total_pence itemValue, oi.discount_pence itemDiscounts,
+      contents.units componentsPerBundle, contents.untracked_units untrackedPerBundle
+      FROM order_items oi JOIN orders o ON o.id=oi.order_id
+      LEFT JOIN products p ON p.id=oi.product_id
+      LEFT JOIN (
+        SELECT bi.bundle_product_id, SUM(bi.quantity) units,
+          SUM(CASE WHEN component.track_inventory=0 THEN bi.quantity ELSE 0 END) untracked_units
+        FROM bundle_items bi JOIN product_variants v ON v.id=bi.component_variant_id
+        JOIN products component ON component.id=v.product_id GROUP BY bi.bundle_product_id
+      ) contents ON contents.bundle_product_id=oi.product_id
+      WHERE ${eligible} AND ${paid} AND o.currency='GBP' AND ${paidAt}>=? AND ${paidAt}<?`,
+        args,
         connection,
       ),
-      selectRows<BreakdownRow>(
-        `SELECT COALESCE(p.product_type,'UNAVAILABLE') label, SUM(oi.quantity) value
-      FROM order_items oi JOIN orders o ON o.id=oi.order_id LEFT JOIN products p ON p.id=oi.product_id
-      WHERE ${eligible} AND ${paid} AND o.currency='GBP' AND ${paidAt}>=? AND ${paidAt}<? AND oi.parent_item_id IS NULL GROUP BY p.product_type ORDER BY value DESC`,
+      selectRows<ReservationRow>(
+        `SELECT CAST(r.order_id AS CHAR) orderId, CAST(r.variant_id AS CHAR) variantId, r.quantity
+      FROM checkout_stock_reservations r JOIN orders o ON o.id=r.order_id
+      WHERE ${eligible} AND ${paid} AND o.currency='GBP' AND ${paidAt}>=? AND ${paidAt}<?`,
         args,
         connection,
       ),
     ]),
   );
+  const rows = productSalesRows(items, reservations);
+  const types = new Map<string, number>();
+  for (const row of rows) {
+    if (calendarDate(new Date(row.hour)) >= range.start)
+      types.set(row.label, (types.get(row.label) ?? 0) + row.units);
+  }
   return {
-    ...hourlyDays(range, ["units", "itemValue", "itemDiscounts"], hours),
-    types,
+    ...hourlyDays(range, ["units", "itemValue", "itemDiscounts"], rows),
+    types: [...types].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value),
   };
 }
 interface BuyerHour extends RowDataPacket, CustomerInsightRow {

@@ -80,14 +80,17 @@ export default function ProductRankings({
         </p>
         <div className="mt-4 space-y-4">
           {store.collectionSales.map((collection) => (
-            <div key={collection.collection_id ?? "unassigned"}>
+            <div key={`${collection.kind}:${collection.collection_id ?? "none"}`}>
               <div className="flex items-baseline justify-between gap-3">
                 <div className="flex min-w-0 items-baseline gap-2">
                   <p className="min-w-0 break-words text-sm font-medium">
                     {collection.name}
                   </p>
                   <span className="shrink-0 whitespace-nowrap text-xs text-zinc-400">
-                    {number(Number(collection.units))} units sold
+                    {number(Number(collection.units))}{" "}
+                    {collection.kind === "bundles"
+                      ? Number(collection.units) === 1 ? "bundle sold" : "bundles sold"
+                      : "units sold"}
                   </span>
                 </div>
                 <span className="whitespace-nowrap text-sm font-medium tabular-nums">
@@ -112,9 +115,9 @@ export default function ProductRankings({
         </div>
         {store.collectionSales.length ? (
           <p className="mt-4 text-xs leading-5 text-zinc-400">
-            Uses current collection assignments. Products in multiple
-            collections contribute to each, so values should not be added
-            together.
+            Bundles are shown separately. Other products use current collection
+            assignments. Products in multiple collections contribute to each,
+            so values should not be added together.
           </p>
         ) : null}
       </section>

@@ -1,9 +1,9 @@
 import "./load-env";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
-import mysql from "mysql2/promise";
+import mysql, { type RowDataPacket } from "mysql2/promise";
 import { getDatabaseConfig } from "../lib/env";
-import { executeMutation } from "../lib/db/query";
+import { executeMutation, selectRows } from "../lib/db/query";
 import {
   getDashboardOperations,
   getStoreDashboard,
@@ -607,6 +607,88 @@ async function run() {
         rejected.current === undefined &&
         !rejected.message?.includes("Private upstream"),
       "Changed credentials invalidate cached results; permission errors are safe and never shown as zero",
+    );
+    const bundle = await executeMutation(
+      "INSERT INTO products (name,slug,status,product_type) VALUES ('Three-product bundle','dashboard-bundle','ACTIVE','BUNDLE')",
+    );
+    const looseProduct = await executeMutation(
+      "INSERT INTO products (name,slug,status) VALUES ('Unassigned individual','dashboard-unassigned','ACTIVE')",
+    );
+    const bundleVariant = await executeMutation(
+      "INSERT INTO product_variants (product_id,title,sku,price_pence) VALUES (?,'Bundle','DASH-BUNDLE',8000)",
+      [bundle.insertId],
+    );
+    const componentVariants = await selectRows<RowDataPacket & { id: string }>(
+      "SELECT id FROM product_variants WHERE product_id=? ORDER BY id",
+      [product.insertId],
+    );
+    await executeMutation(
+      "INSERT INTO bundle_items (bundle_product_id,component_variant_id,quantity) VALUES (?,?,5),(?,?,4)",
+      [bundle.insertId, componentVariants[0].id, bundle.insertId, componentVariants[1].id],
+    );
+    const bundleOrder = await order("2026-10-13 11:00:00", 17700);
+    await executeMutation(
+      "UPDATE order_items SET variant_id=?,quantity=93,unit_price_pence=100,line_total_pence=9300 WHERE order_id=?",
+      [componentVariants[0].id, bundleOrder],
+    );
+    await executeMutation(
+      `INSERT INTO order_items (order_id,product_id,variant_id,product_name,variant_title,sku,unit_price_pence,quantity,line_total_pence)
+       VALUES (?,?,?,'Three-product bundle','Bundle','DASH-BUNDLE',8000,1,8000),
+         (?,?,NULL,'Unassigned individual','100 ml','DASH-UNASSIGNED',100,1,100)`,
+      [bundleOrder, bundle.insertId, bundleVariant.insertId, bundleOrder, looseProduct.insertId],
+    );
+    await executeMutation(
+      "INSERT INTO checkout_stock_reservations (order_id,variant_id,quantity) VALUES (?,?,94),(?,?,2),(?,?,1)",
+      [bundleOrder, componentVariants[0].id, bundleOrder, componentVariants[1].id, bundleOrder, bundleVariant.insertId],
+    );
+    // Even a bundle assigned to multiple collections belongs to one bundle row.
+    await executeMutation(
+      "INSERT INTO product_collections (product_id,collection_id) VALUES (?,?),(?,?)",
+      [bundle.insertId, firstCollection.insertId, bundle.insertId, secondCollection.insertId],
+    );
+    const bundleRange = dashboardRange(
+      { range: "custom", start: "2026-10-08", end: "2026-10-14" },
+      new Date("2026-10-14T14:00:00Z"),
+    );
+    const bundleProducts = await getProductAnalytics(bundleRange);
+    check(
+      bundleProducts.current.units === 97 && bundleProducts.current.itemValue === 17400 &&
+        bundleProducts.types.find(row => row.label === "STANDARD")?.value === 94 &&
+        bundleProducts.types.find(row => row.label === "BUNDLE")?.value === 3 &&
+        bundleProducts.days.find(day => day.date === "2026-10-13")?.values.units === 97,
+      "Product totals, daily demand and donut count 94 individual units plus three recorded bundle contents after catalogue edits",
+    );
+    const bundleCollections = (await getStoreDashboard(bundleRange)).collectionSales;
+    const bundleRow = bundleCollections.find(row => row.kind === "bundles");
+    const unassignedRow = bundleCollections.find(row => row.kind === "unassigned");
+    check(
+      bundleCollections.length === 4 && bundleRow?.name === "Bundles" &&
+        Number(bundleRow.units) === 1 && Number(bundleRow.value) === 8000 &&
+        unassignedRow?.name === "Unassigned products" && Number(unassignedRow.units) === 1 &&
+        Number(unassignedRow.value) === 100 &&
+        bundleCollections.filter(row => row.kind === "collection").every(row => Number(row.units) === 93 && Number(row.value) === 9300),
+      "Bundles retain their sale value in one separate bucket while genuine unassigned products and overlapping collections stay distinct",
+    );
+    await executeMutation("DELETE FROM checkout_stock_reservations WHERE order_id=?", [bundleOrder]);
+    check(
+      (await getProductAnalytics(bundleRange)).current.units === 103,
+      "Without recorded bundle quantities the report uses the current nine-product bundle contents",
+    );
+    const importedBundle = await order("2026-10-13 12:00:00", 16300, "PAID", "LEGACY");
+    await executeMutation(
+      "UPDATE order_items SET product_id=?,variant_id=?,quantity=2,line_total_pence=16000 WHERE order_id=?",
+      [bundle.insertId, bundleVariant.insertId, importedBundle],
+    );
+    await executeMutation(
+      `INSERT INTO order_items (order_id,parent_item_id,product_id,product_name,variant_title,sku,unit_price_pence,quantity,line_total_pence)
+       SELECT order_id,id,?,'Recorded child','100 ml','DASH-RECORDED',100,6,600 FROM order_items WHERE order_id=?`,
+      [product.insertId, importedBundle],
+    );
+    const importedProducts = await getProductAnalytics({ ...bundleRange, source: "LEGACY" });
+    check(
+      importedProducts.current.units === 6 && importedProducts.current.itemValue === 16000 &&
+        importedProducts.types.find(row => row.label === "BUNDLE")?.value === 6,
+      "Imported bundle children override current definitions without multiplying already-expanded quantities or revenue",
     );
     console.log(
       `${checks} dashboard integration checks passed; disposable database and mocked Meta only.`,

@@ -27,6 +27,73 @@ import { canAccessMetaAds } from "../lib/auth/permissions";
 import { customerInsights, type CustomerInsightRow } from "../lib/admin/dashboard-customer-insights";
 import { timingHours, timingPattern } from "../lib/admin/dashboard-timing";
 import { fetchMetaTiming, hourlyInsightsPath, parseMetaTiming } from "../lib/meta/timing";
+import { productSalesRows, type SoldProductItem } from "../lib/admin/dashboard-product-units";
+
+const soldItem = (overrides: Partial<SoldProductItem> = {}): SoldProductItem => ({
+  id: "individual", orderId: "order-one", parentId: null, variantId: "variant-one",
+  hour: "2026-10-13T11:00:00Z", productType: "STANDARD", quantity: 1,
+  itemValue: 4000, itemDiscounts: 0, componentsPerBundle: null, untrackedPerBundle: null,
+  ...overrides,
+});
+
+test("Product units expand the 94 individual products and one three-product bundle into 97 units", () => {
+  const rows = productSalesRows([
+    soldItem({ quantity: 94, itemValue: 94000 }),
+    soldItem({ id: "bundle", variantId: "bundle-variant", productType: "BUNDLE", componentsPerBundle: 9, itemValue: 8000 }),
+  ], [
+    { orderId: "order-one", variantId: "variant-one", quantity: 95 },
+    { orderId: "order-one", variantId: "other-component", quantity: 2 },
+    { orderId: "order-one", variantId: "bundle-variant", quantity: 1 },
+  ]);
+  assert.equal(rows.find(row => row.label === "STANDARD")?.units, 94);
+  assert.equal(rows.find(row => row.label === "BUNDLE")?.units, 3);
+  assert.equal(rows.reduce((sum, row) => sum + row.units, 0), 97);
+  assert.equal(rows.reduce((sum, row) => sum + row.itemValue, 0), 102000);
+});
+
+test("Bundle snapshots support multiple bundles, repeated quantities and separate orders", () => {
+  const rows = productSalesRows([
+    soldItem({ quantity: 2 }),
+    soldItem({ id: "bundle-a", variantId: "bundle-a", productType: "BUNDLE", quantity: 2, componentsPerBundle: 9 }),
+    soldItem({ id: "bundle-b", variantId: "bundle-b", productType: "BUNDLE", componentsPerBundle: 9 }),
+    soldItem({ id: "other-order", orderId: "order-two", quantity: 4 }),
+  ], [
+    { orderId: "order-one", variantId: "variant-one", quantity: 7 },
+    { orderId: "order-one", variantId: "other-component", quantity: 3 },
+    { orderId: "order-one", variantId: "bundle-a", quantity: 2 },
+    { orderId: "order-one", variantId: "bundle-b", quantity: 1 },
+    { orderId: "order-two", variantId: "variant-one", quantity: 4 },
+  ]);
+  assert.equal(rows.find(row => row.label === "BUNDLE")?.units, 8);
+  assert.equal(rows.filter(row => row.label === "STANDARD").reduce((sum, row) => sum + row.units, 0), 6);
+});
+
+test("Imported bundle children already include pack quantities and never duplicate product revenue", () => {
+  const rows = productSalesRows([
+    soldItem({ id: "bundle", productType: "BUNDLE", variantId: "bundle-variant", quantity: 2, componentsPerBundle: 9, itemValue: 16000, itemDiscounts: 1000 }),
+    soldItem({ id: "child-a", parentId: "bundle", quantity: 4, itemValue: 16000 }),
+    soldItem({ id: "child-b", parentId: "bundle", variantId: "other-component", quantity: 2, itemValue: 8000 }),
+  ], []);
+  assert.deepEqual(rows, [{ hour: "2026-10-13T11:00:00Z", label: "BUNDLE", units: 6, itemValue: 16000, itemDiscounts: 1000 }]);
+});
+
+test("Bundles without complete inventory tracking include untracked contents and use catalogue quantities without snapshots", () => {
+  const items = [soldItem({ productType: "BUNDLE", variantId: "bundle-variant", quantity: 2, componentsPerBundle: "3", untrackedPerBundle: "1" })];
+  assert.equal(productSalesRows(items, [
+    { orderId: "order-one", variantId: "component", quantity: 4 },
+    { orderId: "order-one", variantId: "bundle-variant", quantity: 2 },
+  ])[0].units, 6);
+  assert.equal(productSalesRows(items, [])[0].units, 6);
+});
+
+test("Unavailable products retain recorded quantities, including recorded bundle children", () => {
+  assert.equal(productSalesRows([soldItem({ productType: "UNAVAILABLE", quantity: 3 })], [])[0].units, 3);
+  assert.equal(productSalesRows([
+    soldItem({ id: "missing-bundle", productType: "UNAVAILABLE" }),
+    soldItem({ id: "child", parentId: "missing-bundle", quantity: 3 }),
+  ], [])[0].units, 3);
+  assert.deepEqual(productSalesRows([], []), []);
+});
 
 const customerInsightFixture = (overrides: Partial<CustomerInsightRow> = {}): CustomerInsightRow => ({
   buyer: "buyer-one", hour: "2026-09-01T12:00:00Z", orders: 1,

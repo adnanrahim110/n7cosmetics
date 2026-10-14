@@ -7,6 +7,8 @@ import {
 } from "@/components/legal/LegalPage";
 import ReturnsPolicySection from "@/components/legal/ReturnsPolicySection";
 import PrivacyMarketingSection from "@/components/legal/PrivacyMarketingSection";
+import JsonLd from "@/components/seo/JsonLd";
+import { makeStorePageSchema } from "@/lib/commerce/seo";
 import {
   formatDeliveryEstimate,
   formatPolicyMoney,
@@ -42,6 +44,7 @@ export default async function ShippingReturnsPage() {
       introduction="Everything you need to know about delivery, returning an item, and getting support from the N7 Cosmetics team."
       navigation={[...navigation]}
     >
+      <JsonLd data={makeStorePageSchema({ settings, shippingMethods })} />
       <LegalSection id="shipping" number="01" title="Shipping policy">
         <p>
           At N7 Cosmetics, we strive to deliver your orders as quickly as

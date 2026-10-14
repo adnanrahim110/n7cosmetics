@@ -1,23 +1,28 @@
 import { hasDatabaseConfig } from "@/lib/env";
 import { getShippingConfiguration } from "./shipping-data";
-import type { ShippingRule } from "./shipping";
+import { matchingShippingZone, type ShippingRule } from "./shipping";
 
 export interface PublicShippingMethod {
   methodType: "DELIVERY" | "LOCAL_PICKUP";
+  countryCode: string;
+  isCountrywide: boolean;
   id: string; name: string; zoneName: string; postcodes: string[]; pricePence: number;
   freeShippingRules: Pick<ShippingRule, "id" | "name" | "minimumSubtotalPence" | "thresholdBasis">[];
   estimatedDaysMin: number | null; estimatedDaysMax: number | null;
 }
 export async function getPublicShippingMethods(countryCode = "GB"): Promise<PublicShippingMethod[]> {
-  if (!hasDatabaseConfig()) return [{ methodType: "DELIVERY", id: "source-policy", name: "Standard delivery", zoneName: "United Kingdom", postcodes: [], pricePence: 299,
+  if (!hasDatabaseConfig()) return countryCode === "GB" ? [{ methodType: "DELIVERY", countryCode, isCountrywide: true, id: "source-policy", name: "Standard delivery", zoneName: "United Kingdom", postcodes: [], pricePence: 299,
     freeShippingRules: [{ id: "source-rule", name: "Free Standard delivery", minimumSubtotalPence: 9900, thresholdBasis: "BEFORE_DISCOUNT" }],
-    estimatedDaysMin: 3, estimatedDaysMax: 5 }];
+    estimatedDaysMin: null, estimatedDaysMax: null }] : [];
   const config = await getShippingConfiguration();
+  const defaultZone = matchingShippingZone(config.zones, countryCode);
+  // GB postcode restrictions cannot be accurately represented in Google's shipping markup.
+  const hasPostcodeZones = config.zones.some(zone => zone.isActive && zone.countries.includes(countryCode) && zone.postcodes.length);
   return config.methods.filter(method => method.isActive).flatMap(method =>
     config.zones.filter(zone => zone.isActive && zone.countries.includes(countryCode)).flatMap(zone => {
       const rate = method.rates.find(item => item.zoneId === zone.id);
       if (!rate) return [];
-      return [{ methodType: method.methodType, id: method.id + "-" + zone.id, name: method.name, zoneName: zone.name, postcodes: zone.postcodes,
+      return [{ methodType: method.methodType, countryCode, isCountrywide: !hasPostcodeZones && zone.id === defaultZone?.id, id: method.id + "-" + zone.id, name: method.name, zoneName: zone.name, postcodes: zone.postcodes,
         pricePence: method.pricingMode === "FLAT_RATE" ? method.pricePence : rate.pricePence,
         estimatedDaysMin: method.estimatedDaysMin, estimatedDaysMax: method.estimatedDaysMax,
         freeShippingRules: config.rules.filter(rule => rule.isActive && rule.methodIds.includes(method.id) && (rule.zoneId === null || rule.zoneId === zone.id)) }];

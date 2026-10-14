@@ -2,13 +2,14 @@ import ProductInformation from "@/components/commerce/product-page/ProductInform
 import ProductOverview from "@/components/commerce/product-page/ProductOverview";
 import ProductScentOverview from "@/components/commerce/product-page/ProductScentOverview";
 import RelatedProductsSlider from "@/components/commerce/RelatedProductsSlider";
+import JsonLd from "@/components/seo/JsonLd";
 import {
   getRelatedStorefrontProducts,
   getStorefrontProduct,
 } from "@/lib/commerce/catalog";
 import { getPublicShippingMethods } from "@/lib/commerce/legal";
 import { getProductReviewSummary } from "@/lib/commerce/reviews";
-import { productStructuredData, structuredDataJson } from "@/lib/commerce/seo";
+import { makeProductPageSchema } from "@/lib/commerce/seo";
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
 import { getPublicPaymentAvailability } from "@/lib/payments/settings";
 import { pageMetadata } from "@/lib/metadata";
@@ -54,12 +55,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="min-h-screen bg-[#f3eee5] pb-16 pt-32 text-[#1c1814] sm:pt-44">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: structuredDataJson(productStructuredData(product, reviews)),
-        }}
-      />
+      <JsonLd data={makeProductPageSchema(product, reviews, { settings, shippingMethods })} />
       <ProductOverview
         product={product}
         reviews={reviews}

@@ -293,7 +293,7 @@ export async function ProductsView({ range }: { range: DashboardRange }) {
       key: "units",
       label: "Units sold",
       color: "#7c3aed",
-      note: "Paid order quantities; bundle components are not counted twice.",
+      note: "Individual product quantities, including the products inside bundles, counted once.",
     },
     {
       key: "itemValue",
@@ -320,13 +320,13 @@ export async function ProductsView({ range }: { range: DashboardRange }) {
         />
         <BreakdownChart
           title="Units by product type"
-          description="Current product classification. Unavailable products retain their recorded sales."
+          description="Includes products inside bundles. Uses recorded bundle quantities when available, otherwise current contents."
           rows={data.types.map((row) => ({
             label:
               row.label === "STANDARD"
                 ? "Individual products"
                 : row.label === "BUNDLE"
-                  ? "Bundles"
+                  ? "Products in bundles"
                   : "Product unavailable",
             value: Number(row.value),
           }))}

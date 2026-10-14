@@ -4,12 +4,15 @@ import BrandFilmSection from "@/components/sections/BrandFilmSection";
 import FaqsSection from "@/components/sections/FaqsSection";
 import FeaturesStrip from "@/components/sections/FeaturesStrip";
 import FragranceOfWeek from "@/components/sections/FragranceOfWeek";
-import HeroSection from "@/components/sections/HeroSection";
 import RecreationsSlider from "@/components/sections/RecreationsSlider";
 import ReviewsSection from "@/components/sections/ReviewsSection";
 import ScentStorySection from "@/components/sections/ScentStorySection";
 import SignatureFragrances from "@/components/sections/SignatureFragrances";
+import JsonLd from "@/components/seo/JsonLd";
 import { getHomepageStorefrontContent } from "@/lib/commerce/homepage";
+import { getPublicShippingMethods } from "@/lib/commerce/legal";
+import { makeStorePageSchema } from "@/lib/commerce/seo";
+import { getPublicSiteSettings } from "@/lib/commerce/settings";
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/metadata";
 
@@ -25,10 +28,15 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function Home() {
-  const content = await getHomepageStorefrontContent();
+  const [content, settings, shippingMethods] = await Promise.all([
+    getHomepageStorefrontContent(),
+    getPublicSiteSettings(),
+    getPublicShippingMethods("GB"),
+  ]);
   const { configuration } = content;
   return (
     <>
+      <JsonLd data={makeStorePageSchema({ settings, shippingMethods })} />
       <BrandFilmSection film={configuration.brandFilm} />
       <BestSellers products={content.bestSellerProducts} />
       <SignatureFragrances

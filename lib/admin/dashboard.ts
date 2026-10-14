@@ -53,6 +53,7 @@ export interface TopProduct extends RowDataPacket {
   value: string;
 }
 export interface CollectionSales extends RowDataPacket {
+  kind: "collection" | "bundles" | "unassigned";
   collection_id: string | null;
   name: string;
   units: string;
@@ -189,14 +190,19 @@ export async function getStoreDashboard(range: DashboardRange) {
           connection,
         ),
         selectRows<CollectionSales>(
-          `SELECT CAST(c.id AS CHAR) collection_id, COALESCE(c.name, 'Unassigned products') name,
-       SUM(oi.quantity) units, SUM(oi.line_total_pence) value
+          `SELECT kind, collection_id, name, SUM(quantity) units, SUM(line_total_pence) value FROM (
+       SELECT CASE WHEN product.product_type='BUNDLE' THEN 'bundles'
+         WHEN c.id IS NULL THEN 'unassigned' ELSE 'collection' END kind,
+       CAST(c.id AS CHAR) collection_id,
+       CASE WHEN product.product_type='BUNDLE' THEN 'Bundles' ELSE COALESCE(c.name, 'Unassigned products') END name,
+       oi.quantity, oi.line_total_pence
        FROM order_items oi JOIN orders o ON o.id=oi.order_id
-       LEFT JOIN product_collections pc ON pc.product_id=oi.product_id
+       LEFT JOIN products product ON product.id=oi.product_id
+       LEFT JOIN product_collections pc ON pc.product_id=oi.product_id AND product.product_type<>'BUNDLE'
        LEFT JOIN collections c ON c.id=pc.collection_id
        WHERE ${eligible} AND ${paid} AND o.currency='GBP'
        AND ${paidAt} >= ? AND ${paidAt} < ? AND oi.parent_item_id IS NULL
-       GROUP BY c.id, c.name ORDER BY value DESC, name LIMIT 5`,
+       ) sales GROUP BY kind, collection_id, name ORDER BY value DESC, name LIMIT 5`,
           [range.source, range.source, dayStartUtc(range.start), end],
           connection,
         ),
