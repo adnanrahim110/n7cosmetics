@@ -52,11 +52,21 @@ async function run() {
     check(ready, "The built production server starts");
     const channel = randomUUID(), path = `/api/meta/pixel-frame?channel=${channel}`;
     const get = (cookie = "") => fetch(origin + path, { headers: { cookie } });
+    const tiktokPath = `/api/tiktok/pixel-frame?page=${encodeURIComponent('/checkout/confirmation?key=private-receipt&payment_intent_client_secret=private-payment&ttclid=public-click')}`;
+    const getTikTok = (cookie = "") => fetch(origin + tiktokPath, { headers: { cookie } });
     check((await get()).status === 204, "Unknown consent returns no Pixel document");
+    check((await getTikTok()).status === 204, "Unknown consent returns no TikTok document");
     const consent = await fetch(`${origin}/api/meta/consent`, { method: "POST", headers: { origin, "Content-Type": "application/json" }, body: '{"granted":true}' });
     check(consent.ok, "Explicit marketing consent is saved");
     const cookie = consent.headers.getSetCookie().find(value => value.startsWith("n7_marketing_consent="))?.split(";")[0]; assert.ok(cookie);
     check((await get(`${cookie}; n7_marketing_optout=1`)).status === 204, "Essential-only opt-out overrides a stale consent grant");
+    check((await getTikTok(`${cookie}; n7_marketing_optout=1`)).status === 204, "Essential-only opt-out also blocks TikTok with a stale grant");
+    const tiktok = await getTikTok(cookie);
+    const tiktokHtml = await tiktok.text();
+    check(tiktok.ok && tiktokHtml.includes("DB7Q61BC77UCS546PMGG") && tiktokHtml.includes("ttq.page()"), "Granted consent receives the supplied TikTok base pixel");
+    check(tiktokHtml.includes("ttclid=public-click") && !tiktokHtml.includes("private-receipt") && !tiktokHtml.includes("private-payment"), "TikTok receives public campaign identifiers without receipt or payment credentials");
+    check(tiktok.headers.get("cache-control")?.includes("no-store") && tiktok.headers.get("referrer-policy") === "no-referrer", "TikTok permission and page context cannot be cached or leaked through a referrer");
+    check((await fetch(`${origin}/api/tiktok/pixel-frame?page=${encodeURIComponent('/admin/orders')}`, { headers: { cookie } })).status === 400, "TikTok rejects admin paths even with valid marketing permission");
     const response = await get(cookie);
     check(response.status === 200 && response.headers.get("content-type")?.startsWith("text/html"), "Granted consent receives a Pixel document");
     check(response.headers.get("cache-control")?.includes("no-store"), "The consent-bound document cannot be cached");
@@ -90,11 +100,13 @@ async function run() {
     check((await fetch(`${origin}/api/meta/matching`, { method: "POST", headers: { cookie, origin: "https://foreign.test", "Content-Type": "application/json" }, body: JSON.stringify(input) })).status === 403, "A foreign origin cannot update the profile");
     await save({ ...settings, pixelEnabled: false });
     check((await get(cookie)).status === 204, "Disabling Pixel blocks new SDK documents without a redeploy");
+    check((await getTikTok(cookie)).status === 200, "TikTok remains available with permission when Meta Pixel is disabled");
     await save(settings);
     const withdrawn = await fetch(`${origin}/api/meta/consent`, { method: "POST", headers: { cookie, origin, "Content-Type": "application/json" }, body: '{"granted":false}' });
     check(withdrawn.ok && (await get(cookie)).status === 204, "Server-side withdrawal prevents subsequent Pixel documents");
+    check((await getTikTok(cookie)).status === 204, "Server-side withdrawal also prevents subsequent TikTok documents");
     check((await fetch(`${origin}/api/meta/events`, { method: "POST", headers: { cookie, origin, "Content-Type": "application/json" }, body: JSON.stringify({ name: "PageView", eventId: randomUUID(), path: "/checkout" }) })).status === 204, "Withdrawal also blocks event collection");
-    console.log(`${checks} production Meta route checks passed; no browser, external Meta/Stripe calls or customer records used.`);
+    console.log(`${checks} production Meta/TikTok route checks passed; no browser, external advertising/Stripe calls or customer records used.`);
   } finally {
     if (server && server.exitCode === null) { const exited = once(server, "exit"); server.kill(); await exited; }
     if (created) await setup.query(`DROP DATABASE \`${database}\``);
