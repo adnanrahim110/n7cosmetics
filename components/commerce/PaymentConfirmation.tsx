@@ -7,9 +7,11 @@ import { useCommerce } from "./CommerceProvider";
 import Title from "../ui/Title";
 import { sendMetaBrowserEvent } from "@/lib/meta/client";
 import type { MetaBrowserEvent } from "@/lib/meta/shared";
+import { sendTikTokBrowserEvent } from "@/lib/tiktok/client";
+import type { TikTokBrowserEvent } from "@/lib/tiktok/shared";
 import { CHECKOUT_ATTEMPT_KEY, readCheckoutAttempt } from "@/lib/payments/checkout-attempt";
 
-interface Receipt { orderNumber: string; totalPence: number; currency: string; status: "paid" | "pending" | "failed" | "expired"; metaPurchase?: MetaBrowserEvent }
+interface Receipt { orderNumber: string; totalPence: number; currency: string; status: "paid" | "pending" | "failed" | "expired"; metaPurchase?: MetaBrowserEvent; tiktokPurchase?: TikTokBrowserEvent }
 export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: string }) {
   const { clearCart, hydrated, setReservationKey } = useCommerce();
   const [receipt, setReceipt] = useState<Receipt>();
@@ -21,6 +23,12 @@ export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: stri
     const send = () => { if (receipt.metaPurchase) void sendMetaBrowserEvent(receipt.metaPurchase); };
     send(); window.addEventListener("n7:meta-ready", send);
     return () => window.removeEventListener("n7:meta-ready", send);
+  }, [receipt]);
+  useEffect(() => {
+    if (!receipt?.tiktokPurchase) return;
+    const send = () => { if (receipt.tiktokPurchase) void sendTikTokBrowserEvent(receipt.tiktokPurchase); };
+    send(); window.addEventListener("n7:tiktok-ready", send);
+    return () => window.removeEventListener("n7:tiktok-ready", send);
   }, [receipt]);
   useEffect(() => {
     if (!hydrated) return;

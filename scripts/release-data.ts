@@ -11,7 +11,7 @@ const productCodeMigration = "030_remove_order_product_code_fallbacks.sql";
 const identifier = (value: string) => `\`${value.replaceAll("`", "``")}\``;
 const modulus = 1n << 256n;
 
-export async function fingerprintReleaseTable(db: Connection, table: string, columns: string[], excludeSetting?: string, cleanProductCodes = false): Promise<Fingerprint> {
+export async function fingerprintReleaseTable(db: Connection, table: string, columns: string[], excludeSetting?: string | readonly string[], cleanProductCodes = false): Promise<Fingerprint> {
   let count = 0, sum = 0n;
   // Project precisely migration 030's expected values before changing any data.
   // All other columns and rows remain part of the same fingerprint.
@@ -20,9 +20,10 @@ export async function fingerprintReleaseTable(db: Connection, table: string, col
         AND NOT (NULLIF(TRIM(oi.product_code), '') <=> NULLIF(TRIM(p.product_code), ''))
       THEN NULLIF(TRIM(p.product_code), '') ELSE oi.product_code END AS product_code`
     : `oi.${identifier(column)}`).join(",") : columns.map(identifier).join(",");
+  const excluded = typeof excludeSetting === "string" ? [excludeSetting] : excludeSetting ?? [];
   const stream = db.query(
-    `SELECT ${selection} FROM ${identifier(table)}${cleanProductCodes ? " oi LEFT JOIN products p ON p.id = oi.product_id" : ""}${excludeSetting ? " WHERE setting_key <> ?" : ""}`,
-    excludeSetting ? [excludeSetting] : [],
+    `SELECT ${selection} FROM ${identifier(table)}${cleanProductCodes ? " oi LEFT JOIN products p ON p.id = oi.product_id" : ""}${excluded.length ? ` WHERE setting_key NOT IN (${excluded.map(() => "?").join(",")})` : ""}`,
+    [...excluded],
   ).stream();
   for await (const row of stream) {
     sum = (sum + BigInt(`0x${createHash("sha256").update(JSON.stringify(row)).digest("hex")}`)) % modulus;
@@ -62,17 +63,23 @@ export async function verifyReleaseData(db: Connection, snapshot: Snapshot) {
       assert.equal(snapshot.orderProductCodeCleanup.count, before.count, "Order cleanup row count changed");
       expected = snapshot.orderProductCodeCleanup;
     }
-    if (table === "site_settings" && after.count === before.count + 1) {
-      // Migration 028 adds this default. Excluding it must reproduce the entire
-      // original fingerprint, so existing settings (including Meta) stay protected.
-      const [rows] = await db.promise().query<RowDataPacket[]>(
-        "SELECT setting_group, value_json, is_public, updated_by FROM site_settings WHERE setting_key = ?",
-        ["meta.configuration"],
-      );
-      const added = rows[0];
-      if (added?.setting_group === "meta" && added.is_public === 0 && added.updated_by === null
-        && JSON.stringify(typeof added.value_json === "string" ? JSON.parse(added.value_json) : added.value_json) === "{}") {
-        after = await fingerprintReleaseTable(db, table, before.columns, "meta.configuration");
+    const defaults = [{ key: "meta.configuration", group: "meta" }, { key: "tiktok.configuration", group: "tiktok" }];
+    const addedCount = after.count - before.count;
+    if (table === "site_settings" && addedCount > 0 && addedCount <= defaults.length) {
+      // Migrations 028/035 may add only these exact empty, private defaults.
+      // An exclusion is accepted ONLY if it reproduces the complete original
+      // fingerprint. Existing defaults and unrelated settings remain protected.
+      const candidates: string[] = [];
+      for (const setting of defaults) {
+        const [rows] = await db.promise().query<RowDataPacket[]>("SELECT setting_group, value_json, is_public, updated_by FROM site_settings WHERE setting_key = ?", [setting.key]);
+        const added = rows[0];
+        if (added?.setting_group === setting.group && added.is_public === 0 && added.updated_by === null && JSON.stringify(typeof added.value_json === "string" ? JSON.parse(added.value_json) : added.value_json) === "{}") candidates.push(setting.key);
+      }
+      for (let mask = 1; mask < 2 ** candidates.length; mask++) {
+        const excluded = candidates.filter((_key, index) => mask & (1 << index));
+        if (excluded.length !== addedCount) continue;
+        const candidate = await fingerprintReleaseTable(db, table, before.columns, excluded);
+        if (candidate.count === before.count && candidate.digest === before.digest) { after = candidate; break; }
       }
     }
     assert.equal(after.count, before.count, `Row count changed in ${table}`);

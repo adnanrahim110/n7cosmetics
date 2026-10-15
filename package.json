@@ -7,6 +7,9 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "tiktok:worker": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/tiktok-worker.js",
+    "tiktok:worker:deploy": "node .scripts-dist/scripts/tiktok-worker.js",
+    "tiktok:verify-flow": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-tiktok-flow.js",
     "dev": "next dev -p 3003",
     "build": "next build",
     "build:deploy": "next build && tsc -p tsconfig.scripts.json",

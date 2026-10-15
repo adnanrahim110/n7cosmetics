@@ -1,6 +1,10 @@
 import { consentGranted, consentId } from "@/lib/meta/consent";
 import { readCookie } from "@/lib/meta/identity";
-import { tiktokPageUrl, tiktokPixelDocument } from "@/lib/tiktok/pixel";
+import { tiktokCampaignKeys } from "@/lib/tiktok/pixel";
+import { tiktokPixelFrameDocument } from "@/lib/tiktok/pixel-frame-runtime";
+import { getTikTokSettings, tiktokPixelReady } from "@/lib/tiktok/settings";
+import { tiktokExternalId } from "@/lib/tiktok/identity";
+import { tiktokEventNames } from "@/lib/tiktok/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,11 +19,13 @@ export async function GET(request: Request) {
     "X-Content-Type-Options": "nosniff",
   };
   const url = new URL(request.url);
-  const page = tiktokPageUrl(url.searchParams.get("page") ?? "", url.origin);
-  if (!page) return new Response(null, { status: 400, headers });
+  const channel = url.searchParams.get("channel") ?? "";
+  if (!/^[a-f0-9-]{36}$/.test(channel)) return new Response(null, { status: 400, headers });
   try {
     if (readCookie(request, "n7_marketing_optout") === "1" || !await consentGranted(consentId(request)))
       return new Response(null, { status: 204, headers });
-    return new Response(tiktokPixelDocument(page), { headers });
+    const settings = await getTikTokSettings();
+    if (!tiktokPixelReady(settings) || settings.testEventCode) return new Response(null, { status: 204, headers });
+    return new Response(tiktokPixelFrameDocument({ channel, pixelId: settings.pixelId, externalId: tiktokExternalId(consentId(request)), campaignKeys: tiktokCampaignKeys, eventNames: [...tiktokEventNames, "Purchase"] }), { headers });
   } catch { return new Response(null, { status: 503, headers }); }
 }

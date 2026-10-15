@@ -8,7 +8,7 @@ import type { CartPricing } from "@/lib/commerce/quote";
 import type { StorefrontProductLabels } from "@/lib/commerce/catalog";
 import { MAX_CART_ITEM_QUANTITY, MAX_CART_LINES } from "@/lib/commerce/cart-limits";
 import { unavailableStock, type StockAvailability, type StockIssue, type StockSnapshot } from "@/lib/commerce/stock";
-import { trackMeta } from "@/lib/meta/client";
+import { trackMarketingEvent } from "@/lib/marketing/client";
 
 export interface CommerceProduct {
   slug: string;
@@ -229,7 +229,7 @@ export default function CommerceProvider({ children, productLabels, initialStock
       if (revision !== cartRevision.current) return false;
       const additions = next.map(item => ({ slug: item.slug, quantity: item.quantity - (cartRef.current.find(old => old.slug === item.slug)?.quantity ?? 0) })).filter(item => item.quantity > 0);
       replaceCart(next);
-      if (additions.length) void trackMeta("AddToCart", additions);
+      if (additions.length) void trackMarketingEvent("AddToCart", additions);
       if (open) setIsCartOpen(true);
       return true;
     } catch { toast.error("Unable to check stock. Your cart hasn’t changed. Please try again."); return false; }

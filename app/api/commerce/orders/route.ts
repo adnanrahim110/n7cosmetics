@@ -13,6 +13,8 @@ import { applyPaymentIntent, ensurePaymentIntent } from "@/lib/payments/stripe";
 import { isPaymentRequestOrigin } from "@/lib/payments/request";
 import { readMetaCheckoutCapture } from "@/lib/meta/orders";
 import { kickMetaQueue } from "@/lib/meta/kick";
+import { readTikTokCheckoutCapture } from "@/lib/tiktok/orders";
+import { kickTikTokQueue } from "@/lib/tiktok/kick";
 
 interface AttemptCount extends RowDataPacket { attempt_count: number }
 export async function POST(request: Request) {
@@ -33,7 +35,8 @@ export async function POST(request: Request) {
     const settings = await getStripeSettings();
     if (!settings.enabled || !stripeKeysReady(settings)) throw new PaymentUnavailableError();
     const capture = await readMetaCheckoutCapture(request);
-    const order = await createOrder(parsed.data, settings.mode, settings.revision, capture.context, capture.reason);
+    const tiktokCapture = await readTikTokCheckoutCapture(request);
+    const order = await createOrder(parsed.data, settings.mode, settings.revision, capture.context, capture.reason, tiktokCapture);
     if (order.inventory_state === "COMMITTED") return NextResponse.json({ orderNumber: order.order_number, totalPence: order.total_pence, currency: order.currency, paid: true }, { headers: { "Cache-Control": "no-store" } });
     const intent = await ensurePaymentIntent(order.id, settings);
     if (intent.status === "canceled") throw new CommerceError("CHECKOUT_EXPIRED", "This payment session expired. Please try again.");
@@ -41,6 +44,7 @@ export async function POST(request: Request) {
     await executeMutation("INSERT INTO checkout_attempts (ip_address, succeeded) VALUES (?, 1)", [metadata.ipAddress]);
     kickEmailQueue();
     kickMetaQueue();
+    kickTikTokQueue();
     return NextResponse.json({ orderNumber: order.order_number, totalPence: order.total_pence, currency: order.currency, clientSecret: intent.client_secret, paid: intent.status === "succeeded" }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error: unknown) {
     await executeMutation("INSERT INTO checkout_attempts (ip_address, succeeded) VALUES (?, 0)", [metadata.ipAddress]);

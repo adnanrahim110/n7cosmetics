@@ -7,7 +7,7 @@ import type { MetaPublicConfig } from "@/lib/meta/shared";
 import { metaCategoryPath } from "@/lib/meta/category-path";
 import { useCommerce } from "@/components/commerce/CommerceProvider";
 import TikTokTracking from "@/components/tiktok/TikTokTracking";
-import { stopTikTok } from "@/lib/tiktok/client";
+import { captureTikTokLandingClick, stopTikTok, suspendTikTok } from "@/lib/tiktok/client";
 
 export default function MetaTracking() {
   const pathname = usePathname();
@@ -30,7 +30,7 @@ export default function MetaTracking() {
     try {
       const response = await fetch("/api/meta/config", { cache: "no-store" });
       if (sequence !== refreshSequence.current) return;
-      if (!response.ok) { suspendMeta(); stopTikTok(); setConfig(undefined); return; }
+      if (!response.ok) { suspendMeta(); suspendTikTok(); setConfig(undefined); return; }
       const value: MetaPublicConfig = await response.json();
       if (sequence !== refreshSequence.current) return;
       try { locallyDenied.current = localStorage.getItem("n7-marketing-denied") === "1"; } catch { /* Keep the in-memory preference. */ }
@@ -39,12 +39,14 @@ export default function MetaTracking() {
         if (!withdrawalSynced.current && !withdrawalRequest.current) withdrawalRequest.current = fetch("/api/meta/consent", { method: "POST", headers: { "Content-Type": "application/json" }, body: '{"granted":false}', signal: AbortSignal.timeout(8000) }).then(response => { if (response.ok) withdrawalSynced.current = true; }).catch(() => undefined).finally(() => { withdrawalRequest.current = null; });
         value.consent = "denied";
       }
-      if (value.consent !== "granted") stopTikTok();
+      if (value.consent === "denied") stopTikTok();
+      else if (value.consent === "unknown") suspendTikTok();
       configureMeta(value); setConfig(value);
-    } catch { if (sequence === refreshSequence.current) { suspendMeta(); stopTikTok(); setConfig(undefined); } }
+    } catch { if (sequence === refreshSequence.current) { suspendMeta(); suspendTikTok(); setConfig(undefined); } }
   }, []);
   useEffect(() => {
     captureMetaLandingClick();
+    captureTikTokLandingClick();
     const sequence = refreshSequence;
     const initial = window.setTimeout(() => void refresh(), 0);
     const show = () => { setOpen(true); };

@@ -49,10 +49,11 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:unit
-      - name: Verify migrations, Meta delivery, catalogue, dashboard and production Pixel routes
+      - name: Verify migrations, Meta/TikTok delivery, catalogue, dashboard and production Pixel routes
         run: |
           pnpm release:verify-flow
           pnpm meta:verify-flow
+          pnpm tiktok:verify-flow
           pnpm meta:verify-catalog
           pnpm dashboard:verify-flow
           pnpm build:deploy

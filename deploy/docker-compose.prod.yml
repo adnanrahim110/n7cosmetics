@@ -96,6 +96,12 @@ services:
     container_name: n7-meta-worker
     command: [node, .scripts-dist/scripts/meta-worker.js]
 
+  tiktok-worker:
+    extends:
+      service: email-worker
+    container_name: n7-tiktok-worker
+    command: [node, .scripts-dist/scripts/tiktok-worker.js]
+
   database:
     image: mariadb:11.4
     container_name: n7-db

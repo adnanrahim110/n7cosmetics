@@ -6,7 +6,7 @@ import type { CheckoutInput } from "@/lib/commerce/validation";
 import { CheckoutValidationError } from "@/lib/commerce/checkout-validation";
 import { usePaymentConfig } from "./StripeProvider";
 import { useCommerce } from "./CommerceProvider";
-import { trackMeta, updateMetaMatching } from "@/lib/meta/client";
+import { trackMarketingEvent, updateMarketingMatching } from "@/lib/marketing/client";
 import { CHECKOUT_ATTEMPT_KEY, readCheckoutAttempt, type CheckoutAttempt } from "@/lib/payments/checkout-attempt";
 
 type PaymentInput = Omit<CheckoutInput, "idempotencyKey">;
@@ -28,11 +28,11 @@ export function useStripePayment({ preserveCart = false }: { preserveCart?: bool
       const billing = payload.billingAddress;
       // Wallet details become known here. Matching and analytics remain optional
       // and run independently of payment, including during network failures.
-      void updateMetaMatching({
+      void updateMarketingMatching({
         email: payload.customer.email, phone: payload.customer.phone, fullName: billing.fullName,
         city: billing.city, region: billing.region, postalCode: billing.postalCode, countryCode: billing.countryCode,
       });
-      if (expressCheckout) void trackMeta("InitiateCheckout", payload.items, { couponCode: payload.couponCode });
+      if (expressCheckout) void trackMarketingEvent("InitiateCheckout", payload.items, { couponCode: payload.couponCode });
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(preserveCart ? { payload, preserveCart } : payload)));
       const fingerprint = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
       let previous: CheckoutAttempt | null = null;
@@ -56,7 +56,7 @@ export function useStripePayment({ preserveCart = false }: { preserveCart?: bool
         throw new Error(data.error || "Unable to start payment. Please try again.");
       }
       setReservationKey(key);
-      void trackMeta("AddPaymentInfo", payload.items, { couponCode: payload.couponCode, reservationKey: key });
+      void trackMarketingEvent("AddPaymentInfo", payload.items, { couponCode: payload.couponCode, reservationKey: key });
       const returnUrl = `${window.location.origin}/checkout/confirmation?key=${encodeURIComponent(key)}`;
       if (data.paid) { router.push(`/checkout/confirmation?key=${encodeURIComponent(key)}`); return; }
       const address = payload.billingAddress;

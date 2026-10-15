@@ -111,6 +111,7 @@ const navigationGroups: readonly NavigationGroup[] = [
       { href: "/admin/discounts", label: "Discounts", icon: BadgePercent },
       { href: "/admin/coupons", label: "Coupons", icon: TicketPercent },
       { href: "/admin/meta", label: "Meta integration", icon: Radio },
+      { href: "/admin/tiktok", label: "TikTok integration", icon: Radio },
     ],
   },
   {

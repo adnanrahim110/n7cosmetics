@@ -98,6 +98,10 @@ async function run() {
       } else await applyMigration(name);
     }
     await verifyReleaseData(db, beforeCleanup); checks++;
+    await rejectsChange("UPDATE site_settings SET value_json = '{\"enabled\":true}' WHERE setting_key = 'tiktok.configuration'", beforeCleanup);
+    await rejectsChange("UPDATE site_settings SET is_public = 1 WHERE setting_key = 'tiktok.configuration'", beforeCleanup);
+    await rejectsChange("UPDATE site_settings SET setting_group = 'wrong' WHERE setting_key = 'tiktok.configuration'", beforeCleanup);
+    await rejectsChange("INSERT INTO site_settings (setting_key, setting_group, value_json) VALUES ('unrelated.tiktok', 'tiktok', '{}')", beforeCleanup);
     const [codes] = await setup.query<mysql.RowDataPacket[]>("SELECT product_code FROM order_items ORDER BY id");
     assert.deepEqual(codes.map(row => row.product_code), [null, '253', 'OLD-CODE', null]); checks++;
     // Old snapshots must still fail closed rather than silently exempt order items.
@@ -112,6 +116,8 @@ async function run() {
     const afterCleanup = await snapshotReleaseData(db);
     assert.equal(afterCleanup.orderProductCodeCleanup, undefined);
     await verifyReleaseData(db, afterCleanup); checks++;
+    await rejectsChange("DELETE FROM site_settings WHERE setting_key = 'tiktok.configuration'", afterCleanup);
+    await rejectsChange("UPDATE site_settings SET value_json = '{\"pixelEnabled\":false}' WHERE setting_key = 'tiktok.configuration'", afterCleanup);
     await rejectsChange("UPDATE order_items SET product_code = NULL WHERE sku = '253'", afterCleanup);
     console.log(`${checks} release integrity checks passed; all migrations verified, including the exact product-code cleanup.`);
   } finally {

@@ -8,6 +8,8 @@ import { isPaymentRequestOrigin } from "@/lib/payments/request";
 import { kickEmailQueue } from "@/lib/email/kick";
 import { kickMetaQueue } from "@/lib/meta/kick";
 import { browserMetaPurchase } from "@/lib/meta/orders";
+import { browserTikTokPurchase } from "@/lib/tiktok/orders";
+import { kickTikTokQueue } from "@/lib/tiktok/kick";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -46,8 +48,10 @@ async function receiptResponse(key: unknown, verify: boolean, request: Request) 
     const status = row.inventory_state === "RELEASED" ? "expired" : row.inventory_state === "COMMITTED" ? "paid" : row.payment_status === "FAILED" && (!verify || reconciled) ? "failed" : "pending";
     // Return receipt details only; no customer data or Stripe credentials.
     const metaPurchase = status === "paid" ? await browserMetaPurchase(row.id, request).catch(() => undefined) : undefined;
+    const tiktokPurchase = status === "paid" ? await browserTikTokPurchase(row.id, request).catch(() => undefined) : undefined;
     if (status === "paid") kickMetaQueue();
-    return NextResponse.json({ orderNumber: row.order_number, totalPence: row.total_pence, currency: row.currency, status, metaPurchase }, { headers });
+    if (status === "paid") kickTikTokQueue();
+    return NextResponse.json({ orderNumber: row.order_number, totalPence: row.total_pence, currency: row.currency, status, metaPurchase, tiktokPurchase }, { headers });
   } catch {
     return NextResponse.json({ error: "Payment confirmation is temporarily unavailable. We’ll keep checking; please don’t pay again." }, { status: 503, headers });
   }
