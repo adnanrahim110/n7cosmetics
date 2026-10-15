@@ -3,19 +3,15 @@ import ProductStockStatus from "@/components/commerce/ProductStockStatus";
 import ProductCodeBar from "@/components/ui/ProductCodeBar";
 import ProductGallery from "@/components/commerce/ProductGallery";
 import ProductReviews from "@/components/commerce/ProductReviews";
-import ProductBreadcrumbs from "@/components/commerce/ProductBreadcrumbs";
-import JsonLd from "@/components/seo/JsonLd";
 import ProductInformationAccordion from "@/components/commerce/product-page/ProductInformationAccordion";
 import ProductReturnsSummary from "@/components/commerce/product-page/ProductReturnsSummary";
 import Title from "@/components/ui/Title";
 import RatingStars from "@/components/commerce/RatingStars";
 import { getStorefrontBundle } from "@/lib/commerce/bundles";
-import { getPublicShippingMethods } from "@/lib/commerce/legal";
 import { getProductReviewSummary } from "@/lib/commerce/reviews";
-import { makeProductPageSchema } from "@/lib/commerce/seo";
-import { getPublicSiteSettings } from "@/lib/commerce/settings";
+import { productStructuredData, structuredDataJson } from "@/lib/commerce/seo";
 import { pageMetadata } from "@/lib/metadata";
-import { BadgeCheck, Check, Clock3, PackageCheck, ShieldCheck, Truck } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Check, Clock3, PackageCheck, ShieldCheck, Truck } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -46,11 +42,7 @@ export async function generateMetadata({ params }: BundlePageProps): Promise<Met
 export default async function BundlePage({ params }: BundlePageProps) {
   const bundle = await getStorefrontBundle((await params).slug);
   if (!bundle) notFound();
-  const [reviewSummary, settings, shippingMethods] = await Promise.all([
-    getProductReviewSummary(bundle.id),
-    getPublicSiteSettings(),
-    getPublicShippingMethods("GB"),
-  ]);
+  const reviewSummary = await getProductReviewSummary(bundle.id);
   const saving = bundle.compareAtPricePence ? Math.round((1 - bundle.pricePence / bundle.compareAtPricePence) * 100) : null;
   const gallery = [
     ...bundle.images.map((image) => ({ url: image.url, type: "image" as const, alt: image.alt })),
@@ -66,10 +58,14 @@ export default async function BundlePage({ params }: BundlePageProps) {
 
   return (
     <div className="min-h-screen bg-[#f3eee5] text-[#1c1814]">
-      <JsonLd data={makeProductPageSchema(bundle, reviewSummary, { settings, shippingMethods })} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredDataJson(productStructuredData(bundle, reviewSummary)) }} />
       <main className="pb-16 pt-36 sm:pb-24 sm:pt-44">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <ProductBreadcrumbs product={bundle} />
+          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-black/38">
+            <Link className="inline-flex items-center gap-2 transition hover:text-black" href="/bundles"><ArrowLeft size={13} />Bundles</Link>
+            <span aria-hidden="true">/</span>
+            <span className="max-w-56 truncate text-black/62">{bundle.name}</span>
+          </nav>
 
           <div className="mt-7 grid gap-10 lg:grid-cols-[1.06fr_0.94fr] lg:items-start lg:gap-14 xl:gap-20">
             <ProductGallery items={gallery} productName={bundle.name} />
