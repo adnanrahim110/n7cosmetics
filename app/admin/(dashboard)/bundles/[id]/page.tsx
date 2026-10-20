@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import MerchantProductLink from "@/components/admin/google/MerchantProductLink";
 import BundleForm from "@/components/admin/BundleForm";
 import PageHeader from "@/components/admin/PageHeader";
 import { getBundleForEdit, getBundleProductOptions } from "@/lib/admin/bundles";
@@ -12,7 +13,7 @@ export default async function EditBundlePage({ params }: { params: Promise<{ id:
   if (!bundle) notFound();
   return (
     <div>
-      <PageHeader eyebrow="Catalog" title={`Edit ${bundle.name}`} description="Update the bundle, included products, media, pricing, and storefront status." />
+      <PageHeader eyebrow="Catalog" title={`Edit ${bundle.name}`} description="Update the bundle, included products, media, pricing, and storefront status." actions={<MerchantProductLink variantId={bundle.variant_id} />} />
       <BundleForm action={updateBundleAction.bind(null, bundle.id)} bundle={bundle} products={products} />
     </div>
   );

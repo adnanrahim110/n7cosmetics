@@ -13,6 +13,7 @@ import { getRequestMetadata } from "@/lib/auth/request";
 import { requireAdministrator } from "@/lib/auth/session";
 import { executeMutation, selectOne, selectRows } from "@/lib/db/query";
 import { withTransaction } from "@/lib/db/transaction";
+import { invalidateGoogleBundleComposition } from "@/lib/google-merchant/admin";
 
 const bundleInputSchema = z.object({
   name: z.string().min(2).max(190),
@@ -229,6 +230,7 @@ export async function updateBundleAction(bundleId: string, _previousState: Bundl
       previousSlug = existing.slug;
       savedSlug = existing.name === bundle.name ? existing.slug : await uniqueBundleSlug(bundle.name, connection, bundleId);
       await validateComponentVariants(bundle.componentVariantIds, bundle.status === "ACTIVE", connection);
+      await invalidateGoogleBundleComposition(bundleId, bundle.componentVariantIds, connection);
       const lowStockThreshold = await getGlobalLowStockThreshold(connection);
       const [existingImages, existingVideos] = await Promise.all([
         selectRows<ExistingMediaRow>("SELECT url FROM product_images WHERE product_id = ? ORDER BY sort_order, id", [bundleId], connection),

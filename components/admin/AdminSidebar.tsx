@@ -28,6 +28,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
@@ -112,6 +113,7 @@ const navigationGroups: readonly NavigationGroup[] = [
       { href: "/admin/coupons", label: "Coupons", icon: TicketPercent },
       { href: "/admin/meta", label: "Meta integration", icon: Radio },
       { href: "/admin/tiktok", label: "TikTok integration", icon: Radio },
+      { href: "/admin/google", label: "Google Merchant", icon: PackageSearch },
     ],
   },
   {
@@ -205,9 +207,12 @@ export default function AdminSidebar({
             aria-hidden="true"
             className="grid p-1.5 shrink-0 place-items-center rounded-md border border-amber-200/20 bg-amber-200/8 text-base font-semibold tracking-tight text-amber-100"
           >
-            <img
+            <Image
               src="/imgs/fav.png"
               alt="N7 Cosmetics"
+              width={420}
+              height={512}
+              sizes="24px"
               className="w-6 h-auto invert-100"
             />
           </span>

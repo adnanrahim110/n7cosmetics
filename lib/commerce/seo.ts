@@ -1,6 +1,7 @@
 import type { StorefrontProduct } from "./catalog";
 import type { StorefrontBundle } from "./bundles";
 import { stockAvailability } from "./stock";
+import { merchantDescription, merchantText } from "../google-merchant/product";
 
 export function storefrontUrl(path: string): string {
   const fallback = "https://n7cosmetics.co.uk";
@@ -14,9 +15,11 @@ export function productStructuredData(product: StorefrontProduct | StorefrontBun
   const url = storefrontUrl(`/${product.productType === "BUNDLE" ? "bundles" : "products"}/${product.slug}`);
   return {
     "@context": "https://schema.org", "@type": "Product", "@id": `${url}#product`,
-    name: product.name, description: product.shortDescription || product.description || undefined,
+    name: merchantText(product.name), description: merchantDescription(product) || undefined,
     image: product.images.map(image => storefrontUrl(image.url)), url, sku: product.sku,
-    brand: { "@type": "Brand", name: product.brand || "N7 Cosmetics" },
+    brand: { "@type": "Brand", name: product.merchantIdentity?.brand || product.brand || "N7 Cosmetics" },
+    ...(product.merchantIdentity?.gtin ? { gtin: product.merchantIdentity.gtin } : {}),
+    ...(product.merchantIdentity?.mpn ? { mpn: product.merchantIdentity.mpn } : {}),
     offers: { "@type": "Offer", url, price: (product.pricePence / 100).toFixed(2), priceCurrency: "GBP",
       availability: `https://schema.org/${available.soldOut ? "OutOfStock" : "InStock"}`, itemCondition: "https://schema.org/NewCondition" },
     ...(reviews.totalReviews > 0 && reviews.averageRating >= 1 && reviews.averageRating <= 5 ? {

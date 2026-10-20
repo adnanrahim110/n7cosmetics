@@ -55,6 +55,7 @@ jobs:
           pnpm meta:verify-flow
           pnpm tiktok:verify-flow
           pnpm meta:verify-catalog
+          pnpm google:verify-catalog
           pnpm dashboard:verify-flow
           pnpm build:deploy
           pnpm meta:verify-pixel-frame

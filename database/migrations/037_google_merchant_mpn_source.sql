@@ -1,0 +1,2 @@
+ALTER TABLE google_merchant_products
+  ADD COLUMN mpn_source ENUM('MANUAL', 'PRODUCT_CODE') NOT NULL DEFAULT 'MANUAL' AFTER mpn;

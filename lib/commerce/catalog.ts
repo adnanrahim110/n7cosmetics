@@ -4,6 +4,7 @@ import { selectOne, selectRows } from "@/lib/db/query";
 import { hasDatabaseConfig } from "@/lib/env";
 import { readScentProfile, type ScentProfile } from "./scent-profile";
 import { productImageAlt } from "./product-image";
+import { getMerchantStructuredIdentity, type MerchantIdentity } from "../google-merchant/identity";
 
 export interface ProductNoteGroups {
   top: string[];
@@ -22,6 +23,7 @@ export interface StorefrontProductVideo {
 }
 
 export interface StorefrontProduct {
+  merchantIdentity?: MerchantIdentity;
   id: string;
   productType: "STANDARD" | "BUNDLE";
   variantId: string;
@@ -172,9 +174,10 @@ export async function getStorefrontProduct(slug: string, expectedType: "STANDARD
       [slug, expectedType],
     );
     if (!row) return null;
-    const [imageRows, videoRows] = await Promise.all([
+    const [imageRows, videoRows, merchantIdentity] = await Promise.all([
       selectRows<ProductImageRow>("SELECT url, alt_text FROM product_images WHERE product_id = ? ORDER BY sort_order, id", [row.id]),
       selectRows<ProductVideoRow>("SELECT url, title FROM product_videos WHERE product_id = ? ORDER BY sort_order, id", [row.id]),
+      getMerchantStructuredIdentity(row.variant_id),
     ]);
     const images = imageRows.map((image) => ({
       url: image.url,
@@ -185,6 +188,7 @@ export async function getStorefrontProduct(slug: string, expectedType: "STANDARD
     const noteGroups = noteGroupsFromJson(row.fragrance_notes_json);
     const primaryImage = images[0];
     return {
+      merchantIdentity,
       id: row.id,
       productType: row.product_type,
       variantId: row.variant_id,

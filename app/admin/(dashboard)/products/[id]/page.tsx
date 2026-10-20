@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import MerchantProductLink from "@/components/admin/google/MerchantProductLink";
 import Notice from "@/components/admin/Notice";
 import PageHeader from "@/components/admin/PageHeader";
 import ProductForm from "@/components/admin/ProductForm";
@@ -19,5 +20,5 @@ export default async function EditProductPage({ params, searchParams }: EditProd
   if (!product) notFound();
   const returnTo = productListReturnTo(query.returnTo);
   const action = updateProductAction.bind(null, id, returnTo);
-  return <div><PageHeader eyebrow="Catalog" title={product.name} description="Edit storefront content, pricing, and stock." />{query.saved ? <Notice type="success">Product saved.</Notice> : null}{query.error ? <Notice>{query.error === "duplicate" ? "A generated product identifier is already in use." : "Check the required fields and values."}</Notice> : null}<ProductForm product={product} {...options} action={action} returnTo={returnTo} /></div>;
+  return <div><PageHeader eyebrow="Catalog" title={product.name} description="Edit storefront content, pricing, and stock." actions={<MerchantProductLink variantId={product.variant_id} />} />{query.saved ? <Notice type="success">Product saved.</Notice> : null}{query.error ? <Notice>{query.error === "duplicate" ? "A generated product identifier is already in use." : "Check the required fields and values."}</Notice> : null}<ProductForm product={product} {...options} action={action} returnTo={returnTo} /></div>;
 }

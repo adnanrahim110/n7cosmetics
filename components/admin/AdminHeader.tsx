@@ -12,6 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
@@ -48,9 +49,12 @@ function AccountAvatar({ large = false }: { large?: boolean }) {
       aria-hidden="true"
       className="grid shrink-0 place-items-center rounded-md p-1.5 bg-primary-500"
     >
-      <img
+      <Image
         src="/imgs/fav.png"
         alt="N7 Cosmetics"
+        width={420}
+        height={512}
+        sizes={large ? "28px" : "18px"}
         className={cn("h-auto invert-100", large ? "w-7" : "w-4.5")}
       />
     </span>
