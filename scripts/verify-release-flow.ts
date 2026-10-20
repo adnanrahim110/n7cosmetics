@@ -75,8 +75,14 @@ async function run() {
       SELECT id, 'Deleted product', '100 ml', 'N7-P-DELETED', 'N7-P-DELETED', 3400, 1, 3400 FROM orders WHERE order_number = 'RELEASE-FIXTURE'`);
     await setup.query("INSERT INTO meta_consents (id,granted,expires_at) VALUES ('12345678-1234-1234-1234-123456789abc',1,DATE_ADD(CURRENT_TIMESTAMP(3),INTERVAL 1 DAY))");
     await setup.query("INSERT INTO meta_event_jobs (pixel_id,event_id,event_name,event_time,status) VALUES ('123456789','preserved-event','PageView',CURRENT_TIMESTAMP(3),'SENT')");
+    // A historical entry with the same action must remain fully protected.
+    await setup.query(`INSERT INTO audit_logs (action, entity_type, summary, metadata_json)
+      VALUES ('GOOGLE_MERCHANT_REVIEW', 'catalogue', 'Preserved earlier review', '{"preserve":true}')`);
+    await setup.query("INSERT INTO products (id, name, slug, status) VALUES (93, 'Reviewed original', 'anemoia', 'ACTIVE')");
+    await setup.query("INSERT INTO product_variants (product_id, title, sku, price_pence, is_default) VALUES (93, '100 ml', 'reviewed-release-fixture', 3300, 1)");
     const beforeCleanup = JSON.parse(JSON.stringify(await snapshotReleaseData(db)));
     assert.ok(beforeCleanup.orderProductCodeCleanup);
+    assert.ok(beforeCleanup.googleMerchantReview);
     await verifyReleaseData(db, beforeCleanup); checks++;
     await rejectsChange("UPDATE order_items SET product_code = NULL WHERE sku = 'N7-P-PLAIN'", beforeCleanup);
     for (const name of migrations.filter(name => name >= "030")) {
@@ -98,6 +104,22 @@ async function run() {
       } else await applyMigration(name);
     }
     await verifyReleaseData(db, beforeCleanup); checks++;
+    const [reviewRows] = await setup.query<mysql.RowDataPacket[]>("SELECT JSON_UNQUOTE(JSON_EXTRACT(metadata_json, '$.applied_rows')) AS applied_rows FROM audit_logs WHERE summary <> 'Preserved earlier review'");
+    assert.equal(Number(reviewRows[0].applied_rows), 1); checks++;
+    const reviewAction = "action = 'GOOGLE_MERCHANT_REVIEW' AND summary <> 'Preserved earlier review'";
+    await rejectsChange("UPDATE audit_logs SET summary = 'Changed historical entry' WHERE summary = 'Preserved earlier review'", beforeCleanup);
+    await rejectsChange("DELETE FROM audit_logs WHERE summary = 'Preserved earlier review'", beforeCleanup);
+    await rejectsChange("INSERT INTO audit_logs (action, entity_type, summary) VALUES ('UNEXPECTED', 'catalogue', 'Unexpected addition')", beforeCleanup);
+    await rejectsChange(`DELETE FROM audit_logs WHERE ${reviewAction}`, beforeCleanup);
+    await rejectsChange(`UPDATE audit_logs SET action = 'UNEXPECTED' WHERE ${reviewAction}`, beforeCleanup);
+    await rejectsChange(`UPDATE audit_logs SET entity_id = 'unexpected' WHERE ${reviewAction}`, beforeCleanup);
+    await rejectsChange(`UPDATE audit_logs SET metadata_json = JSON_SET(metadata_json, '$.confirmed_at', '2000-01-01') WHERE ${reviewAction}`, beforeCleanup);
+    await rejectsChange(`UPDATE audit_logs SET metadata_json = JSON_SET(metadata_json, '$.scope', 'unexpected') WHERE ${reviewAction}`, beforeCleanup);
+    await rejectsChange(`UPDATE audit_logs SET metadata_json = JSON_SET(metadata_json, '$.applied_rows', -1) WHERE ${reviewAction}`, beforeCleanup);
+    await rejectsChange(`UPDATE audit_logs SET metadata_json = JSON_SET(metadata_json, '$.applied_rows', '0') WHERE ${reviewAction}`, beforeCleanup);
+    await rejectsChange("DELETE FROM schema_migrations WHERE migration_name = '038_google_merchant_reviewed_catalog.sql'", beforeCleanup);
+    const legacyAuditSnapshot = { ...beforeCleanup, googleMerchantReview: undefined };
+    await assert.rejects(verifyReleaseData(db, legacyAuditSnapshot), /Row count changed in audit_logs/); checks++;
     await rejectsChange("UPDATE site_settings SET value_json = '{\"enabled\":true}' WHERE setting_key = 'tiktok.configuration'", beforeCleanup);
     await rejectsChange("UPDATE site_settings SET is_public = 1 WHERE setting_key = 'tiktok.configuration'", beforeCleanup);
     await rejectsChange("UPDATE site_settings SET setting_group = 'wrong' WHERE setting_key = 'tiktok.configuration'", beforeCleanup);
@@ -115,11 +137,21 @@ async function run() {
     await rejectsChange("DELETE FROM order_items WHERE sku = 'N7-P-DELETED'", beforeCleanup);
     const afterCleanup = await snapshotReleaseData(db);
     assert.equal(afterCleanup.orderProductCodeCleanup, undefined);
+    assert.equal(afterCleanup.googleMerchantReview, undefined);
     await verifyReleaseData(db, afterCleanup); checks++;
+    await rejectsChange(`UPDATE audit_logs SET summary = 'Changed completed review' WHERE ${reviewAction}`, afterCleanup);
+    await rejectsChange("INSERT INTO audit_logs (action, entity_type, summary) VALUES ('GOOGLE_MERCHANT_REVIEW', 'catalogue', 'Unexpected repeat')", afterCleanup);
     await rejectsChange("DELETE FROM site_settings WHERE setting_key = 'tiktok.configuration'", afterCleanup);
     await rejectsChange("UPDATE site_settings SET value_json = '{\"pixelEnabled\":false}' WHERE setting_key = 'tiktok.configuration'", afterCleanup);
     await rejectsChange("UPDATE order_items SET product_code = NULL WHERE sku = '253'", afterCleanup);
-    console.log(`${checks} release integrity checks passed; all migrations verified, including the exact product-code cleanup.`);
+    // A fresh database has no historical audit rows, as in the CI service.
+    await setup.query("DELETE FROM audit_logs");
+    await setup.query("DELETE FROM schema_migrations WHERE migration_name = '038_google_merchant_reviewed_catalog.sql'");
+    const emptyAuditSnapshot = JSON.parse(JSON.stringify(await snapshotReleaseData(db)));
+    assert.equal(emptyAuditSnapshot.googleMerchantReview.lastAuditId, "0");
+    await applyMigration("038_google_merchant_reviewed_catalog.sql");
+    await verifyReleaseData(db, emptyAuditSnapshot); checks++;
+    console.log(`${checks} release integrity checks passed; all migrations verified, including product-code cleanup and the exact Google Merchant review audit entry.`);
   } finally {
     if (created) await setup.query(`DROP DATABASE \`${database}\``);
     await setup.end();

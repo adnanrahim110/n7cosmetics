@@ -6,13 +6,21 @@ import mysql, { type Connection, type RowDataPacket } from "mysql2";
 import { getDatabaseConfig } from "../lib/env";
 
 interface Fingerprint { columns: string[]; count: number; digest: string }
-interface Snapshot { tables: Record<string, Fingerprint>; shipping: RowDataPacket[] | null; orderProductCodeCleanup?: Fingerprint }
+interface Snapshot {
+  tables: Record<string, Fingerprint>;
+  shipping: RowDataPacket[] | null;
+  orderProductCodeCleanup?: Fingerprint;
+  googleMerchantReview?: { lastAuditId: string };
+}
+interface FingerprintOptions { excludeSettings?: readonly string[]; cleanProductCodes?: boolean; maximumId?: string }
 const productCodeMigration = "030_remove_order_product_code_fallbacks.sql";
+const googleMerchantReviewMigration = "038_google_merchant_reviewed_catalog.sql";
 const identifier = (value: string) => `\`${value.replaceAll("`", "``")}\``;
 const modulus = 1n << 256n;
 
-export async function fingerprintReleaseTable(db: Connection, table: string, columns: string[], excludeSetting?: string | readonly string[], cleanProductCodes = false): Promise<Fingerprint> {
+export async function fingerprintReleaseTable(db: Connection, table: string, columns: string[], options: FingerprintOptions = {}): Promise<Fingerprint> {
   let count = 0, sum = 0n;
+  const { cleanProductCodes = false, excludeSettings = [], maximumId } = options;
   // Project precisely migration 030's expected values before changing any data.
   // All other columns and rows remain part of the same fingerprint.
   const selection = cleanProductCodes ? columns.map(column => column === "product_code"
@@ -20,10 +28,15 @@ export async function fingerprintReleaseTable(db: Connection, table: string, col
         AND NOT (NULLIF(TRIM(oi.product_code), '') <=> NULLIF(TRIM(p.product_code), ''))
       THEN NULLIF(TRIM(p.product_code), '') ELSE oi.product_code END AS product_code`
     : `oi.${identifier(column)}`).join(",") : columns.map(identifier).join(",");
-  const excluded = typeof excludeSetting === "string" ? [excludeSetting] : excludeSetting ?? [];
+  const conditions: string[] = [], values: string[] = [];
+  if (excludeSettings.length) {
+    conditions.push(`setting_key NOT IN (${excludeSettings.map(() => "?").join(",")})`);
+    values.push(...excludeSettings);
+  }
+  if (maximumId !== undefined) { conditions.push("id <= ?"); values.push(maximumId); }
   const stream = db.query(
-    `SELECT ${selection} FROM ${identifier(table)}${cleanProductCodes ? " oi LEFT JOIN products p ON p.id = oi.product_id" : ""}${excluded.length ? ` WHERE setting_key NOT IN (${excluded.map(() => "?").join(",")})` : ""}`,
-    [...excluded],
+    `SELECT ${selection} FROM ${identifier(table)}${cleanProductCodes ? " oi LEFT JOIN products p ON p.id = oi.product_id" : ""}${conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""}`,
+    values,
   ).stream();
   for await (const row of stream) {
     sum = (sum + BigInt(`0x${createHash("sha256").update(JSON.stringify(row)).digest("hex")}`)) % modulus;
@@ -32,8 +45,8 @@ export async function fingerprintReleaseTable(db: Connection, table: string, col
   return { columns, count, digest: sum.toString(16).padStart(64, "0") };
 }
 
-async function productCodeMigrationApplied(db: Connection): Promise<boolean> {
-  const [rows] = await db.promise().query<RowDataPacket[]>("SELECT migration_name FROM schema_migrations WHERE migration_name = ?", [productCodeMigration]);
+async function migrationApplied(db: Connection, name: string): Promise<boolean> {
+  const [rows] = await db.promise().query<RowDataPacket[]>("SELECT migration_name FROM schema_migrations WHERE migration_name = ?", [name]);
   return rows.length > 0;
 }
 
@@ -46,8 +59,12 @@ export async function snapshotReleaseData(db: Connection): Promise<Snapshot> {
     if (name === "schema_migrations" || name === "product_reviews" || (name === "shipping_methods" && migratingShipping)) continue;
     const [columns] = await db.promise().query<RowDataPacket[]>(`SHOW COLUMNS FROM ${identifier(name)}`);
     snapshot.tables[name] = await fingerprintReleaseTable(db, name, columns.map(column => String(column.Field)));
-    if (name === "order_items" && snapshot.tables[name].columns.includes("product_code") && !await productCodeMigrationApplied(db)) {
-      snapshot.orderProductCodeCleanup = await fingerprintReleaseTable(db, name, snapshot.tables[name].columns, undefined, true);
+    if (name === "order_items" && snapshot.tables[name].columns.includes("product_code") && !await migrationApplied(db, productCodeMigration)) {
+      snapshot.orderProductCodeCleanup = await fingerprintReleaseTable(db, name, snapshot.tables[name].columns, { cleanProductCodes: true });
+    }
+    if (name === "audit_logs" && !await migrationApplied(db, googleMerchantReviewMigration)) {
+      const [rows] = await db.promise().query<RowDataPacket[]>("SELECT COALESCE(MAX(id), 0) AS last_id FROM audit_logs");
+      snapshot.googleMerchantReview = { lastAuditId: String(rows[0].last_id) };
     }
   }
   if (migratingShipping) [snapshot.shipping] = await db.promise().query<RowDataPacket[]>("SELECT * FROM shipping_methods ORDER BY id");
@@ -58,10 +75,34 @@ export async function verifyReleaseData(db: Connection, snapshot: Snapshot) {
   for (const [table, before] of Object.entries(snapshot.tables)) {
     let after = await fingerprintReleaseTable(db, table, before.columns);
     let expected = before;
-    if (table === "order_items" && snapshot.orderProductCodeCleanup && await productCodeMigrationApplied(db)) {
+    if (table === "order_items" && snapshot.orderProductCodeCleanup && await migrationApplied(db, productCodeMigration)) {
       assert.deepEqual(snapshot.orderProductCodeCleanup.columns, before.columns, "Order cleanup columns changed");
       assert.equal(snapshot.orderProductCodeCleanup.count, before.count, "Order cleanup row count changed");
       expected = snapshot.orderProductCodeCleanup;
+    }
+    if (table === "audit_logs" && snapshot.googleMerchantReview && await migrationApplied(db, googleMerchantReviewMigration)) {
+      // Migration 038 appends exactly one system review entry. Fingerprint every
+      // original row, and validate the new entry rather than exempting audit logs.
+      assert.equal(after.count, before.count + 1, "Row count changed in audit_logs");
+      const [rows] = await db.promise().query<RowDataPacket[]>(
+        "SELECT administrator_id, action, entity_type, entity_id, summary, metadata_json, ip_address FROM audit_logs WHERE id > ?",
+        [snapshot.googleMerchantReview.lastAuditId],
+      );
+      assert.equal(rows.length, 1, "Row count changed in audit_logs");
+      const { metadata_json, ...entry } = rows[0];
+      assert.deepEqual(entry, {
+        administrator_id: null, action: "GOOGLE_MERCHANT_REVIEW", entity_type: "catalogue", entity_id: null,
+        summary: "Applied owner-confirmed identifier policy and reviewed gift-set classifications", ip_address: null,
+      }, "Existing values changed in audit_logs: invalid Google Merchant review entry");
+      const metadata: unknown = typeof metadata_json === "string" ? JSON.parse(metadata_json) : metadata_json;
+      assert.ok(metadata && typeof metadata === "object" && "applied_rows" in metadata &&
+        typeof metadata.applied_rows === "number" && Number.isSafeInteger(metadata.applied_rows) && metadata.applied_rows >= 0,
+      "Existing values changed in audit_logs: invalid Google Merchant review count");
+      assert.deepEqual(metadata, {
+        confirmed_at: "2026-10-20", applied_rows: metadata.applied_rows,
+        scope: "28 reviewed standard products and 6 exact gift-set recipes",
+      }, "Existing values changed in audit_logs: invalid Google Merchant review metadata");
+      after = await fingerprintReleaseTable(db, table, before.columns, { maximumId: snapshot.googleMerchantReview.lastAuditId });
     }
     const defaults = [{ key: "meta.configuration", group: "meta" }, { key: "tiktok.configuration", group: "tiktok" }];
     const addedCount = after.count - before.count;
@@ -78,7 +119,7 @@ export async function verifyReleaseData(db: Connection, snapshot: Snapshot) {
       for (let mask = 1; mask < 2 ** candidates.length; mask++) {
         const excluded = candidates.filter((_key, index) => mask & (1 << index));
         if (excluded.length !== addedCount) continue;
-        const candidate = await fingerprintReleaseTable(db, table, before.columns, excluded);
+        const candidate = await fingerprintReleaseTable(db, table, before.columns, { excludeSettings: excluded });
         if (candidate.count === before.count && candidate.digest === before.digest) { after = candidate; break; }
       }
     }
