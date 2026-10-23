@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.13.1",
   "engines": {
-    "node": ">=24.0.0"
+    "node": "^24.22.1 || ^26.12.1"
   },
   "scripts": {
     "tiktok:worker": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/tiktok-worker.js",

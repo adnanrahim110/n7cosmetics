@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim AS base
+FROM node:24.22.1-bookworm-slim AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 CI=true
 RUN corepack enable
@@ -18,7 +18,7 @@ ARG APP_URL=https://n7cosmetics.co.uk
 ENV APP_URL=$APP_URL
 RUN pnpm build:deploy
 
-FROM node:24-bookworm-slim AS runner
+FROM node:24.22.1-bookworm-slim AS runner
 WORKDIR /app
 ARG APP_BUILD_SHA=local
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
