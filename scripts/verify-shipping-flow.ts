@@ -26,6 +26,7 @@ async function run() {
     await db.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     created = true;
     await db.changeUser({ database });
+    await db.query("CREATE TABLE schema_migrations (migration_name VARCHAR(190) NOT NULL PRIMARY KEY)");
     const files = (await readdir("database/migrations")).filter(name => name.endsWith(".sql")).sort();
     for (const file of files.filter(name => name < "022_")) await db.query(await readFile(`database/migrations/${file}`, "utf8"));
     await db.query(`INSERT INTO shipping_zones (id,name) VALUES (1,'UK'),(2,'Other country');
@@ -96,7 +97,7 @@ async function run() {
     await assert.rejects(calculateQuote({ ...base, postalCode: "BT1 1AA", shippingMethodId: String(express.insertId) }), error => error instanceof CommerceError && error.code === "DELIVERY_UNAVAILABLE"); checks++;
     const address = { fullName: "Shipping Customer", line1: "1 Test Street", city: "Belfast", postalCode: "BT1 1AA", countryCode: "GB" as const, phone: "02079460000" };
     const input: CheckoutInput = { ...base, idempotencyKey: randomUUID(), shippingMethodId: "1", expectedTotalPence: 5299,
-      customer: { name: address.fullName, email: "shipping@example.com", phone: address.phone }, billingAddress: address, shippingAddress: address, paymentMethod: "STRIPE" };
+      customer: { name: address.fullName, email: "shipping@example.com", phone: address.phone }, billingAddress: address, shippingAddress: address, deliveryAddressConfirmed: true as const, paymentMethod: "STRIPE" };
     await assert.rejects(createOrder(input, "test"), error => error instanceof CommerceError && error.code === "CART_CHANGED"); checks++;
     const order = await createOrder({ ...input, idempotencyKey: randomUUID(), expectedTotalPence: 5899 }, "test");
     const saved = await selectOne("SELECT shipping_pence,shipping_snapshot_json FROM orders WHERE id=?", [order.id]);

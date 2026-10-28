@@ -63,7 +63,7 @@ async function run() {
     const delivery = await executeMutation("INSERT INTO shipping_methods (name, method_type, price_pence) VALUES ('Delivery', 'DELIVERY', 299)");
     await executeMutation("INSERT INTO shipping_method_rates (method_id,zone_id,price_pence) VALUES (?,?,299)", [delivery.insertId, zone.insertId]);
     const address: CheckoutInput["billingAddress"] = { fullName: "TikTok Test", line1: "1 Test Street", city: "London", postalCode: "SW1A 1AA", countryCode: "GB", phone: "07123456789" };
-    const input: CheckoutInput = { idempotencyKey: randomUUID(), expectedTotalPence: 4799, items: [{ slug: "tiktok-test", quantity: 1 }], customer: { name: address.fullName, email: "private@example.test", phone: address.phone }, countryCode: "GB", billingAddress: address, shippingAddress: address, paymentMethod: "STRIPE", shippingMethodId: String(delivery.insertId) };
+    const input: CheckoutInput = { idempotencyKey: randomUUID(), expectedTotalPence: 4799, items: [{ slug: "tiktok-test", quantity: 1 }], customer: { name: address.fullName, email: "private@example.test", phone: address.phone }, countryCode: "GB", billingAddress: address, shippingAddress: address, deliveryAddressConfirmed: true as const, paymentMethod: "STRIPE", shippingMethodId: String(delivery.insertId) };
     const paid = (orderId: string, live = true): PaymentIntentSnapshot => ({ id: `pi_fixture_${orderId}`, amount: 4799, amount_received: 4799, currency: "gbp", livemode: live, status: "succeeded", metadata: { n7_order_id: orderId } });
     const order = await createOrder(input, "live", undefined, undefined, undefined, capture);
     const context = await selectOne<RowDataPacket>("SELECT payload_encrypted FROM tiktok_order_contexts WHERE order_id = ?", [order.id]);

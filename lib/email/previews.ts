@@ -6,6 +6,7 @@ import { contactEmail, contactReceiptEmail, newsletterEmail, orderEmail, passwor
 export function emailPreviews(brand: EmailBrand, scenario = "default") {
   const order: OrderEmailData = { number: "N7-1001", name: "Alex Morgan", email: "preview@example.com", currency: "GBP", status: "NEW", paymentStatus: "UNPAID", fulfillmentStatus: "UNFULFILLED", paymentMethod: "BANK_TRANSFER", subtotal: 9800, discount: 1000, shipping: 450, tax: 0, total: 9250, address: "Alex Morgan\n12 Sample Street\nLondon\nSW1A 1AA\nGB", shippingMethod: "Standard delivery", bankInstructions: "Preview only: your saved bank transfer instructions appear here.", items: [{ name: "Devoir Elixer", imageUrl: "/imgs/products/1.png", variant: "100 ml", quantity: 1, unitPrice: 5800, total: 5800 }, { name: "Deja Vu", imageUrl: "/imgs/products/2.png", variant: "100 ml", quantity: 1, unitPrice: 4000, total: 4000 }] };
   const scenarios: Record<string, Partial<OrderEmailData>> = {
+    addressPending: { addressReviewRequired: true, addressReviewUrl: `${brand.appUrl}/checkout/confirmation?key=preview-address-review` },
     confirmed: { status: "CONFIRMED" }, processing: { status: "PROCESSING", paymentStatus: "PAID" },
     delivered: { status: "DELIVERED", paymentStatus: "PAID", fulfillmentStatus: "FULFILLED" },
     cancelled: { status: "CANCELLED" }, refunded: { status: "REFUNDED", paymentStatus: "REFUNDED" },
@@ -15,6 +16,8 @@ export function emailPreviews(brand: EmailBrand, scenario = "default") {
   const sample = { ...order, ...scenarios[scenario] };
   const dispatch = { ...order, status: "SHIPPED", paymentStatus: "PAID", fulfillmentStatus: "FULFILLED", postageService: "Tracked 48", trackingReference: "VU000000000GB", trackingUrl: royalMailTrackingUrl };
   return [
+    { key: "order-address-updated", label: "Delivery address correction", email: orderEmail(brand, scenario === "shipped" ? dispatch : sample, "address") },
+    { key: "order-address-team", label: "Address correction for the team", email: orderEmail(brand, scenario === "shipped" ? dispatch : sample, "team-address") },
     { key: "order-confirmation", label: "Order confirmation", email: orderEmail(brand, scenario === "shipped" ? dispatch : sample, "confirmation") },
     { key: "order-status-update", label: "Order status / dispatch", email: orderEmail(brand, ["default", "shipped"].includes(scenario) ? dispatch : sample, "update") },
     { key: "new-order-team", label: "New order for the team", email: orderEmail(brand, scenario === "shipped" ? dispatch : sample, "team") },

@@ -59,7 +59,7 @@ test("blocked storage and quota failures do not throw or prevent checkout", () =
 
 test("wallet details use the wallet's actual contact and delivery addresses", () => {
   const address = { fullName: "Alex van Test", line1: "1 Test Road", city: "London", postalCode: "SW1A 1AA", countryCode: "GB" as const, phone: "02079460000" };
-  const input = { items: [{ slug: "amber", quantity: 1 }], countryCode: "GB" as const, expectedTotalPence: 5000, customer: { name: address.fullName, email: "wallet@example.com", phone: address.phone }, billingAddress: address, shippingAddress: { ...address, fullName: "Sam Recipient", line1: "2 Delivery Road" }, paymentMethod: "STRIPE" as const, marketingOptOut: true };
+  const input = { items: [{ slug: "amber", quantity: 1 }], countryCode: "GB" as const, expectedTotalPence: 5000, customer: { name: address.fullName, email: "wallet@example.com", phone: address.phone }, billingAddress: address, shippingAddress: { ...address, fullName: "Sam Recipient", line1: "2 Delivery Road" }, deliveryAddressConfirmed: false, paymentMethod: "STRIPE" as const, marketingOptOut: true };
   const result = walletCheckoutDetails(input);
   assert.equal(result.email, "wallet@example.com");
   assert.equal(result.billingAddress.lastName, "van Test");

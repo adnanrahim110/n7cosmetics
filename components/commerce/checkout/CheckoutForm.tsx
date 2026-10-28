@@ -254,7 +254,7 @@ function CheckoutFields({ heading }: { heading: ReactNode }) {
       expectedTotalPence: quote.totalPence, customerEmail: email,
       customer: { name: billingAddress.fullName, email, phone: billingAddress.phone, notes: formResult.data.notes },
       billingAddress, shippingAddress: formResult.data.shippingAddress ? checkoutAddressFromForm(formResult.data.shippingAddress) : billingAddress,
-      marketingOptOut, paymentMethod: "STRIPE",
+      marketingOptOut, deliveryAddressConfirmed: true, paymentMethod: "STRIPE",
     };
     rememberCheckout({ version: 1, email, billingAddress: billingDetails, shippingAddress: differentShipping ? shippingDetails : billingDetails, differentShipping });
     setPlacing(true);

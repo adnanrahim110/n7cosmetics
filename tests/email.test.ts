@@ -27,7 +27,7 @@ test("every order email shows real codes and uses only the name when a code is m
 
 test("all transactional and subscription templates have complete HTML and plain text", () => {
   const previews = emailPreviews(brand);
-  assert.equal(previews.length, 13);
+  assert.equal(previews.length, 15);
   for (const { email } of previews) {
     assert.match(email.html, /^<!doctype html>/);
     assert.match(email.html, /<html lang="en">/);
@@ -51,9 +51,9 @@ test("saved wording updates both versions across all email templates", () => {
     })));
   }
   const customized = { ...brand, emailCopy };
-  const scenarios = ["default", "new", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded", "cash", "bankMissing", "other"];
+  const scenarios = ["addressPending", "default", "new", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded", "cash", "bankMissing", "other"];
   const previews = scenarios.flatMap((scenario) => emailPreviews(customized, scenario));
-  const kinds = { "order-confirmation": "confirmation", "order-status-update": "update", "new-order-team": "team", "order-update-team": "team-update" } as const;
+  const kinds = { "order-confirmation": "confirmation", "order-status-update": "update", "new-order-team": "team", "order-update-team": "team-update", "order-address-updated": "address", "order-address-team": "team-address" } as const;
   for (const [key, kind] of Object.entries(kinds)) {
     // Legacy tracking without a Royal Mail service and website-only customer support.
     previews.push({ key: key as EmailCopyKey, label: key, email: orderEmail({ ...customized, contactEmail: undefined }, { ...order, trackingReference: "TRACK-123", trackingUrl: "https://example.com/track" }, kind) });

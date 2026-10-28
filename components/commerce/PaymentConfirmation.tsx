@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import WalletAddressReview from "./WalletAddressReview";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
 import { useCommerce } from "./CommerceProvider";
 import Title from "../ui/Title";
@@ -11,12 +12,20 @@ import { sendTikTokBrowserEvent } from "@/lib/tiktok/client";
 import type { TikTokBrowserEvent } from "@/lib/tiktok/shared";
 import { CHECKOUT_ATTEMPT_KEY, readCheckoutAttempt } from "@/lib/payments/checkout-attempt";
 
-interface Receipt { orderNumber: string; totalPence: number; currency: string; status: "paid" | "pending" | "failed" | "expired"; metaPurchase?: MetaBrowserEvent; tiktokPurchase?: TikTokBrowserEvent }
+interface Receipt { addressReviewRequired?: boolean; orderNumber: string; totalPence: number; currency: string; status: "paid" | "pending" | "failed" | "expired"; metaPurchase?: MetaBrowserEvent; tiktokPurchase?: TikTokBrowserEvent }
 export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: string }) {
   const { clearCart, hydrated, setReservationKey } = useCommerce();
   const [receipt, setReceipt] = useState<Receipt>();
   const [message, setMessage] = useState("");
   const [retry, setRetry] = useState(0);
+  const [reviewKey, setReviewKey] = useState("");
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const addressConfirmed = useCallback(() => {
+    setReceipt((current) => current ? { ...current, addressReviewRequired: false } : current);
+    setReviewConfirmed(true);
+    requestAnimationFrame(() => summaryRef.current?.focus());
+  }, []);
   const [returnPath, setReturnPath] = useState("/checkout");
   useEffect(() => {
     if (!receipt?.metaPurchase) return;
@@ -64,6 +73,7 @@ export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: stri
         if (controller.signal.aborted) return;
         if ([400, 403, 404].includes(response.status)) { setMessage(data.error || "Unable to find this checkout."); return; }
         if (!response.ok) throw new Error(data.error || "Unable to check payment.");
+        setReviewKey(effectiveKey);
         setReceipt(data);
         setMessage("");
         try {
@@ -94,10 +104,12 @@ export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: stri
   const paid = receipt?.status === "paid";
   const unsuccessful = receipt?.status === "failed" || receipt?.status === "expired";
   return <div className="grid min-h-screen place-items-center bg-[#f3eee5] px-5 pb-16 pt-40 text-[#1c1814]">
-    <div className="max-w-lg text-center" aria-live="polite">
+    <div className="max-w-lg text-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-stone-700" aria-live="polite" ref={summaryRef} tabIndex={-1}>
       {paid ? <CheckCircle2 className="mx-auto text-emerald-700" size={54} /> : !unsuccessful && !message ? <LoaderCircle className="mx-auto animate-spin" size={40} /> : null}
       <Title as="h1" className="mt-5" text={paid ? "Thank you" : unsuccessful ? "Payment not completed" : "Confirming payment"} tone="gold" />
       <p className="mt-5 leading-7 text-black/60">{paid ? `Payment received for order ${receipt.orderNumber}: ${new Intl.NumberFormat("en-GB", { style: "currency", currency: receipt.currency }).format(receipt.totalPence / 100)}. Your confirmation will arrive by email.` : unsuccessful ? returnPath === "/checkout" ? "Your cart is saved. Return to checkout to try again." : "Return to the product page to try again." : message || "Please wait while we confirm your payment."}</p>
+      {paid && receipt.addressReviewRequired && reviewKey ? <WalletAddressReview checkoutKey={reviewKey} onConfirmed={addressConfirmed} /> : null}
+      {paid && reviewConfirmed ? <p className="mt-5 text-sm font-medium text-emerald-800" role="status">Delivery address confirmed. We’ll use it to dispatch your order.</p> : null}
       {receipt ? <p className="mt-3 text-sm text-black/50">Order reference: {receipt.orderNumber}</p> : null}
       {!paid && !unsuccessful && message ? <button className="mt-6 block w-full text-sm underline underline-offset-4" onClick={() => setRetry((value) => value + 1)} type="button">Check again</button> : null}
       <Link className="mt-8 inline-flex bg-[#1c1814] px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white" href={unsuccessful ? returnPath : "/"}>{unsuccessful ? returnPath === "/checkout" ? "Return to checkout" : "Return to product" : "Return home"}</Link>

@@ -1,28 +1,19 @@
-import type { PoolConnection, RowDataPacket } from "mysql2/promise";
-import { getOrderItems } from "../commerce/order-items";
+import type { PoolConnection } from "mysql2/promise";
 import { selectOne } from "../db/query";
-import { getEmailPreferences } from "./brand";
-import { enqueueEmail } from "./queue";
-import { orderEmail, type OrderEmailData } from "./templates";
+import { enqueueEmail, supersedeOrderStatusEmails } from "./queue";
 import { enqueueStoreNotification } from "./notifications";
+import { renderOrderMessage } from "./order-message";
 
-interface OrderRow extends RowDataPacket {
-  source: "LIVE" | "LEGACY";
-  order_number: string; customer_name: string; customer_email: string; currency: string; status: string; payment_status: string; fulfillment_status: string;
-  payment_provider: string; subtotal_pence: number; discount_pence: number; shipping_pence: number; tax_pence: number; total_pence: number;
-  shipping_method_name: string | null; postage_service: string | null; tracking_reference: string | null; tracking_url: string | null;
-}
-interface AddressRow extends RowDataPacket { full_name: string; company: string | null; line_1: string; line_2: string | null; city: string; region: string | null; postal_code: string; country_code: string }
-
-export async function enqueueOrderEmails(orderId: string, event: "confirmation" | string, connection: PoolConnection): Promise<void> {
-  const order = await selectOne<OrderRow>("SELECT * FROM orders WHERE id = ?", [orderId], connection);
-  if (!order) throw new Error("Order not found while preparing email.");
-  if (order.source === "LEGACY") return;
-  const items = await getOrderItems(orderId, connection);
-  const address = await selectOne<AddressRow>("SELECT * FROM order_addresses WHERE order_id = ? AND address_type = 'SHIPPING'", [orderId], connection);
-  const brand = await getEmailPreferences(connection);
-  const data: OrderEmailData = { number: order.order_number, name: order.customer_name, email: order.customer_email, currency: order.currency, status: order.status, paymentStatus: order.payment_status, fulfillmentStatus: order.fulfillment_status, paymentMethod: order.payment_provider, subtotal: order.subtotal_pence, discount: order.discount_pence, shipping: order.shipping_pence, tax: order.tax_pence, total: order.total_pence, shippingMethod: order.shipping_method_name || undefined, postageService: order.postage_service || undefined, trackingReference: order.tracking_reference || undefined, trackingUrl: order.tracking_url || undefined, bankInstructions: brand.bankInstructions, address: address ? [address.full_name, address.company, address.line_1, address.line_2, address.city, address.region, address.postal_code, address.country_code].filter(Boolean).join("\n") : "No delivery address recorded.", items: items.map((item) => ({ name: item.product_name, productCode: item.product_code, variant: item.variant_title, quantity: item.quantity, unitPrice: item.unit_price_pence, total: item.line_total_pence, imageUrl: item.image_url })) };
-  const kind = event === "confirmation" ? "confirmation" : "update";
-  await enqueueEmail({ ...orderEmail(brand, data, kind), to: order.customer_email, replyTo: brand.replyToEmail, templateKey: kind === "confirmation" ? "order-confirmation" : "order-status-update" }, { dedupeKey: `order:${orderId}:${event}:customer` }, connection);
-  await enqueueStoreNotification(brand, kind === "confirmation" ? "new_order" : "order_update", { ...orderEmail(brand, data, kind === "confirmation" ? "team" : "team-update"), replyTo: order.customer_email, templateKey: kind === "confirmation" ? "new-order-team" : "order-update-team" }, `order:${orderId}:${event}`, connection);
+export async function enqueueOrderEmails(orderId: string, event: string, connection: PoolConnection): Promise<void> {
+  const customerKey = `order:${orderId}:${event}:customer`;
+  // Retrying an event must not cancel its own notification, or a newer event.
+  if (await selectOne("SELECT id FROM email_jobs WHERE dedupe_key = ? LIMIT 1", [customerKey], connection)) return;
+  const kind = event === "confirmation" ? "confirmation" : event.startsWith("address:") ? "address" : "update";
+  const customer = await renderOrderMessage(orderId, kind, connection);
+  if (!customer) return;
+  if (kind === "update") await supersedeOrderStatusEmails(orderId, connection);
+  await enqueueEmail(customer.email, { dedupeKey: customerKey, orderId, orderKind: kind }, connection);
+  const teamKind = kind === "confirmation" ? "team" : kind === "address" ? "team-address" : "team-update";
+  const team = await renderOrderMessage(orderId, teamKind, connection);
+  if (team) await enqueueStoreNotification(team.brand, kind === "confirmation" ? "new_order" : "order_update", team.email, `order:${orderId}:${event}`, connection, { orderId, orderKind: teamKind });
 }

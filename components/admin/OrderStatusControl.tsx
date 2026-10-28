@@ -50,7 +50,7 @@ function TrackingDialog({
         </div>
         <button
           aria-label="Cancel shipping"
-          className="grid size-8 cursor-pointer place-items-center rounded-lg text-zinc-500 hover:bg-zinc-100 disabled:opacity-50"
+          className="grid size-11 cursor-pointer place-items-center rounded-lg text-zinc-500 hover:bg-zinc-100 disabled:opacity-50"
           disabled={pending}
           onClick={close}
           type="button"
@@ -64,7 +64,7 @@ function TrackingDialog({
         onSaved={close}
       />
       <button
-        className="mt-3 w-full cursor-pointer rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
+        className="mt-3 min-h-11 w-full cursor-pointer rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
         disabled={pending}
         onClick={close}
         type="button"

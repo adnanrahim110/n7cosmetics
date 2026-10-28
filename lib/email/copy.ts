@@ -5,6 +5,7 @@ const field = (label: string, source: string, group = "Message", maxLength = 200
 const title = (source: string, label = "Title") => field(label, source, "Header", 160);
 const label = (source: string, name = source) => field(name, source, "Labels and links", 100);
 const orderFields = {
+  addressPending: field("Delivery address pending", "This order is awaiting delivery address confirmation and cannot be dispatched yet."),
   paymentCancelled: field("Cancelled or refunded order", "Do not make a new payment against this order. The recorded payment status is {{paymentStatus}}. Contact N7 with reference {{orderNumber}} if you need payment details clarified.", "Payment wording"),
   paymentPaid: field("Paid order", "Payment of {{total}} is recorded as paid.", "Payment wording"),
   paymentBank: field("Bank transfer instructions", "{{bankInstructions}}\nUse {{orderNumber}} as your payment reference.", "Payment wording"),
@@ -18,7 +19,7 @@ const orderFields = {
   deliveryAddress: label("Delivery address"), paymentDetails: label("Payment details"), contact: label("Contact N7"),
 };
 const customerOrderFields = {
-  ...orderFields, selection: label("YOUR SELECTION", "Selection heading"),
+  ...orderFields, selection: label("YOUR SELECTION", "Selection heading"), confirmAddress: label("Confirm delivery address"),
   helpReply: field("Help (reply available)", "For help with this order, reply to this email and quote {{orderNumber}}."),
   helpWebsite: field("Help (website contact)", "For help with this order, contact N7 through the website and quote {{orderNumber}}."),
 };
@@ -30,6 +31,16 @@ const welcomeFields = {
 };
 
 export const emailCopyTemplates = {
+  "order-address-updated": {
+    title: title("Your delivery address has been updated."),
+    intro: field("Address update introduction", "{{customerName}}, we updated the delivery address recorded for order {{orderNumber}}. Please check the address below and contact us if anything needs correcting.", "Header"),
+    ...customerOrderFields,
+  },
+  "order-address-team": {
+    title: title("An order delivery address has changed."),
+    intro: field("Address update introduction", "The delivery address recorded for order {{orderNumber}} for {{customerName}} has changed. Use the current address below when preparing the order.", "Header"),
+    ...teamOrderFields,
+  },
   "order-confirmation": {
     title: title("Your order is with N7."),
     intro: field("Introduction", "{{customerName}}, we have received your selection. Keep order reference {{orderNumber}} for any questions about these fragrances.", "Header"),

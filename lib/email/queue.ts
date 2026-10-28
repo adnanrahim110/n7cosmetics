@@ -6,14 +6,16 @@ import { decryptSecret, encryptSecret } from "../security/encryption";
 import { getSmtpSettings, logEmail, sendProjectEmail, type EmailSendResult, type ProjectEmail } from "./service";
 import { getEmailPreferences } from "./brand";
 import { notificationRecipients, type NotificationType } from "./settings";
+import { renderOrderMessage } from "./order-message";
+import type { OrderEmailKind } from "./templates";
 import { getApplicationConfig } from "../env";
 
 export const MAX_EMAIL_ATTEMPTS = 5;
 export function retryDelaySeconds(attempt: number): number { return Math.min(3600, 60 * 5 ** Math.max(0, attempt - 1)); }
 
-export async function enqueueEmail(email: ProjectEmail, options: { dedupeKey: string; expiresAt?: Date; subscriberId?: string }, connection?: PoolConnection): Promise<string> {
-  const result = await executeMutation(`INSERT INTO email_jobs (dedupe_key, recipient, subject, template_key, payload_encrypted, expires_at, subscriber_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`, [options.dedupeKey, email.to, email.subject, email.templateKey, encryptSecret(JSON.stringify(email)), options.expiresAt ?? null, options.subscriberId ?? null], connection);
+export async function enqueueEmail(email: ProjectEmail, options: { dedupeKey: string; expiresAt?: Date; subscriberId?: string; orderId?: string; orderKind?: OrderEmailKind }, connection?: PoolConnection): Promise<string> {
+  const result = await executeMutation(`INSERT INTO email_jobs (dedupe_key, recipient, subject, template_key, payload_encrypted, expires_at, subscriber_id, order_id, order_email_kind)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`, [options.dedupeKey, email.to, email.subject, email.templateKey, encryptSecret(JSON.stringify(email)), options.expiresAt ?? null, options.subscriberId ?? null, options.orderId ?? null, options.orderKind ?? null], connection);
   return String(result.insertId);
 }
 
@@ -21,7 +23,13 @@ export async function cancelRecipientEmails(templateKey: string, recipient: stri
   await executeMutation("UPDATE email_jobs SET status = 'CANCELLED', payload_encrypted = NULL, lock_token = NULL, locked_at = NULL WHERE template_key = ? AND recipient = ? AND status IN ('PENDING','FAILED','PROCESSING')", [templateKey, recipient], connection);
 }
 
-interface Job extends RowDataPacket { id: string; recipient: string; subject: string; template_key: string; payload_encrypted: string | null; attempts: number; expires_at: Date | null; subscriber_id: string | null }
+export async function supersedeOrderStatusEmails(orderId: string, connection: PoolConnection): Promise<void> {
+  // Keep sent history and active SMTP attempts; stale worker claims are checked
+  // again against newer jobs after rendering, before they can send.
+  await executeMutation("UPDATE email_jobs SET status = 'CANCELLED', payload_encrypted = NULL, last_error = 'Superseded by a newer order status update.' WHERE order_id = ? AND order_email_kind IN ('update', 'team-update') AND status IN ('PENDING', 'FAILED')", [orderId], connection);
+}
+
+interface Job extends RowDataPacket { dedupe_key: string; order_id: string | null; order_email_kind: string | null; id: string; recipient: string; subject: string; template_key: string; payload_encrypted: string | null; attempts: number; expires_at: Date | null; subscriber_id: string | null }
 
 export async function retryQueuedEmail(id: string, allowPasswordReset: boolean): Promise<boolean> {
   return withTransaction(async (connection) => {
@@ -30,9 +38,10 @@ export async function retryQueuedEmail(id: string, allowPasswordReset: boolean):
       AND template_key NOT IN ('newsletter-confirmation','newsletter-welcome') AND (? = 1 OR template_key <> 'admin-password-reset') FOR UPDATE`, [id, allowPasswordReset], connection);
     if (!job?.payload_encrypted) return false;
     if (job.status === "SENT") {
-      const email = JSON.parse(decryptSecret(job.payload_encrypted)) as ProjectEmail;
+      const email = await currentOrderEmail(job, JSON.parse(decryptSecret(job.payload_encrypted)) as ProjectEmail, connection);
+      if (!email) return false;
       delete email.messageId;
-      await enqueueEmail(email, { dedupeKey: `resend:${job.id}:${randomUUID()}`, expiresAt: job.expires_at || undefined }, connection);
+      await enqueueEmail(email, { dedupeKey: `resend:${job.id}:${randomUUID()}`, expiresAt: job.expires_at || undefined, orderId: job.order_id ?? undefined, orderKind: orderKind(job.order_email_kind) }, connection);
     } else {
       await executeMutation("UPDATE email_jobs SET status = 'PENDING', attempts = 0, available_at = CURRENT_TIMESTAMP(3), last_error = NULL WHERE id = ?", [id], connection);
     }
@@ -72,7 +81,11 @@ export async function processEmailQueue(limit = 10, deliver?: (email: ProjectEma
     let result: EmailSendResult;
     try {
       if (!job.payload_encrypted) throw new Error("No recoverable email content remains.");
-      const email = JSON.parse(decryptSecret(job.payload_encrypted)) as ProjectEmail;
+      const email = await currentOrderEmail(job, JSON.parse(decryptSecret(job.payload_encrypted)) as ProjectEmail);
+      if (!email) {
+        await executeMutation("UPDATE email_jobs SET status = 'CANCELLED', payload_encrypted = NULL, lock_token = NULL, locked_at = NULL WHERE id = ? AND lock_token = ?", [job.id, token]);
+        continue;
+      }
       const legacyTypes: Record<string, NotificationType> = { "new-order-team": "new_order", "storefront-contact": "enquiry", "order-update-team": "order_update", "payment-failure-team": "payment_failure", "low-stock-team": "low_stock" };
       const type = email.notificationType || legacyTypes[email.templateKey];
       if (type && !notificationRecipients((await getEmailPreferences()).notifications, type).includes(email.to.toLowerCase())) {
@@ -81,6 +94,9 @@ export async function processEmailQueue(limit = 10, deliver?: (email: ProjectEma
       }
       // Keep the identifier stable when the SMTP provider or sender changes.
       email.messageId = `<n7-job-${job.id}@${new URL(getApplicationConfig().appUrl).hostname}>`;
+      // Record exactly what this attempt sends, and respect a concurrent cancellation.
+      const current = await executeMutation("UPDATE email_jobs SET subject = ?, payload_encrypted = ? WHERE id = ? AND lock_token = ? AND status = 'PROCESSING'", [email.subject, encryptSecret(JSON.stringify(email)), job.id, token]);
+      if (!current.affectedRows) continue;
       result = deliver ? await deliver(email, job.id) : await sendProjectEmail(email, job.id, settings);
     } catch (error) {
       result = { status: "FAILED", error: error instanceof Error ? error.message : "Email could not be delivered." };
@@ -95,4 +111,43 @@ export async function processEmailQueue(limit = 10, deliver?: (email: ProjectEma
     processed++;
   }
   return processed;
+}
+
+function orderKind(value: string | null): OrderEmailKind | undefined {
+  return value === "confirmation" || value === "update" || value === "address" || value === "team" || value === "team-update" || value === "team-address" ? value : undefined;
+}
+
+async function currentOrderEmail(job: Job, saved: ProjectEmail, connection?: PoolConnection): Promise<ProjectEmail | null> {
+  const context = await orderEmailContext(job, connection);
+  if (!context) return saved;
+  job.order_id = context.orderId;
+  job.order_email_kind = context.kind;
+  const current = await renderOrderMessage(context.orderId, context.kind, connection);
+  if (current && (context.kind === "update" || context.kind === "team-update")) {
+    // Read after rendering: if the renderer saw a newer committed status, its
+    // replacement job is now visible too. Compare per recipient so every team
+    // member still receives the latest update.
+    const newer = await selectOne<RowDataPacket>("SELECT id FROM email_jobs WHERE order_id = ? AND order_email_kind = ? AND recipient = ? AND id > ? AND status <> 'CANCELLED' LIMIT 1", [context.orderId, context.kind, saved.to, job.id], connection);
+    if (newer) return null;
+  }
+  return current ? { ...saved, ...current.email, to: saved.to, notificationType: saved.notificationType } : null;
+}
+
+async function orderEmailContext(job: Job, connection?: PoolConnection): Promise<{ orderId: string; kind: OrderEmailKind } | null> {
+  let current: Job | null = job;
+  const visited = new Set<string>();
+  const templates: Record<string, OrderEmailKind | undefined> = { "order-confirmation": "confirmation", "order-status-update": "update", "new-order-team": "team", "order-update-team": "team-update", "order-address-updated": "address", "order-address-team": "team-address" };
+  // Older resends can point to another resend. Follow only explicit job references.
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    const kind = orderKind(current.order_email_kind);
+    if (current.order_id && kind) return { orderId: current.order_id, kind };
+    const order = /^(?:order:|notification:(?:new_order|order_update):order:)([1-9]\d*):/.exec(current.dedupe_key);
+    const templateKind = templates[current.template_key];
+    if (order && templateKind) return { orderId: order[1], kind: templateKind };
+    const original = /^resend:([1-9]\d*):/.exec(current.dedupe_key);
+    if (!original) return null;
+    current = await selectOne<Job>("SELECT *, CAST(id AS CHAR) AS id FROM email_jobs WHERE id = ?", [original[1]], connection);
+  }
+  return null;
 }

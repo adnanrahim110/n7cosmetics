@@ -1,13 +1,17 @@
 import { z } from "zod";
+import { orderShippingAddressSchema } from "./order-address";
 
 export const orderStatuses = ["NEW", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "COMPLETED", "CANCELLED", "REFUNDED", "FAILED", "ON_HOLD"] as const;
 export type OrderStatus = (typeof orderStatuses)[number];
 export const royalMailTrackingUrl = "https://www.royalmail.com/track-your-item";
 
 export const orderUpdateSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("shipping-address"), address: orderShippingAddressSchema, revision: z.number().int().nonnegative(), reason: z.string().trim().min(3, "Enter the customer's reason for the correction.").max(400) }),
   z.object({ kind: z.literal("status"), status: z.enum(orderStatuses) }),
   z.object({
     kind: z.literal("tracking"),
+    addressRevision: z.number().int().nonnegative(),
+    addressConfirmed: z.literal(true, { error: "Review and confirm the delivery destination before dispatch." }),
     postageService: z.string().trim().min(1, "Enter the postage service.").max(190).refine((value) => !/[\r\n]/.test(value), "Enter a single postage service."),
     trackingReference: z.string().max(190).transform((value) => value.replace(/\s/g, "").toUpperCase()).pipe(z.string().min(1, "Enter the tracking number.").regex(/^[A-Z0-9]+$/, "Use only letters and numbers from the tracking number.")),
   }),

@@ -3,6 +3,7 @@ import { productNameWithCode } from "../commerce/product-label";
 import { emailCopy, emailCopyDefinition, type EmailCopyKey } from "./copy";
 
 export interface OrderEmailData {
+  addressReviewRequired?: boolean; addressReviewUrl?: string;
   number: string; name: string; email: string; currency: string; status: string; paymentStatus: string; fulfillmentStatus: string;
   paymentMethod: string; subtotal: number; discount: number; shipping: number; tax: number; total: number;
   address: string; shippingMethod?: string; postageService?: string; trackingReference?: string; trackingUrl?: string; bankInstructions?: string;
@@ -12,11 +13,14 @@ const money = (pence: number, currency: string) => new Intl.NumberFormat("en-GB"
 const readable = (value: string) => value.toLowerCase().replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
 const cleanSubject = (value: string) => value.replace(/[\r\n]+/g, " ").slice(0, 255);
 
-export function orderEmail(brand: EmailBrand, order: OrderEmailData, kind: "confirmation" | "update" | "team" | "team-update"): EmailContent {
+export type OrderEmailKind = "confirmation" | "update" | "address" | "team" | "team-update" | "team-address";
+
+export function orderEmail(brand: EmailBrand, order: OrderEmailData, kind: OrderEmailKind): EmailContent {
   const deliveryAddress = order.address.split(/[\r\n,]+/).map((part) => part.trim()).filter(Boolean).join(", ");
-  const isTeam = kind === "team" || kind === "team-update";
+  const isTeam = kind === "team" || kind === "team-update" || kind === "team-address";
+  const addressUpdated = kind === "address" || kind === "team-address";
   const dispatched = kind === "update" && order.status === "SHIPPED";
-  const keys: Record<typeof kind, EmailCopyKey> = { confirmation: "order-confirmation", update: "order-status-update", team: "new-order-team", "team-update": "order-update-team" };
+  const keys: Record<typeof kind, EmailCopyKey> = { confirmation: "order-confirmation", update: "order-status-update", team: "new-order-team", "team-update": "order-update-team", address: "order-address-updated", "team-address": "order-address-team" };
   const key = keys[kind];
   const copy = emailCopy(brand, key);
   const values = { customerName: order.name, orderNumber: order.number, courier: order.postageService ? " with Royal Mail" : "", total: money(order.total, order.currency), bankInstructions: order.bankInstructions || "", paymentStatus: readable(order.paymentStatus) };
@@ -39,9 +43,10 @@ export function orderEmail(brand: EmailBrand, order: OrderEmailData, kind: "conf
   const trackingHeading = copy(order.postageService ? "royalMailTracking" : "deliveryTracking");
   const trackingBlock = trackingFacts.length ? heading(trackingHeading) + details(trackingFacts) + trackingButton : "";
   const help = isTeam ? `${copy("openOrders")}: ${brand.appUrl}/admin/orders` : copy(brand.contactEmail ? "helpReply" : "helpWebsite", values);
-  const body = trackingBlock + details(facts) + selection + details(totals) + (trackingFacts.length ? "" : heading(copy("deliveryAddress")) + paragraph(deliveryAddress)) + heading(copy("paymentDetails")) + paragraph(paymentNote) + (trackingFacts.length ? "" : trackingButton) + (isTeam ? emailButton(copy("openOrders"), `${brand.appUrl}/admin/orders`) : paragraph(help)) + paragraph(`${copy("contact")}: ${brand.contactEmail || `${brand.appUrl}/contact`}`);
-  const subject = cleanSubject(kind === "team-update" ? `N7 order ${order.number} · Team update` : kind === "team" ? `New N7 order ${order.number} · ${money(order.total, order.currency)}` : kind === "confirmation" ? `N7 order ${order.number} · Your selection received` : `N7 order ${order.number} · ${dispatched ? "Order dispatched" : "Order update"}`);
-  return { subject, text: [title, "", intro, ...(trackingFacts.length ? ["", trackingHeading] : []), ...trackingFacts.filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`), ...facts.filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`), "", copy("selection"), `${copy("fragrance")} · ${copy("amount")}`, ...order.items.map((item) => `${productNameWithCode(item.name, item.productCode)} (${item.variant}) · ${item.quantity} × ${money(item.unitPrice, order.currency)} = ${money(item.total, order.currency)}`), "", ...totals.map(([label, value]) => `${label}: ${value}`), trackingFacts.length ? "" : `\n${copy("deliveryAddress")}: ${deliveryAddress}`, `\n${copy("paymentDetails")}\n${paymentNote}`, order.trackingUrl ? `${trackingLabel}: ${order.trackingUrl}` : "", help, `${copy("contact")}: ${brand.contactEmail || `${brand.appUrl}/contact`}`].join("\n"), html: emailLayout(brand, { title, description: intro, preview: `${order.number} · ${money(order.total, order.currency)} · ${readable(order.status)}`, body }) };
+  const reviewNotice = order.addressReviewRequired ? paragraph(copy("addressPending")) + (!isTeam && order.addressReviewUrl ? emailButton(copy("confirmAddress"), order.addressReviewUrl) : "") : "";
+  const body = reviewNotice + trackingBlock + details(facts) + selection + details(totals) + (trackingFacts.length ? "" : heading(copy("deliveryAddress")) + paragraph(deliveryAddress)) + heading(copy("paymentDetails")) + paragraph(paymentNote) + (trackingFacts.length ? "" : trackingButton) + (isTeam ? emailButton(copy("openOrders"), `${brand.appUrl}/admin/orders`) : paragraph(help)) + paragraph(`${copy("contact")}: ${brand.contactEmail || `${brand.appUrl}/contact`}`);
+  const subject = cleanSubject(addressUpdated ? `N7 order ${order.number} · Delivery address updated${isTeam ? " · Team update" : ""}` : kind === "team-update" ? `N7 order ${order.number} · Team update` : kind === "team" ? `New N7 order ${order.number} · ${money(order.total, order.currency)}` : kind === "confirmation" ? `N7 order ${order.number} · Your selection received` : `N7 order ${order.number} · ${dispatched ? "Order dispatched" : "Order update"}`);
+  return { subject, text: [title, "", intro, ...(order.addressReviewRequired ? [copy("addressPending"), ...(!isTeam && order.addressReviewUrl ? [`${copy("confirmAddress")}: ${order.addressReviewUrl}`] : [])] : []), ...(trackingFacts.length ? ["", trackingHeading] : []), ...trackingFacts.filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`), ...facts.filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`), "", copy("selection"), `${copy("fragrance")} · ${copy("amount")}`, ...order.items.map((item) => `${productNameWithCode(item.name, item.productCode)} (${item.variant}) · ${item.quantity} × ${money(item.unitPrice, order.currency)} = ${money(item.total, order.currency)}`), "", ...totals.map(([label, value]) => `${label}: ${value}`), trackingFacts.length ? "" : `\n${copy("deliveryAddress")}: ${deliveryAddress}`, `\n${copy("paymentDetails")}\n${paymentNote}`, order.trackingUrl ? `${trackingLabel}: ${order.trackingUrl}` : "", help, `${copy("contact")}: ${brand.contactEmail || `${brand.appUrl}/contact`}`].join("\n"), html: emailLayout(brand, { title, description: intro, preview: `${order.number} · ${money(order.total, order.currency)} · ${readable(order.status)}`, body }) };
 }
 
 export function passwordResetEmail(brand: EmailBrand, name: string, resetUrl: string): EmailContent {

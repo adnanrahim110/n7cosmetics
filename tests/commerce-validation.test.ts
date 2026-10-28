@@ -18,7 +18,7 @@ function checkoutServerFixture() {
   const address = checkoutAddressFromForm(form.billingAddress);
   return {
     items: [{ slug: "amber", quantity: 1 }], countryCode: "GB", expectedTotalPence: 4799,
-    idempotencyKey: "1e7e8efe-9f52-4c1c-a2a0-f2dc38ecabb8", paymentMethod: "STRIPE",
+    idempotencyKey: "1e7e8efe-9f52-4c1c-a2a0-f2dc38ecabb8", deliveryAddressConfirmed: true as const, paymentMethod: "STRIPE",
     customer: { name: address.fullName, email: form.email, phone: address.phone, notes: form.notes },
     billingAddress: address, shippingAddress: address,
   };
@@ -98,7 +98,7 @@ test("checkout requires matching delivery country and valid idempotency", () => 
     customer: { name: "N7 Customer", email: "customer@example.com", phone: "02079460000" },
     billingAddress: { fullName: "N7 Customer", line1: "1 Test Street", city: "London", postalCode: "SW1A 1AA", countryCode: "GB", phone: "02079460000" },
     shippingAddress: { fullName: "N7 Recipient", line1: "2 Test Street", city: "London", postalCode: "SW1A 1AA", countryCode: "GB", phone: "02079460001" },
-    paymentMethod: "STRIPE",
+    deliveryAddressConfirmed: true as const, paymentMethod: "STRIPE",
   };
   assert.equal(checkoutInputSchema.safeParse(base).success, true);
   assert.equal(checkoutInputSchema.safeParse({ ...base, shippingAddress: { ...base.shippingAddress, countryCode: "US" } }).success, false);

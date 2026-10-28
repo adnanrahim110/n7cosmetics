@@ -14,6 +14,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import Link from "next/link";
 
 interface OrderRow extends RowDataPacket {
+  delivery_address_review_required: number;
   id: string;
   source: string;
   import_id: string | null;
@@ -83,7 +84,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     `SELECT
        CAST(o.id AS CHAR) AS id,
        o.order_number, o.source, CAST(o.import_id AS CHAR) import_id,
-       o.status, o.postage_service, o.tracking_reference,
+       o.status, o.postage_service, o.tracking_reference, o.delivery_address_review_required,
        o.payment_status,
        o.customer_name,
        o.customer_email,
@@ -218,6 +219,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                     </p>
                   </td>
                   <td className="px-4 py-3">
+                    {order.delivery_address_review_required ? <p className="mb-2 text-xs font-medium text-amber-800">Address confirmation pending</p> : null}
                     <OrderStatusControl
                       canCancelOrRefund={administrator.role !== "FULFILLMENT"}
                       historical={order.source === "LEGACY"}

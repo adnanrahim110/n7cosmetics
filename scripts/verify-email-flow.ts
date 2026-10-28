@@ -172,7 +172,7 @@ async function run(): Promise<void> {
     const delivery = await executeMutation("INSERT INTO shipping_methods (name, method_type, price_pence) VALUES ('Standard delivery', 'DELIVERY', 500)");
     await executeMutation("INSERT INTO shipping_method_rates (method_id,zone_id,price_pence) VALUES (?,?,500)", [delivery.insertId, zone.insertId]);
     const address = { fullName: "Email Test", line1: "12 Test Street", city: "London", postalCode: "SW1A 1AA", countryCode: "GB" as const, phone: "02079460000" };
-    const input: CheckoutInput = { idempotencyKey: randomUUID(), expectedTotalPence: 5500, items: [{ slug: "email-test-fragrance", quantity: 1 }], customer: { name: "Email Test", email: "customer@example.com", phone: address.phone }, countryCode: "GB", billingAddress: address, shippingAddress: address, paymentMethod: "STRIPE", marketingOptOut: false };
+    const input: CheckoutInput = { idempotencyKey: randomUUID(), expectedTotalPence: 5500, items: [{ slug: "email-test-fragrance", quantity: 1 }], customer: { name: "Email Test", email: "customer@example.com", phone: address.phone }, countryCode: "GB", billingAddress: address, shippingAddress: address, deliveryAddressConfirmed: true as const, paymentMethod: "STRIPE", marketingOptOut: false };
     const order = await createOrder(input, "test");
     check(order.order_number === "N7-1001", "New order numbering starts at N7-1001");
     const repeated = await createOrder(input, "test");

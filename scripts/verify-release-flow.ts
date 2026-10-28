@@ -80,6 +80,18 @@ async function run() {
       VALUES ('GOOGLE_MERCHANT_REVIEW', 'catalogue', 'Preserved earlier review', '{"preserve":true}')`);
     await setup.query("INSERT INTO products (id, name, slug, status) VALUES (93, 'Reviewed original', 'anemoia', 'ACTIVE')");
     await setup.query("INSERT INTO product_variants (product_id, title, sku, price_pence, is_default) VALUES (93, '100 ml', 'reviewed-release-fixture', 3300, 1)");
+    const [releaseOrders] = await setup.query<mysql.RowDataPacket[]>("SELECT CAST(id AS CHAR) AS id FROM orders WHERE order_number = 'RELEASE-FIXTURE'");
+    const releaseOrderId = String(releaseOrders[0].id);
+    const emailFixture = async (dedupeKey: string, template: string) => {
+      const [result] = await setup.query<mysql.ResultSetHeader>(`INSERT INTO email_jobs
+        (dedupe_key, recipient, subject, template_key, payload_encrypted, status, created_at, updated_at, sent_at)
+        VALUES (?, 'release@example.invalid', 'Preserved order email', ?, 'preserved-encrypted-payload', 'SENT', '2020-01-01 00:00:00.000', '2020-01-02 00:00:00.000', '2020-01-02 00:00:00.000')`, [dedupeKey, template]);
+      return String(result.insertId);
+    };
+    const customerEmailId = await emailFixture(`order:${releaseOrderId}:confirmation:customer`, "order-confirmation");
+    const teamEmailId = await emailFixture(`notification:new_order:order:${releaseOrderId}:confirmation:team`, "new-order-team");
+    const resendEmailId = await emailFixture(`resend:${customerEmailId}:original-copy`, "order-confirmation");
+    const unrelatedEmailId = await emailFixture("release:unrelated", "smtp-test");
     const beforeCleanup = JSON.parse(JSON.stringify(await snapshotReleaseData(db)));
     assert.ok(beforeCleanup.orderProductCodeCleanup);
     assert.ok(beforeCleanup.googleMerchantReview);
@@ -101,6 +113,14 @@ async function run() {
         await verifyReleaseData(db, beforeObservations); checks++;
         const [rows] = await setup.query<mysql.RowDataPacket[]>("SELECT status,meta_observation,meta_observed_hash,meta_checked_at FROM meta_catalog_items WHERE retailer_id = 'n7_variant_1'");
         assert.deepEqual(rows.map(row => [row.status, row.meta_observation, row.meta_observed_hash, row.meta_checked_at]), [["SYNCED", null, null, null]]); checks++;
+      } else if (name.startsWith("039")) {
+        const beforeEmailContext = await snapshotReleaseData(db);
+        await applyMigration(name);
+        await verifyReleaseData(db, beforeEmailContext); checks++;
+        const [emails] = await setup.query<mysql.RowDataPacket[]>("SELECT CAST(id AS CHAR) AS id, CAST(order_id AS CHAR) AS order_id, order_email_kind, updated_at FROM email_jobs ORDER BY id");
+        assert.deepEqual(emails.filter(row => [customerEmailId, teamEmailId, resendEmailId].includes(row.id)).map(row => [row.order_id, row.order_email_kind]), [[releaseOrderId, "confirmation"], [releaseOrderId, "team"], [releaseOrderId, "confirmation"]]); checks++;
+        assert.equal(emails.find(row => row.id === unrelatedEmailId)?.order_id, null); checks++;
+        assert.ok(emails.every(row => row.updated_at === "2020-01-02 00:00:00.000")); checks++;
       } else await applyMigration(name);
     }
     await verifyReleaseData(db, beforeCleanup); checks++;

@@ -28,6 +28,7 @@ export const cartDeliveryInputSchema = cartPricingInputSchema.extend({
 });
 
 export const checkoutInputSchema = quoteInputSchema.omit({ reservationKey: true }).extend({
+  deliveryAddressConfirmed: z.boolean(),
   idempotencyKey: z.uuid(),
   expectedTotalPence: z.number().int().min(30).max(99999999),
   customer: z.object({

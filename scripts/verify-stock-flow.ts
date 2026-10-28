@@ -78,7 +78,7 @@ async function run() {
     const input = async (items: CheckoutInput["items"]): Promise<CheckoutInput> => {
       const quote = await calculateQuote({ items, countryCode: "GB", shippingMethodId: String(delivery.insertId) });
       return { items, countryCode: "GB", shippingMethodId: String(delivery.insertId), idempotencyKey: randomUUID(), expectedTotalPence: quote.totalPence,
-        customer: { name: address.fullName, email: "stock-test@example.com", phone: address.phone }, billingAddress: address, shippingAddress: address, paymentMethod: "STRIPE" };
+        customer: { name: address.fullName, email: "stock-test@example.com", phone: address.phone }, billingAddress: address, shippingAddress: address, deliveryAddressConfirmed: true as const, paymentMethod: "STRIPE" };
     };
     const checkoutInput = await input(valid);
     const checkout = await createOrder(checkoutInput, "test");

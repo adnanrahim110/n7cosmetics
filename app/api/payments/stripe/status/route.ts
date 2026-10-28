@@ -9,15 +9,16 @@ import { kickEmailQueue } from "@/lib/email/kick";
 import { kickMetaQueue } from "@/lib/meta/kick";
 import { browserMetaPurchase } from "@/lib/meta/orders";
 import { browserTikTokPurchase } from "@/lib/tiktok/orders";
+import { deliveryReviewRequired } from "@/lib/commerce/delivery-review";
 import { kickTikTokQueue } from "@/lib/tiktok/kick";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
-interface ReceiptRow extends RowDataPacket { id: string; order_number: string; total_pence: number; currency: string; payment_status: string; inventory_state: string }
+interface ReceiptRow extends RowDataPacket { delivery_address_review_required: number; status: string; fulfillment_status: string; tracking_reference: string | null; id: string; order_number: string; total_pence: number; currency: string; payment_status: string; inventory_state: string }
 
 function findOrder(key: string) {
-  return selectOne<ReceiptRow>("SELECT CAST(o.id AS CHAR) AS id, o.order_number, o.total_pence, o.currency, o.payment_status, c.inventory_state FROM orders o JOIN payments p ON p.order_id = o.id JOIN stripe_checkouts c ON c.order_id = o.id WHERE p.idempotency_key = ? AND p.provider = 'STRIPE'", [key]);
+  return selectOne<ReceiptRow>("SELECT CAST(o.id AS CHAR) AS id, o.order_number, o.total_pence, o.currency, o.payment_status, o.status, o.fulfillment_status, o.tracking_reference, o.delivery_address_review_required, c.inventory_state FROM orders o JOIN payments p ON p.order_id = o.id JOIN stripe_checkouts c ON c.order_id = o.id WHERE p.idempotency_key = ? AND p.provider = 'STRIPE'", [key]);
 }
 
 async function receiptResponse(key: unknown, verify: boolean, request: Request) {
@@ -51,7 +52,7 @@ async function receiptResponse(key: unknown, verify: boolean, request: Request) 
     const tiktokPurchase = status === "paid" ? await browserTikTokPurchase(row.id, request).catch(() => undefined) : undefined;
     if (status === "paid") kickMetaQueue();
     if (status === "paid") kickTikTokQueue();
-    return NextResponse.json({ orderNumber: row.order_number, totalPence: row.total_pence, currency: row.currency, status, metaPurchase, tiktokPurchase }, { headers });
+    return NextResponse.json({ orderNumber: row.order_number, totalPence: row.total_pence, currency: row.currency, status, addressReviewRequired: deliveryReviewRequired(row), metaPurchase, tiktokPurchase }, { headers });
   } catch {
     return NextResponse.json({ error: "Payment confirmation is temporarily unavailable. We’ll keep checking; please don’t pay again." }, { status: 503, headers });
   }

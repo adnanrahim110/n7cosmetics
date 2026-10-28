@@ -36,7 +36,7 @@ async function run() {
     const jobs = () => selectRows<RowDataPacket>("SELECT * FROM email_jobs WHERE recipient = 'customer@example.com' ORDER BY id");
     const history = () => selectRows<RowDataPacket>("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY id", [id]);
     const save = (input: unknown) => saveOrderUpdate(id, input, owner, null);
-    const tracking = { kind: "tracking", postageService: " Tracked 48 ", trackingReference: " vu628 745615gb " };
+    const tracking = { kind: "tracking", addressRevision: 0, addressConfirmed: true, postageService: " Tracked 48 ", trackingReference: " vu628 745615gb " };
 
     for (const input of [{ kind: "status", status: "SHIPPED" }, { ...tracking, postageService: "" }, { ...tracking, trackingReference: "" }, { ...tracking, trackingReference: "<script>" }, { ...tracking, postageService: "Tracked\n48" }, { kind: "status", status: "UNKNOWN" }]) check(!(await save(input)).success, "Invalid or missing tracking/status must be rejected");
     check((await state())?.status === "PROCESSING" && (await jobs()).length === 0 && (await history()).length === 0, "Rejected changes leave the order, emails and history untouched");

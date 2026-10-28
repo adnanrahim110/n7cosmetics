@@ -29,6 +29,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     await executeMutation("INSERT INTO checkout_attempts (ip_address, succeeded) VALUES (?, 0)", [metadata.ipAddress]);
     const fieldErrors = checkoutFieldErrors(parsed.error.issues);
+    if (parsed.error.issues.some((issue) => issue.path[0] === "deliveryAddressConfirmed")) return NextResponse.json({ code: "CHECKOUT_CHANGED", error: "Checkout has been updated. Refresh the page and try again." }, { status: 400 });
     return NextResponse.json({ code: "VALIDATION_ERROR", error: Object.values(fieldErrors)[0] ?? "Check the checkout details.", fieldErrors }, { status: 400 });
   }
   try {

@@ -6,8 +6,9 @@ import { withTransaction } from "../db/transaction";
 import { enqueueOrderEmails } from "../email/orders";
 import { isDatabaseId } from "./form";
 import { orderUpdateSchema, royalMailTrackingUrl, type OrderStatus, type OrderUpdateResult } from "./order-status";
+import { saveShippingAddress, type AddressUpdateOrder } from "./order-address-updates";
 
-interface CurrentOrder extends RowDataPacket {
+interface CurrentOrder extends RowDataPacket, AddressUpdateOrder {
   status: OrderStatus;
   payment_provider: string | null;
   payment_status: string;
@@ -24,7 +25,7 @@ export async function saveOrderUpdate(orderId: string, input: unknown, administr
   const parsed = orderUpdateSchema.safeParse(input);
   if (!parsed.success) {
     const fieldErrors: Record<string, string[]> = {};
-    for (const issue of parsed.error.issues) (fieldErrors[String(issue.path[0])] ??= []).push(issue.message);
+    for (const issue of parsed.error.issues) (fieldErrors[issue.path.map(String).join(".")] ??= []).push(issue.message);
     return { success: false, message: "Check the order details and try again.", fieldErrors };
   }
   const update = parsed.data;
@@ -32,8 +33,10 @@ export async function saveOrderUpdate(orderId: string, input: unknown, administr
   if (update.kind === "status" && administrator.role === "FULFILLMENT" && ["CANCELLED", "REFUNDED"].includes(update.status)) return { success: false, message: "Only an owner or manager can cancel or refund an order." };
 
   return withTransaction(async (connection) => {
-    const current = await selectOne<CurrentOrder>("SELECT status, payment_provider, payment_status, fulfillment_status, admin_notes, postage_service, tracking_reference, tracking_url FROM orders WHERE id = ? FOR UPDATE", [orderId], connection);
+    const current = await selectOne<CurrentOrder>("SELECT * FROM orders WHERE id = ? FOR UPDATE", [orderId], connection);
     if (!current) return { success: false, message: "Order not found." };
+    if (update.kind === "shipping-address") return saveShippingAddress(orderId, current, update, administrator, ipAddress, connection);
+    if (update.kind === "tracking" && current.shipping_address_revision !== update.addressRevision) return { success: false, message: "The delivery address changed. Reload the destination and review it before dispatch." };
     const next = { ...current };
     let note: string | null = null;
     if (update.kind === "status") next.status = update.status;
@@ -51,6 +54,7 @@ export async function saveOrderUpdate(orderId: string, input: unknown, administr
       next.admin_notes = update.adminNotes;
       note = update.historyNote;
     }
+    if (current.delivery_address_review_required && (["SHIPPED", "DELIVERED", "COMPLETED"].includes(next.status) || next.fulfillment_status !== "UNFULFILLED")) return { success: false, message: "The delivery address is awaiting confirmation. Confirm it before dispatching or fulfilling this order." };
     const notifyCustomer = current.status !== next.status || current.payment_status !== next.payment_status || current.fulfillment_status !== next.fulfillment_status || current.postage_service !== next.postage_service || current.tracking_reference !== next.tracking_reference || current.tracking_url !== next.tracking_url;
     if (!notifyCustomer && current.admin_notes === next.admin_notes && !(update.kind === "details" && note)) return { success: true, changed: false };
 

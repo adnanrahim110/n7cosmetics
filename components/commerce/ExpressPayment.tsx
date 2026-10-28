@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExpressCheckoutElement, useElements } from "@stripe/react-stripe-js";
 import type { StripeExpressCheckoutElementConfirmEvent } from "@stripe/stripe-js";
 import type { CheckoutQuote } from "@/lib/commerce/quote";
+import { walletCheckoutInput } from "@/lib/commerce/wallet-checkout";
 import type { CheckoutInput } from "@/lib/commerce/validation";
 import { useCommerce } from "./CommerceProvider";
 import { usePaymentConfig } from "./StripeProvider";
@@ -76,29 +77,13 @@ function WalletElement({ quote, disabled = false, items: checkoutItems, onQuote,
     setError("");
     onBusyChange?.(true);
     try {
-      const billing = event.billingDetails;
-      const shipping = event.shippingAddress;
-      if (!billing?.address || !billing.name || !billing.email || !billing.phone || !shipping?.address || !shipping.name) throw new Error("Your wallet needs a full billing address, shipment address, email and phone number.");
-      if (billing.address.country !== "GB" || shipping.address.country !== "GB") throw new Error("Billing and shipment addresses must be in the United Kingdom.");
       const capturedQuote = workingQuote.current;
-      if (!capturedQuote) throw new Error("Your order total is still updating. Please try again.");
-      const expectedTotal = capturedQuote.totalPence;
-      const confirmedQuote = await refresh(event.shippingRate?.id || capturedQuote.shippingMethod.id, shipping.address.postal_code || "");
-      if (confirmedQuote.totalPence !== expectedTotal) throw new Error("The delivery total changed. Reopen your wallet to review the updated price.");
-      const address = (fullName: string, value: typeof billing.address): CheckoutInput["shippingAddress"] => ({ fullName, line1: value!.line1 || "", line2: value!.line2 || "", city: value!.city || "", region: value!.state || "", postalCode: value!.postal_code || "", countryCode: "GB", phone: billing.phone! });
-      const payload: Omit<CheckoutInput, "idempotencyKey"> = {
-        items: workingItems.current, countryCode: "GB",
-        shippingMethodId: confirmedQuote.shippingMethod.id,
-        couponCode: workingCoupon.current,
-        expectedTotalPence: confirmedQuote.totalPence,
-        customer: { name: billing.name, email: billing.email, phone: billing.phone },
-        billingAddress: address(billing.name, billing.address),
-        shippingAddress: address(shipping.name, shipping.address),
-        marketingOptOut,
-        paymentMethod: "STRIPE",
-      };
+      const payload = walletCheckoutInput(event, capturedQuote, workingItems.current, { couponCode: workingCoupon.current, marketingOptOut });
+      const confirmedQuote = await refresh(event.shippingRate?.id || capturedQuote.shippingMethod.id, payload.shippingAddress.postalCode);
+      if (confirmedQuote.totalPence !== capturedQuote.totalPence) throw new Error("The delivery total changed. Reopen your wallet to review the updated price.");
+      payload.shippingMethodId = confirmedQuote.shippingMethod.id;
       onCheckoutDetails?.(payload);
-      await pay(payload);
+      await pay(payload, event.billingDetails);
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Payment was not completed.";
       setError(message);

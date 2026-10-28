@@ -81,3 +81,7 @@ export class CheckoutValidationError extends Error {
     this.fieldErrors = readCheckoutFieldErrors(fieldErrors);
   }
 }
+
+export class CheckoutChangedError extends Error {
+  constructor(message: string) { super(message); this.name = "CheckoutChangedError"; }
+}
