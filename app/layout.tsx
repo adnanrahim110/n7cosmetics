@@ -51,6 +51,9 @@ export const metadata: Metadata = {
   alternates: null,
   verification: {
     google: "x3NyolxUdMKJ6dVQVCYDseHpWVGMlBYfE3_W-TTnLEc",
+    other: {
+      "p:domain_verify": "bc77bd7c61f3a7b13e462714126d1a70",
+    },
   },
 };
 
