@@ -20,7 +20,10 @@ export interface CommerceProduct {
   pricePence: number;
 }
 
-export interface CartItem extends CommerceProduct { quantity: number }
+export interface CartItem extends CommerceProduct {
+  quantity: number;
+  isRecreation?: boolean;
+}
 
 interface CommerceContextValue {
   cart: CartItem[];

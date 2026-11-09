@@ -101,19 +101,30 @@ interface StorefrontProductRow extends RowDataPacket {
 
 interface ProductImageRow extends RowDataPacket { url: string; alt_text: string | null }
 interface ProductVideoRow extends RowDataPacket { url: string; title: string | null }
-interface ProductLabelRow extends RowDataPacket { slug: string; product_code: string | null; inspired_by: string | null }
+interface ProductLabelRow extends RowDataPacket { slug: string; product_code: string | null; inspired_by: string | null; is_recreation: number }
 
 export interface StorefrontProductLabels {
   productCode: string | null;
   inspiredBy: string | null;
+  isRecreation: boolean;
 }
 
 export async function getStorefrontProductLabels(): Promise<Record<string, StorefrontProductLabels>> {
   if (!hasDatabaseConfig()) return {};
   const rows = await selectRows<ProductLabelRow>(
-    "SELECT slug, product_code, inspired_by FROM products WHERE status = 'ACTIVE' AND product_type = 'STANDARD'",
+    `SELECT p.slug, p.product_code, p.inspired_by,
+       EXISTS (
+         SELECT 1 FROM product_collections pc
+         INNER JOIN collections c ON c.id = pc.collection_id
+         WHERE pc.product_id = p.id AND c.slug = 'recreations'
+       ) AS is_recreation
+     FROM products p WHERE p.status = 'ACTIVE' AND p.product_type = 'STANDARD'`,
   );
-  return Object.fromEntries(rows.map((row) => [row.slug, { productCode: row.product_code, inspiredBy: row.inspired_by }]));
+  return Object.fromEntries(rows.map((row) => [row.slug, {
+    productCode: row.product_code,
+    inspiredBy: row.inspired_by,
+    isRecreation: Boolean(row.is_recreation),
+  }]));
 }
 
 interface RelatedProductRow extends RowDataPacket, ProductCardRow {
