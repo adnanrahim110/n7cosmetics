@@ -187,10 +187,11 @@ async function mediaReferenceCount(url: string): Promise<number> {
        (SELECT COUNT(*) FROM product_review_media prm INNER JOIN media_assets review_asset ON review_asset.id = prm.media_asset_id WHERE review_asset.public_url = ?) +
        (SELECT COUNT(*) FROM categories WHERE image_url = ?) +
        (SELECT COUNT(*) FROM collections WHERE image_url = ?) +
+       (SELECT COUNT(*) FROM blog_posts WHERE cover_image_url = ?) +
        (SELECT COUNT(*) FROM page_sections WHERE JSON_SEARCH(content_json, 'one', ?) IS NOT NULL) +
        (SELECT COUNT(*) FROM site_settings WHERE JSON_SEARCH(value_json, 'one', ?) IS NOT NULL)
        AS reference_count`,
-    [url, url, url, url, url, url, url],
+    [url, url, url, url, url, url, url, url],
   );
   return Number(row?.reference_count ?? 0);
 }

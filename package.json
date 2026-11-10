@@ -18,7 +18,7 @@
     "start": "node server.js",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:unit": "tsc -p tsconfig.tests.json && node --test .tests-dist/tests/delivery-address.test.js .tests-dist/tests/admin-form.test.js .tests-dist/tests/destination.test.js .tests-dist/tests/commerce-validation.test.js .tests-dist/tests/review-validation.test.js .tests-dist/tests/auth-password.test.js .tests-dist/tests/contact-email.test.js .tests-dist/tests/image-zoom.test.js .tests-dist/tests/product-search.test.js .tests-dist/tests/product-deletion.test.js .tests-dist/tests/cart-pricing.test.js .tests-dist/tests/email.test.js .tests-dist/tests/order-receipt.test.js .tests-dist/tests/legacy-format.test.js .tests-dist/tests/legacy-redirects.test.js .tests-dist/tests/shipping.test.js .tests-dist/tests/dispatch.test.js .tests-dist/tests/customer-export.test.js .tests-dist/tests/checkout-preferences.test.js .tests-dist/tests/stock.test.js .tests-dist/tests/meta.test.js .tests-dist/tests/meta-pixel.test.js .tests-dist/tests/tiktok.test.js .tests-dist/tests/dashboard.test.js .tests-dist/tests/performance-loading.test.js .tests-dist/tests/collection-pagination.test.js .tests-dist/tests/meta-catalog.test.js .tests-dist/tests/google-merchant.test.js",
+    "test:unit": "tsc -p tsconfig.tests.json && node --test .tests-dist/tests/delivery-address.test.js .tests-dist/tests/admin-form.test.js .tests-dist/tests/blog-posts.test.js .tests-dist/tests/destination.test.js .tests-dist/tests/commerce-validation.test.js .tests-dist/tests/review-validation.test.js .tests-dist/tests/auth-password.test.js .tests-dist/tests/contact-email.test.js .tests-dist/tests/image-zoom.test.js .tests-dist/tests/product-search.test.js .tests-dist/tests/product-deletion.test.js .tests-dist/tests/cart-pricing.test.js .tests-dist/tests/email.test.js .tests-dist/tests/order-receipt.test.js .tests-dist/tests/legacy-format.test.js .tests-dist/tests/legacy-redirects.test.js .tests-dist/tests/shipping.test.js .tests-dist/tests/dispatch.test.js .tests-dist/tests/customer-export.test.js .tests-dist/tests/checkout-preferences.test.js .tests-dist/tests/stock.test.js .tests-dist/tests/meta.test.js .tests-dist/tests/meta-pixel.test.js .tests-dist/tests/tiktok.test.js .tests-dist/tests/dashboard.test.js .tests-dist/tests/performance-loading.test.js .tests-dist/tests/collection-pagination.test.js .tests-dist/tests/meta-catalog.test.js .tests-dist/tests/google-merchant.test.js",
     "db:migrate": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/migrate.js",
     "shipping:verify-flow": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-shipping-flow.js",
     "release:verify-flow": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/verify-release-flow.js",
@@ -54,6 +54,7 @@
   "dependencies": {
     "@stripe/react-stripe-js": "^6.10.0",
     "@stripe/stripe-js": "^9.16.0",
+    "@tinymce/tinymce-react": "6.3.1",
     "bcryptjs": "3.0.3",
     "clsx": "^2.1.1",
     "dotenv": "17.4.2",
@@ -71,6 +72,7 @@
     "react-dom": "19.2.4",
     "react-hot-toast": "2.6.0",
     "react-icons": "5.7.0",
+    "sanitize-html": "2.18.1",
     "stripe": "^22.6.2",
     "swiper": "14.0.1",
     "tailwind-merge": "^3.7.0",
@@ -83,10 +85,12 @@
     "@types/pdfkit": "^0.17.6",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "@types/sanitize-html": "2.16.2",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "4.3.2",
+    "tinymce": "8.10.1",
     "typescript": "5.9.3"
   }
 }

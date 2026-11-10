@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { listPublishedBlogRoutes } from "@/lib/blogs/storefront";
 import { getAvailableSaleNavigationItems } from "@/lib/commerce/sales";
 import { getAvailableCategoryLinks } from "@/lib/commerce/categories";
 import { selectRows } from "@/lib/db/query";
@@ -37,6 +38,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/premium-collection", priority: 0.9 },
     { path: "/recreations", priority: 0.9 },
     { path: "/bundles", priority: 0.8 },
+    { path: "/blogs", priority: 0.6 },
     { path: "/about", priority: 0.8 },
     { path: "/contact", priority: 0.6 },
     { path: "/shipping-returns", priority: 0.4 },
@@ -51,6 +53,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       WHERE p.status = 'ACTIVE' AND EXISTS (SELECT 1 FROM product_images image WHERE image.product_id = p.id)`);
   } catch { console.warn("Unable to load product routes for sitemap; continuing with core routes."); }
 
+  const blogs = await listPublishedBlogRoutes().catch((error: unknown) => {
+    console.warn("Unable to load blog posts for sitemap; continuing with core routes.", error instanceof Error ? error.message : error);
+    return [];
+  });
+
   return [...routes.map(({ path, priority }) => ({
     url: `${siteUrl}${path}`,
     changeFrequency: "weekly" as const,
@@ -60,5 +67,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: product.updated_at,
     changeFrequency: "weekly" as const,
     priority: 0.7,
+  })), ...blogs.map((post) => ({
+    url: `${siteUrl}/blogs/${post.slug}`,
+    lastModified: post.updated_at,
   }))];
 }

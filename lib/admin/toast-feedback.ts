@@ -25,6 +25,10 @@ const directFeedback: Record<string, ToastCopy> = {
   "review-published": { type: "success", title: "Review published", description: "The review can now appear on the product page." },
   "review-rejected": { type: "warning", title: "Review rejected", description: "The review will not appear on the storefront." },
   "review-pending": { type: "success", title: "Review moved to pending", description: "It is ready for another moderation decision." },
+  "blog-draft-saved": { type: "success", title: "Blog draft saved" },
+  "blog-published": { type: "success", title: "Blog published" },
+  "blog-unpublished": { type: "success", title: "Blog moved to draft" },
+  "blog-updated": { type: "success", title: "Blog changes saved" },
 };
 
 function sectionName(value: string): string {

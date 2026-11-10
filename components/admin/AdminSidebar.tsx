@@ -4,6 +4,7 @@ import type { AdministratorRole } from "@/lib/auth/types";
 import {
   Archive,
   BadgePercent,
+  BookOpen,
   Boxes,
   ClipboardList,
   CreditCard,
@@ -108,6 +109,7 @@ const navigationGroups: readonly NavigationGroup[] = [
         icon: PanelsTopLeft,
         activePaths: ["/admin/homepage"],
       },
+      { href: "/admin/blogs", label: "Blogs", icon: BookOpen },
       { href: "/admin/sales", label: "Sales", icon: Flame },
       { href: "/admin/discounts", label: "Discounts", icon: BadgePercent },
       { href: "/admin/coupons", label: "Coupons", icon: TicketPercent },

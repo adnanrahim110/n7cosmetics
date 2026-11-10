@@ -58,6 +58,8 @@ Cloudflare's proxied apex A record points to `187.7.25.228`, its AAAA record poi
 
 Traefik permanently redirects `www` and the previous domain to the main HTTPS domain, preserving paths and query strings. Existing Stripe webhook deliveries to the previous domain remain routed directly to the application because Stripe does not follow redirects. New webhook registrations should use `https://n7cosmetics.co.uk/api/payments/stripe/webhook`; register the new domain for payment wallets in Stripe as well.
 
+For the admin blog editor, set `TINYMCE_API_KEY` in `app.env` and approve the production admin domain in Tiny Cloud. The normal release migration step applies `041_blog_posts.sql` before the application starts.
+
 ## GitHub Actions
 
 | Secret | Value |

@@ -72,6 +72,14 @@ export default function Footer({
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link
+                  className="inline-flex min-h-11 items-center rounded-sm text-[13px] tracking-widest text-white/70 uppercase underline-offset-4 hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400"
+                  href="/blogs"
+                >
+                  Blogs
+                </Link>
+              </li>
             </ul>
           </div>
 
