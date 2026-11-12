@@ -1,6 +1,7 @@
 "use client";
 
 import NewsletterForm from "./NewsletterForm";
+import TrustpilotReviewCollector from "./TrustpilotReviewCollector";
 import SocialMediaLinks from "@/components/ui/SocialMediaLinks";
 import Title from "@/components/ui/Title";
 import type { NavigationItem } from "@/content/global";
@@ -35,14 +36,7 @@ export default function Footer({
             <p className="text-white/50 text-sm font-light mb-8 max-w-sm">
               {content.description}
             </p>
-            <iframe
-              className="block h-17 w-full max-w-60 rounded-lg bg-white"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-              src="/api/trustpilot/review-collector"
-              title="Review N7 Cosmetics on Trustpilot"
-            />
+            <TrustpilotReviewCollector />
           </div>
 
           <div className="flex flex-col lg:col-span-2">
