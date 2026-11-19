@@ -104,17 +104,21 @@ export async function verifyReleaseData(db: Connection, snapshot: Snapshot) {
       }, "Existing values changed in audit_logs: invalid Google Merchant review metadata");
       after = await fingerprintReleaseTable(db, table, before.columns, { maximumId: snapshot.googleMerchantReview.lastAuditId });
     }
-    const defaults = [{ key: "meta.configuration", group: "meta" }, { key: "tiktok.configuration", group: "tiktok" }];
+    const defaults = [
+      { key: "meta.configuration", group: "meta", value: "{}" },
+      { key: "tiktok.configuration", group: "tiktok", value: "{}" },
+      { key: "google.customer_reviews", group: "google", value: '{"merchantId":"5876486574","surveyEnabled":true,"widgetEnabled":true,"fallbackDeliveryDays":5,"widgetPosition":"LEFT_BOTTOM","widgetRegion":"GB","widgetBottomMargin":24,"widgetMobileBottomMargin":112}' },
+    ];
     const addedCount = after.count - before.count;
     if (table === "site_settings" && addedCount > 0 && addedCount <= defaults.length) {
-      // Migrations 028/035 may add only these exact empty, private defaults.
+      // Migrations 028/035/042 may add only these exact private defaults.
       // An exclusion is accepted ONLY if it reproduces the complete original
       // fingerprint. Existing defaults and unrelated settings remain protected.
       const candidates: string[] = [];
       for (const setting of defaults) {
         const [rows] = await db.promise().query<RowDataPacket[]>("SELECT setting_group, value_json, is_public, updated_by FROM site_settings WHERE setting_key = ?", [setting.key]);
         const added = rows[0];
-        if (added?.setting_group === setting.group && added.is_public === 0 && added.updated_by === null && JSON.stringify(typeof added.value_json === "string" ? JSON.parse(added.value_json) : added.value_json) === "{}") candidates.push(setting.key);
+        if (added?.setting_group === setting.group && added.is_public === 0 && added.updated_by === null && JSON.stringify(typeof added.value_json === "string" ? JSON.parse(added.value_json) : added.value_json) === setting.value) candidates.push(setting.key);
       }
       for (let mask = 1; mask < 2 ** candidates.length; mask++) {
         const excluded = candidates.filter((_key, index) => mask & (1 << index));

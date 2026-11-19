@@ -11,6 +11,7 @@ import type { MetaBrowserEvent } from "@/lib/meta/shared";
 import { sendTikTokBrowserEvent } from "@/lib/tiktok/client";
 import type { TikTokBrowserEvent } from "@/lib/tiktok/shared";
 import { CHECKOUT_ATTEMPT_KEY, readCheckoutAttempt } from "@/lib/payments/checkout-attempt";
+import GoogleReviewSurvey from "../google/GoogleReviewSurvey";
 
 interface Receipt { addressReviewRequired?: boolean; orderNumber: string; totalPence: number; currency: string; status: "paid" | "pending" | "failed" | "expired"; metaPurchase?: MetaBrowserEvent; tiktokPurchase?: TikTokBrowserEvent }
 export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: string }) {
@@ -110,6 +111,7 @@ export default function PaymentConfirmation({ checkoutKey }: { checkoutKey: stri
       <p className="mt-5 leading-7 text-black/60">{paid ? `Payment received for order ${receipt.orderNumber}: ${new Intl.NumberFormat("en-GB", { style: "currency", currency: receipt.currency }).format(receipt.totalPence / 100)}. Your confirmation will arrive by email.` : unsuccessful ? returnPath === "/checkout" ? "Your cart is saved. Return to checkout to try again." : "Return to the product page to try again." : message || "Please wait while we confirm your payment."}</p>
       {paid && receipt.addressReviewRequired && reviewKey ? <WalletAddressReview checkoutKey={reviewKey} onConfirmed={addressConfirmed} /> : null}
       {paid && reviewConfirmed ? <p className="mt-5 text-sm font-medium text-emerald-800" role="status">Delivery address confirmed. We’ll use it to dispatch your order.</p> : null}
+      {paid && !receipt.addressReviewRequired && reviewKey ? <GoogleReviewSurvey key={reviewKey} checkoutKey={reviewKey} /> : null}
       {receipt ? <p className="mt-3 text-sm text-black/50">Order reference: {receipt.orderNumber}</p> : null}
       {!paid && !unsuccessful && message ? <button className="mt-6 block w-full text-sm underline underline-offset-4" onClick={() => setRetry((value) => value + 1)} type="button">Check again</button> : null}
       <Link className="mt-8 inline-flex bg-[#1c1814] px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white" href={unsuccessful ? returnPath : "/"}>{unsuccessful ? returnPath === "/checkout" ? "Return to checkout" : "Return to product" : "Return home"}</Link>

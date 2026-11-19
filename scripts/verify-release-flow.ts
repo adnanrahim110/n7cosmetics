@@ -143,6 +143,9 @@ async function run() {
     await rejectsChange("UPDATE site_settings SET value_json = '{\"enabled\":true}' WHERE setting_key = 'tiktok.configuration'", beforeCleanup);
     await rejectsChange("UPDATE site_settings SET is_public = 1 WHERE setting_key = 'tiktok.configuration'", beforeCleanup);
     await rejectsChange("UPDATE site_settings SET setting_group = 'wrong' WHERE setting_key = 'tiktok.configuration'", beforeCleanup);
+    await rejectsChange("UPDATE site_settings SET value_json = JSON_SET(value_json, '$.merchantId', '123456789') WHERE setting_key = 'google.customer_reviews'", beforeCleanup);
+    await rejectsChange("UPDATE site_settings SET is_public = 1 WHERE setting_key = 'google.customer_reviews'", beforeCleanup);
+    await rejectsChange("UPDATE site_settings SET setting_group = 'wrong' WHERE setting_key = 'google.customer_reviews'", beforeCleanup);
     await rejectsChange("INSERT INTO site_settings (setting_key, setting_group, value_json) VALUES ('unrelated.tiktok', 'tiktok', '{}')", beforeCleanup);
     const [codes] = await setup.query<mysql.RowDataPacket[]>("SELECT product_code FROM order_items ORDER BY id");
     assert.deepEqual(codes.map(row => row.product_code), [null, '253', 'OLD-CODE', null]); checks++;
@@ -163,6 +166,8 @@ async function run() {
     await rejectsChange("INSERT INTO audit_logs (action, entity_type, summary) VALUES ('GOOGLE_MERCHANT_REVIEW', 'catalogue', 'Unexpected repeat')", afterCleanup);
     await rejectsChange("DELETE FROM site_settings WHERE setting_key = 'tiktok.configuration'", afterCleanup);
     await rejectsChange("UPDATE site_settings SET value_json = '{\"pixelEnabled\":false}' WHERE setting_key = 'tiktok.configuration'", afterCleanup);
+    await rejectsChange("DELETE FROM site_settings WHERE setting_key = 'google.customer_reviews'", afterCleanup);
+    await rejectsChange("UPDATE site_settings SET value_json = JSON_SET(value_json, '$.surveyEnabled', false) WHERE setting_key = 'google.customer_reviews'", afterCleanup);
     await rejectsChange("UPDATE order_items SET product_code = NULL WHERE sku = '253'", afterCleanup);
     // A fresh database has no historical audit rows, as in the CI service.
     await setup.query("DELETE FROM audit_logs");

@@ -7,19 +7,22 @@ import { getPublicSiteSettings } from "@/lib/commerce/settings";
 import { getStorefrontStock } from "@/lib/commerce/stock-data";
 import { getPublicStripeConfiguration } from "@/lib/payments/settings";
 import type { ReactNode } from "react";
+import { getGoogleReviewsSettings } from "@/lib/google-reviews/settings";
+import { defaultGoogleReviewsSettings } from "@/lib/google-reviews/config";
 
 export const dynamic = "force-dynamic";
 
 export default async function StorefrontLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
-  const [settings, content, productLabels, stock, paymentConfig] =
+  const [settings, content, productLabels, stock, paymentConfig, googleReviews] =
     await Promise.all([
       getPublicSiteSettings(),
       getGlobalStorefrontContent(),
       getStorefrontProductLabels(),
       getStorefrontStock(),
       getPublicStripeConfiguration(),
+      getGoogleReviewsSettings().then(value => value.settings).catch(() => defaultGoogleReviewsSettings),
     ]);
   return (
     <SmoothScroller>
@@ -30,6 +33,7 @@ export default async function StorefrontLayout({
           productLabels={productLabels}
           initialStock={stock}
           settings={settings}
+          googleReviews={googleReviews}
         >
           {children}
         </AppShell>

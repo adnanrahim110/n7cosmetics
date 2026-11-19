@@ -6,6 +6,9 @@ import { isDatabaseId } from "@/lib/admin/form";
 import { requireAdministrator } from "@/lib/auth/session";
 import { saveMerchantMetadata, type MerchantFormState } from "@/lib/google-merchant/admin";
 import { merchantMetadataInput, merchantMetadataSchema } from "@/lib/google-merchant/metadata";
+import { googleReviewsSettingsSchema, type GoogleReviewsFormState } from "@/lib/google-reviews/config";
+import { saveGoogleReviewsSettings } from "@/lib/google-reviews/settings";
+import { formString } from "@/lib/admin/form";
 
 export async function saveMerchantProductAction(variantId: string, _previous: MerchantFormState, form: FormData): Promise<MerchantFormState> {
   const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
@@ -25,4 +28,23 @@ export async function saveMerchantProductAction(variantId: string, _previous: Me
   revalidatePath(`/admin/google/${variantId}`);
   revalidatePath(storefrontPath);
   redirect(`/admin/google/${variantId}?saved=1`);
+}
+
+export async function saveGoogleReviewsAction(_previous: GoogleReviewsFormState, form: FormData): Promise<GoogleReviewsFormState> {
+  const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
+  const revision = formString(form, "revision");
+  const parsed = googleReviewsSettingsSchema.safeParse({
+    merchantId: formString(form, "merchantId"), surveyEnabled: form.get("surveyEnabled") === "on", widgetEnabled: form.get("widgetEnabled") === "on",
+    fallbackDeliveryDays: Number(formString(form, "fallbackDeliveryDays")), widgetPosition: formString(form, "widgetPosition"),
+    widgetRegion: formString(form, "widgetRegion"), widgetBottomMargin: Number(formString(form, "widgetBottomMargin")),
+    widgetMobileBottomMargin: Number(formString(form, "widgetMobileBottomMargin")),
+  });
+  if (!parsed.success) return { error: "Check the highlighted review settings.", revision, fieldErrors: parsed.error.flatten().fieldErrors };
+  try {
+    const result = await saveGoogleReviewsSettings(parsed.data, revision, administrator.id);
+    if ("error" in result) return { ...result, revision };
+    revalidatePath("/admin/google");
+    revalidatePath("/", "layout");
+    return { success: true, revision: result.revision };
+  } catch { return { error: "The review settings could not be saved. Please try again.", revision }; }
 }

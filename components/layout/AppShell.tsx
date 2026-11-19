@@ -8,6 +8,8 @@ import CommerceProvider from "../commerce/CommerceProvider";
 import Footer from "./Footer";
 import Header from "./Header";
 import StorefrontOverlays from "./StorefrontOverlays";
+import GoogleStoreWidget from "../google/GoogleStoreWidget";
+import { googleReviewsPublicOrigin, type GoogleReviewsSettings } from "@/lib/google-reviews/config";
 
 export default function AppShell({
   children,
@@ -16,6 +18,7 @@ export default function AppShell({
   footerContent,
   productLabels,
   initialStock,
+  googleReviews,
 }: Readonly<{
   children: ReactNode;
   settings?: PublicSiteSettings;
@@ -23,10 +26,12 @@ export default function AppShell({
   footerContent: FooterContent;
   productLabels: Record<string, StorefrontProductLabels>;
   initialStock: StockSnapshot;
+  googleReviews: GoogleReviewsSettings;
 }>) {
   return (
     <CommerceProvider productLabels={productLabels} initialStock={initialStock}>
       <MetaTracking />
+      <GoogleStoreWidget settings={googleReviews} origin={googleReviewsPublicOrigin(process.env.APP_URL ?? "") ?? ""} />
       <div className="flex min-h-screen flex-col overflow-x-clip">
         <StorefrontOverlays />
         <Header content={headerContent} />

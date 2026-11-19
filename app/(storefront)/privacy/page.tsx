@@ -6,6 +6,7 @@ import {
   LegalSection,
 } from "@/components/legal/LegalPage";
 import { getPublicSiteSettings } from "@/lib/commerce/settings";
+import GoogleReviewsPrivacySection from "@/components/legal/GoogleReviewsPrivacySection";
 
 export const metadata: Metadata = pageMetadata({
   path: "/privacy",
@@ -22,6 +23,7 @@ const navigation = [
   { href: "#cookies", label: "Cookies" },
   { href: "#embedded-content", label: "Embedded content" },
   { href: "#data-sharing", label: "Data sharing" },
+  { href: "#google-reviews", label: "Google Customer Reviews" },
   { href: "#data-retention", label: "Data retention" },
   { href: "#your-rights", label: "Your rights" },
   { href: "#data-destination", label: "Where data is sent" },
@@ -170,9 +172,10 @@ export default async function PrivacyPage() {
         </p>
       </LegalSection>
 
+      <GoogleReviewsPrivacySection />
       <LegalSection
         id="data-retention"
-        number="08"
+        number="09"
         title="How long we retain your data"
       >
         <p>
@@ -191,7 +194,7 @@ export default async function PrivacyPage() {
 
       <LegalSection
         id="your-rights"
-        number="09"
+        number="10"
         title="What rights you have over your data"
       >
         <p>
@@ -213,7 +216,7 @@ export default async function PrivacyPage() {
 
       <LegalSection
         id="data-destination"
-        number="10"
+        number="11"
         title="Where your data is sent"
       >
         <p>
@@ -222,7 +225,7 @@ export default async function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="privacy-contact" number="11" title="Privacy requests">
+      <LegalSection id="privacy-contact" number="12" title="Privacy requests">
         <LegalContactCard
           description="To ask about this policy or exercise a data right, contact N7 Cosmetics using the current details below."
           settings={settings}
