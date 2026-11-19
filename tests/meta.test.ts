@@ -15,6 +15,7 @@ import { checkoutMetaMatching, metaMatchingInputSchema } from "../lib/meta/match
 import { runMetaWorker, type MetaWorkerTasks } from "../lib/meta/worker";
 import { metaCategoryPath } from "../lib/meta/category-path";
 import { prepareMetaPixelMatching } from "../lib/meta/pixel-matching";
+import { META_MATCHING_FLUSH_EVENT, synchronizeCheckoutMatching } from "../lib/meta/matching-sync";
 
 test("Changed Pixel snapshots require a fresh document and retain every current hash", () => {
   const externalId = metaExternalId("sdk-matching");
@@ -207,6 +208,96 @@ test("Checkout persists current matching before an order without pretending to s
     assert.equal(await updateMetaMatching(input), true, "A failed response must allow a later retry");
   } finally {
     release(); stopMeta();
+    globals.forEach((key, index) => { const descriptor = originals[index]; if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); });
+  }
+});
+
+test("Known checkout details reach the first event before the typing debounce expires", async context => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const globals = ["location", "document", "window", "localStorage", "fetch"];
+  const originals = globals.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
+  const target = new EventTarget();
+  const pixelId = "888765432", externalId = metaExternalId("checkout-flush");
+  const input = { email: "newbuyer@example.test", phone: "07123 456789", fullName: "New Buyer", city: "London", postalCode: "SW1A 1AA", countryCode: "GB" as const };
+  const requests: string[] = [];
+  let matching = {};
+  let dispose = () => {};
+  const values = [
+    { href: "https://n7.test/checkout", pathname: "/checkout", hostname: "n7.test", protocol: "https:" },
+    { referrer: "", cookie: "" }, target,
+    { length: 0, key: () => null, getItem: () => null },
+    async (url: string, init: RequestInit) => {
+      requests.push(url);
+      if (url === "/api/meta/matching") {
+        const profile = metaMatchingInputSchema.parse(JSON.parse(String(init.body)));
+        matching = metaAdvancedMatching(metaMatchData(profile.email, profile.phone ?? "", profile));
+        return Response.json({ pixelId, externalId, matching });
+      }
+      assert.equal(url, "/api/meta/events");
+      assert.deepEqual(matching, metaAdvancedMatching(metaMatchData(input.email, input.phone, input)), "The event must see the available contact and address hashes");
+      assert.equal(metaEventSchema.parse(JSON.parse(String(init.body))).name, "InitiateCheckout");
+      return new Response(null, { status: 204 });
+    },
+  ];
+  globals.forEach((key, index) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value: values[index] }));
+  try {
+    configureMeta({ enabled: true, pixelId, consent: "unknown" });
+    dispose = synchronizeCheckoutMatching(input, target, updateMetaMatching);
+    await trackMeta("InitiateCheckout", [{ slug: "pour-homme", quantity: 1 }]);
+    assert.deepEqual(requests, [], "Known form details do not bypass marketing consent");
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId });
+    assert.deepEqual(requests, [], "Typing stays debounced until an event or the timer");
+    await trackMeta("InitiateCheckout", [{ slug: "pour-homme", quantity: 1 }]);
+    assert.deepEqual(requests, ["/api/meta/matching", "/api/meta/events"]);
+    context.mock.timers.tick(1000);
+    assert.equal(requests.length, 2, "The flushed timer must not send a duplicate update");
+    dispose();
+    target.dispatchEvent(new Event(META_MATCHING_FLUSH_EVENT));
+    target.dispatchEvent(new Event("n7:meta-ready"));
+    context.mock.timers.tick(1000);
+    assert.equal(requests.length, 2, "An unmounted form cannot publish stale contact details");
+  } finally {
+    dispose(); stopMeta();
+    globals.forEach((key, index) => { const descriptor = originals[index]; if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); });
+  }
+});
+
+test("Checkout flushing cannot replace confirmed wallet details with an older form profile", async context => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const globals = ["location", "document", "window", "localStorage", "fetch"];
+  const originals = globals.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
+  const target = new EventTarget();
+  const pixelId = "888765433", externalId = metaExternalId("wallet-flush");
+  const submitted: string[] = [], events: string[] = [];
+  let dispose = () => {};
+  const values = [
+    { href: "https://n7.test/checkout", pathname: "/checkout", hostname: "n7.test", protocol: "https:" },
+    { referrer: "", cookie: "" }, target,
+    { length: 0, key: () => null, getItem: () => null },
+    async (url: string, init: RequestInit) => {
+      if (url === "/api/meta/matching") {
+        const input = metaMatchingInputSchema.parse(JSON.parse(String(init.body)));
+        submitted.push(input.email);
+        return Response.json({ pixelId, externalId, matching: metaAdvancedMatching(metaMatchData(input.email, "")) });
+      }
+      assert.equal(url, "/api/meta/events");
+      events.push(metaEventSchema.parse(JSON.parse(String(init.body))).name);
+      assert.deepEqual(submitted, ["wallet@example.test"]);
+      return new Response(null, { status: 204 });
+    },
+  ];
+  globals.forEach((key, index) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value: values[index] }));
+  try {
+    configureMeta({ enabled: true, pixelId, consent: "granted", externalId });
+    dispose = synchronizeCheckoutMatching({ email: "olderform@example.test" }, target, updateMetaMatching);
+    const wallet = updateMetaMatching({ email: "wallet@example.test" });
+    await trackMeta("InitiateCheckout", [{ slug: "pour-homme", quantity: 1 }]);
+    assert.equal(await wallet, true);
+    await trackMeta("AddPaymentInfo", [{ slug: "pour-homme", quantity: 1 }]);
+    assert.deepEqual(events, ["InitiateCheckout", "AddPaymentInfo"]);
+    assert.deepEqual(submitted, ["wallet@example.test"]);
+  } finally {
+    dispose(); stopMeta();
     globals.forEach((key, index) => { const descriptor = originals[index]; if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); });
   }
 });

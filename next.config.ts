@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { storefrontAssets } from "./lib/media/storefront-assets";
+import { legacyRedirects } from "./lib/legacy/redirects";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -26,28 +27,7 @@ const nextConfig: NextConfig = {
     ],
   },
   async redirects() {
-    return [
-      {
-        source: "/product-category/yusuf-bhai-originals",
-        destination: "/yusuf-bhai-originals",
-        permanent: true,
-      },
-      {
-        source: "/product-category/yusuf-bhai-originals/page/:page(\\d+)",
-        destination: "/yusuf-bhai-originals",
-        permanent: true,
-      },
-      {
-        source: "/product-category/yusuf-bhai-originals/:category(deja-vu|noble|teeb)",
-        destination: "/yusuf-bhai-originals/:category",
-        permanent: true,
-      },
-      {
-        source: "/product-category/yusuf-bhai-originals/:category(deja-vu|noble|teeb)/page/:page(\\d+)",
-        destination: "/yusuf-bhai-originals/:category",
-        permanent: true,
-      },
-    ];
+    return legacyRedirects();
   },
   async headers() {
     return [

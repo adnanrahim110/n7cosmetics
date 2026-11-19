@@ -5,6 +5,7 @@ import { deliverMetaClientEvent } from "./client-delivery";
 import { metaAdvancedMatching } from "./matching";
 import { checkoutMetaMatching, type MetaMatchingInput } from "./matching-input";
 import { metaPixelTransport } from "./pixel-transport";
+import { META_MATCHING_FLUSH_EVENT } from "./matching-sync";
 let configuration: MetaPublicConfig = { enabled: false, pixelId: "", consent: "unknown" };
 let consentGeneration = 0;
 // A landing URL stays in this tab's memory only. No cookie/storage/request is used before consent.
@@ -135,6 +136,11 @@ export async function trackMeta(name: MetaEventName, items: { slug: string; quan
   const path = location.pathname;
   const source = { url: location.href, referrer: document.referrer };
   try {
+    // Checkout details may still be in the typing debounce. An explicit wallet
+    // update takes precedence over the regular form's potentially older fields.
+    if (name === "InitiateCheckout" && matchingPending?.generation !== generation) {
+      window.dispatchEvent(new Event(META_MATCHING_FLUSH_EVENT));
+    }
     // Do not race a confirmed wallet/checkout profile with event collection.
     while (matchingPending?.generation === generation) {
       const pending = matchingPending.promise;
