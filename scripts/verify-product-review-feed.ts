@@ -1,0 +1,128 @@
+import "./load-env";
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { readFile, readdir } from "node:fs/promises";
+import mysql, { type RowDataPacket } from "mysql2/promise";
+import { getDatabaseConfig } from "../lib/env";
+import { executeMutation, selectOne, selectRows } from "../lib/db/query";
+import { getProductReviewFeedSnapshot } from "../lib/google-product-reviews/data";
+import { productReviewFeedResponse } from "../lib/google-product-reviews/feed";
+import { confirmCustomerReviewOrigin, reviewOriginRevision, type ReviewOriginRecord } from "../lib/google-product-reviews/admin";
+import { productReviewFeedXml } from "../lib/google-product-reviews/xml";
+
+async function run() {
+  const config = getDatabaseConfig();
+  assert.ok(["localhost", "127.0.0.1", "::1"].includes(config.host), "Review feed checks require a local database");
+  const database = `n7_product_review_test_${Date.now()}`;
+  assert.match(database, /^n7_product_review_test_\d+$/);
+  const options = { host: config.host, port: config.port, user: process.env.DB_ROOT_PASSWORD ? "root" : config.user, password: process.env.DB_ROOT_PASSWORD || config.password };
+  const setup = await mysql.createConnection({ ...options, multipleStatements: true });
+  const originalUrl = process.env.APP_URL, originalFetch = globalThis.fetch;
+  process.env.APP_URL = "https://n7cosmetics.co.uk";
+  globalThis.fetch = async () => { throw new Error("Review feed checks must not call external services"); };
+  let created = false, checks = 0;
+  const check = (value: unknown, message: string) => { assert.ok(value, message); checks++; };
+  try {
+    await setup.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`); created = true;
+    await setup.changeUser({ database });
+    for (const name of (await readdir("database/migrations")).filter(name => name.endsWith(".sql") && name !== "043_product_review_provenance.sql").sort()) await setup.query(await readFile(`database/migrations/${name}`, "utf8"));
+    globalThis.n7MySqlPool = mysql.createPool({ ...options, database, connectionLimit: 6, timezone: "Z", supportBigNumbers: true, bigNumberStrings: true });
+    const admin = await executeMutation("INSERT INTO administrators (name,email,password_hash,role) VALUES ('Review fixture','review-source@example.test','not-a-password','MANAGER')");
+    const adminId = String(admin.insertId);
+    const product = async (slug: string) => {
+      const p = await executeMutation("INSERT INTO products (name,slug,status,brand,description,short_description) VALUES (?,?,'ACTIVE','Actual Brand','A real product description','Fragrance')", [slug, slug]);
+      const variant = await executeMutation("INSERT INTO product_variants (product_id,title,sku,price_pence,stock_on_hand,is_default) VALUES (?,'100 ml',?,4000,25,1)", [p.insertId, `ACTUAL-SKU-${p.insertId}`]);
+      await executeMutation("INSERT INTO product_images (product_id,url) VALUES (?,'/imgs/product.jpg')", [p.insertId]);
+      await executeMutation("INSERT INTO google_merchant_products (variant_id,identifier_policy) VALUES (?,'NONE')", [variant.insertId]);
+      return { id: String(p.insertId), variantId: String(variant.insertId) };
+    };
+    const perfume = await product("ambre-nuit");
+    await product("surreal");
+    // Exercise migration 024's exact real seed tuples, not a heuristic IP match.
+    await setup.query(await readFile("database/migrations/024_seed_curated_product_reviews.sql", "utf8"));
+    const [seedCount] = await setup.query<RowDataPacket[]>("SELECT COUNT(*) count FROM product_reviews");
+    assert.equal(Number(seedCount[0].count), 20); checks++;
+    const review = async (name: string, rating: number, source = "LIVE", email: string | null = "private-buyer@example.test") => {
+      const row = await executeMutation(`INSERT INTO product_reviews (product_id,status,rating,reviewer_name,reviewer_email,title,body,ip_address,source,submitted_at,published_at,updated_at)
+        VALUES (?,'PUBLISHED',?,?,?,'Original title',?,'127.0.0.1',?,'2026-01-05 12:34:56','2026-01-07 14:00:00','2026-01-08 00:00:00')`,
+      [perfume.id, rating, name, email, `${name}: not for me & too <strong>. 😀`, source]);
+      return String(row.insertId);
+    };
+    const imported = await executeMutation("INSERT INTO legacy_imports (source_name,source_sha256,source_bytes,archive_path,status) VALUES ('fixture.sql',REPEAT('a',64),1,'fixture.sql','COMPLETE')");
+    const legacyId = await review("Original WordPress buyer", 2, "LEGACY");
+    await executeMutation("UPDATE product_reviews SET import_id=?,legacy_id=123,updated_at='2026-01-08 00:00:00' WHERE id=?", [imported.insertId, legacyId]);
+    const manualId = await review("Manual source awaiting proof", 4);
+    await executeMutation("INSERT INTO audit_logs (administrator_id,action,entity_type,entity_id,summary) VALUES (?,'PRODUCT_REVIEW_CREATE','product_review',?,'Admin entry')", [adminId, manualId]);
+    const unknownId = await review("Unknown source with localhost IP", 3, "LIVE", null);
+    const before = await selectRows("SELECT id,rating,reviewer_name,title,body,submitted_at,published_at,updated_at FROM product_reviews ORDER BY id");
+    await setup.query(await readFile("database/migrations/043_product_review_provenance.sql", "utf8"));
+    const after = await selectRows("SELECT id,rating,reviewer_name,title,body,submitted_at,published_at,updated_at FROM product_reviews ORDER BY id");
+    check(JSON.stringify(before) === JSON.stringify(after), "Provenance migration preserves every existing review text, rating and timestamp");
+    const [origins] = await setup.query<RowDataPacket[]>("SELECT review_origin,COUNT(*) count FROM product_reviews GROUP BY review_origin");
+    check(Number(origins.find(row => row.review_origin === "CURATED_SEED")?.count) === 20, "Exact seeded tuples are held back");
+    check((await selectOne<RowDataPacket>("SELECT review_origin FROM product_reviews WHERE id=?", [unknownId]))?.review_origin === "UNKNOWN", "A localhost IP or missing email alone does not identify a curated seed");
+    let snapshot = await getProductReviewFeedSnapshot();
+    check(snapshot.items.length === 1 && snapshot.items[0].id === `n7_review_${legacyId}`, "Imported customer reviews are included while manual and unknown sources wait for evidence");
+    check(snapshot.items[0].rating === 2 && snapshot.items[0].timestamp === "2026-01-05T12:34:56.000Z", "Low ratings and original submission timestamps survive syndication");
+    const customerId = await review("Website buyer", 1);
+    await executeMutation("UPDATE product_reviews SET review_origin='CUSTOMER_SUBMISSION',is_verified_purchase=1 WHERE id=?", [customerId]);
+    snapshot = await getProductReviewFeedSnapshot();
+    check(snapshot.items.some(row => row.id === `n7_review_${customerId}` && row.rating === 1 && !row.verifiedPurchase), "A claimed verification flag alone is insufficient to label a purchase verified");
+    const order = await executeMutation("INSERT INTO orders (order_number,customer_name,customer_email,subtotal_pence,total_pence,payment_status,paid_at,placed_at) VALUES ('REVIEW-ORDER','Actual buyer','private-buyer@example.test',4000,4000,'PAID','2026-01-01','2026-01-01')");
+    await executeMutation("INSERT INTO order_items (order_id,product_id,variant_id,product_name,variant_title,sku,unit_price_pence,quantity,line_total_pence) VALUES (?,?,?,'Perfume','100 ml','ACTUAL-SKU',4000,1,4000)", [order.insertId, perfume.id, perfume.variantId]);
+    snapshot = await getProductReviewFeedSnapshot();
+    check(snapshot.items.find(row => row.id === `n7_review_${customerId}`)?.verifiedPurchase, "Stored verification plus a preceding paid product order supplies purchase evidence");
+    await executeMutation("UPDATE orders SET paid_at='2026-02-01',placed_at='2026-02-01' WHERE id=?", [order.insertId]);
+    check(!(await getProductReviewFeedSnapshot()).items.find(row => row.id === `n7_review_${customerId}`)?.verifiedPurchase, "A later purchase cannot verify an earlier review");
+    await executeMutation("UPDATE orders SET paid_at='2026-01-01',placed_at='2026-01-01' WHERE id=?", [order.insertId]);
+    await executeMutation("UPDATE google_merchant_products SET identifier_policy='AUTO',gtin='4006381333931',mpn='253' WHERE variant_id=?", [perfume.variantId]);
+    snapshot = await getProductReviewFeedSnapshot();
+    const exported = snapshot.items.find(row => row.id === `n7_review_${customerId}`);
+    check(exported?.product.gtin === "4006381333931" && exported.product.mpn === "253" && exported.product.brand === "Actual Brand", "Review identifiers reuse the Merchant catalogue identity");
+    check(exported?.product.skus.includes(`n7_variant_${perfume.variantId}`) && !exported.product.skus.includes("253"), "Catalogue offer ID and actual SKU stay separate from official product-code MPNs");
+    const record = () => selectOne<RowDataPacket & ReviewOriginRecord>("SELECT CAST(id AS CHAR) id,CAST(product_id AS CHAR) product_id,rating,reviewer_name,title,body,submitted_at,review_origin,is_incentivized_review FROM product_reviews WHERE id=?", [manualId]);
+    const current = await record(); assert.ok(current);
+    const input = { reviewId: manualId, revision: reviewOriginRevision(current), confirmed: true as const, evidence: "Original customer review ticket REVIEW-456", incentive: "YES" as const };
+    const saved = await confirmCustomerReviewOrigin(input, adminId);
+    check(saved.success, "An administrator can document an original customer source");
+    check(Boolean((await getProductReviewFeedSnapshot()).items.find(row => row.id === `n7_review_${manualId}`)?.incentivized), "Known incentives are explicitly disclosed");
+    check(Boolean((await confirmCustomerReviewOrigin(input, adminId)).error), "Stale confirmations cannot overwrite changed source details");
+    const refreshed = await record(); assert.ok(refreshed);
+    await assert.rejects(confirmCustomerReviewOrigin({ ...input, revision: reviewOriginRevision(refreshed), evidence: "Must roll back this uncommitted change", incentive: "NO" }, "99999999")); checks++;
+    check((await record())?.is_incentivized_review === 1, "Audit failure rolls back provenance changes");
+    const pendingId = await review("Pending buyer", 1);
+    await executeMutation("UPDATE product_reviews SET review_origin='CUSTOMER_SUBMISSION',status='PENDING' WHERE id=?", [pendingId]);
+    check(!(await getProductReviewFeedSnapshot()).items.some(row => row.id === `n7_review_${pendingId}`), "Unpublished submissions are excluded until moderated");
+    let response = await productReviewFeedResponse();
+    assert.equal(response.status, 200); checks++;
+    const xml = await response.text();
+    check(xml.includes("n7_review_") && !xml.includes("private-buyer@example.test") && !xml.includes("127.0.0.1") && !xml.includes("REVIEW-456"), "Public XML contains no email, IP, internal source evidence or receipt credentials");
+    const validation = spawnSync(process.platform === "win32" ? "python" : "python3", ["scripts/validate-product-review-xml.py"], { input: xml, encoding: "utf8" });
+    assert.equal(validation.status, 0, validation.stderr || validation.error?.message); checks++;
+    process.stdout.write(validation.stdout);
+    const invalidXml = xml.replace("<version>2.4</version>", "<version>1.0</version>");
+    const rejection = spawnSync(process.platform === "win32" ? "python" : "python3", ["scripts/validate-product-review-xml.py"], { input: invalidXml, encoding: "utf8" });
+    check(rejection.status !== 0, "The real XSD validator rejects a non-v2.4 feed");
+    await executeMutation("UPDATE google_merchant_products SET included=0 WHERE variant_id=?", [perfume.variantId]);
+    check((await productReviewFeedResponse()).status === 503, "An excluded reviewed product cannot silently shrink a complete replacement");
+    await executeMutation("UPDATE google_merchant_products SET included=1 WHERE variant_id=?", [perfume.variantId]);
+    await executeMutation("UPDATE product_reviews SET body=? WHERE id=?", ["Unsupported \u0000 character", customerId]);
+    check((await productReviewFeedResponse()).status === 503, "Invalid XML text blocks a replacement rather than dropping a customer review");
+    await executeMutation("UPDATE product_reviews SET body='Original restored review' WHERE id=?", [customerId]);
+    await executeMutation("UPDATE products SET status='ARCHIVED' WHERE id=?", [perfume.id]);
+    check((await productReviewFeedResponse()).status === 503, "Missing public landing pages cannot silently delete historical reviews");
+    await executeMutation("UPDATE products SET status='ACTIVE' WHERE id=?", [perfume.id]);
+    response = await productReviewFeedResponse();
+    check(response.status === 200 && (await response.text()).includes("Original restored review"), "Resolved data errors recover on the next request without rebuilding");
+    const unchanged = productReviewFeedXml((await getProductReviewFeedSnapshot()).items);
+    check(unchanged.includes("<is_incentivized_review>true</is_incentivized_review>"), "The full replacement retains confirmed incentive disclosures");
+    console.log(`${checks} product-review feed integration checks passed; disposable database removed; no external or browser calls.`);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.APP_URL; else process.env.APP_URL = originalUrl;
+    await globalThis.n7MySqlPool?.end(); globalThis.n7MySqlPool = undefined;
+    if (created) await setup.query(`DROP DATABASE \`${database}\``);
+    await setup.end();
+  }
+}
+void run().catch(error => { console.error(error instanceof Error ? error.message : "Review feed verification failed"); process.exitCode = 1; });

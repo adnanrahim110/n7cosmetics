@@ -39,21 +39,23 @@ export async function readMerchantMetadata(connection?: PoolConnection, variantI
 }
 
 export interface MerchantSnapshot { entries: MerchantEntry[]; origin: string; configurationError: string | null }
-export async function getMerchantSnapshot(): Promise<MerchantSnapshot> {
+export async function readMerchantSnapshot(connection: PoolConnection): Promise<MerchantSnapshot> {
   let origin = "", configurationError: string | null = null;
   try { origin = merchantSiteOrigin(process.env.APP_URL ?? ""); }
   catch { configurationError = "Set APP_URL to the public HTTPS website origin before connecting the feed."; }
-  return withTransaction(async connection => {
-    const products = await readCatalogExport(connection);
-    const metadata = await readMerchantMetadata(connection);
-    const byVariant = new Map<string, MerchantIdentityProduct>(products.map(product => [product.variantId, product]));
-    if (byVariant.size !== products.length) throw new Error("Duplicate published catalogue variants.");
-    for (const component of await readComponentIdentities(connection)) {
-      if (!byVariant.has(component.variantId)) byVariant.set(component.variantId, component);
-    }
-    const entries = products.map(product => buildMerchantEntry(product, origin, metadata, byVariant));
-    return { entries, origin, configurationError };
-  });
+  const products = await readCatalogExport(connection);
+  const metadata = await readMerchantMetadata(connection);
+  const byVariant = new Map<string, MerchantIdentityProduct>(products.map(product => [product.variantId, product]));
+  if (byVariant.size !== products.length) throw new Error("Duplicate published catalogue variants.");
+  for (const component of await readComponentIdentities(connection)) {
+    if (!byVariant.has(component.variantId)) byVariant.set(component.variantId, component);
+  }
+  const entries = products.map(product => buildMerchantEntry(product, origin, metadata, byVariant));
+  return { entries, origin, configurationError };
+}
+
+export async function getMerchantSnapshot(): Promise<MerchantSnapshot> {
+  return withTransaction(readMerchantSnapshot);
 }
 
 export { defaultMerchantMetadata };

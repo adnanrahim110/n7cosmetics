@@ -116,7 +116,7 @@ export async function submitProductReviewAction(
         const created = await executeMutation(
           `INSERT INTO product_reviews
              (product_id, rating, reviewer_name, reviewer_email, title, body, recommends_product,
-              is_verified_purchase, ip_address, user_agent)
+              is_verified_purchase, ip_address, user_agent, review_origin)
            VALUES (?, ?, ?, ?, ?, ?, ?,
              EXISTS(
                SELECT 1 FROM orders o
@@ -125,7 +125,7 @@ export async function submitProductReviewAction(
                  AND o.status NOT IN ('CANCELLED', 'REFUNDED')
                  AND o.payment_status IN ('PAID', 'PARTIALLY_REFUNDED')
                LIMIT 1
-             ), ?, ?)`,
+             ), ?, ?, 'CUSTOMER_SUBMISSION')`,
           [parsed.data.productId, parsed.data.rating, parsed.data.name, parsed.data.email, parsed.data.title,
            parsed.data.body, parsed.data.recommendsProduct, parsed.data.email, parsed.data.productId,
            metadata.ipAddress, metadata.userAgent],

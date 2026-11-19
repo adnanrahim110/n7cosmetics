@@ -10,7 +10,10 @@ import Pagination, { parsePage } from "@/components/admin/Pagination";
 import LegacyBadge from "@/components/admin/LegacyBadge";
 import StatusBadge from "@/components/admin/StatusBadge";
 import { selectOne, selectRows } from "@/lib/db/query";
-import { updateReviewStatusAction } from "./actions";
+import { updateReviewStatusAction, confirmGoogleReviewOriginAction } from "./actions";
+import ReviewGoogleOriginForm from "@/components/admin/ReviewGoogleOriginForm";
+import { reviewOriginRevision } from "@/lib/google-product-reviews/admin";
+import type { ReviewOrigin } from "@/lib/google-product-reviews/provenance";
 
 interface ReviewRow extends RowDataPacket {
   id: string;
@@ -30,6 +33,8 @@ interface ReviewRow extends RowDataPacket {
   recommends_product: number;
   is_verified_purchase: number;
   submitted_at: Date;
+  review_origin: ReviewOrigin;
+  is_incentivized_review: number | null;
 }
 
 interface ReviewMediaRow extends RowDataPacket {
@@ -71,7 +76,7 @@ export default async function ReviewsAdminPage({ searchParams }: ReviewsPageProp
     `SELECT CAST(pr.id AS CHAR) AS id, CAST(pr.product_id AS CHAR) AS product_id,
        COALESCE(p.name, CONCAT('Unmatched product #', pr.legacy_product_id)) AS product_name, p.slug AS product_slug, p.product_type, pr.status, pr.rating,
        pr.reviewer_name, pr.reviewer_email, pr.title, pr.body, pr.recommends_product,
-       pr.is_verified_purchase, pr.submitted_at, pr.source, CAST(pr.import_id AS CHAR) import_id,
+       pr.is_verified_purchase, pr.submitted_at, pr.source, pr.review_origin, pr.is_incentivized_review, CAST(pr.import_id AS CHAR) import_id,
        (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) AS product_image
      FROM product_reviews pr
      LEFT JOIN products p ON p.id = pr.product_id
@@ -128,6 +133,7 @@ export default async function ReviewsAdminPage({ searchParams }: ReviewsPageProp
                   <div aria-label={`${review.rating} out of 5 stars`} className="flex gap-0.5 text-amber-600">{[1, 2, 3, 4, 5].map((value) => <Star className={value <= review.rating ? "fill-current" : ""} key={value} size={14} />)}</div>
                   {review.title ? <h2 className="mt-3 font-body text-base font-semibold text-zinc-950">{review.title}</h2> : null}
                   <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-600">{review.body}</p>
+                  <ReviewGoogleOriginForm reviewId={review.id} revision={reviewOriginRevision(review)} origin={review.review_origin} incentive={review.is_incentivized_review} action={confirmGoogleReviewOriginAction} />
                   {attachments.length ? <div className="mt-4 grid max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">{attachments.map((item) => <div className="relative aspect-square overflow-hidden rounded-lg bg-zinc-100" key={item.public_url}>{item.mime_type.startsWith("video/") ? <video aria-label={item.original_name} className="size-full object-cover" controls preload="metadata" src={item.public_url} /> : <Image alt={item.original_name} className="object-cover" fill sizes="150px" src={item.public_url} />}</div>)}</div> : null}
                 </div>
                 <div className="flex flex-row gap-2 lg:w-28 lg:flex-col">

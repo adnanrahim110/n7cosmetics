@@ -10,6 +10,8 @@ import { getRequestMetadata } from "@/lib/auth/request";
 import { requireAdministrator } from "@/lib/auth/session";
 import { executeMutation, selectOne } from "@/lib/db/query";
 import { withTransaction } from "@/lib/db/transaction";
+import { confirmReviewOriginSchema, type ReviewOriginFormState } from "@/lib/google-product-reviews/provenance";
+import { confirmCustomerReviewOrigin } from "@/lib/google-product-reviews/admin";
 
 const reviewStatusSchema = z.object({
   reviewId: z.string().regex(/^[1-9]\d*$/),
@@ -51,7 +53,7 @@ export async function createReviewAction(formData: FormData): Promise<CreateRevi
       const created = await executeMutation(
         `INSERT INTO product_reviews
            (product_id, status, rating, reviewer_name, reviewer_email, title, body,
-            recommends_product, is_verified_purchase, ip_address, user_agent, submitted_at, published_at)
+            recommends_product, is_verified_purchase, ip_address, user_agent, submitted_at, published_at, review_origin)
          VALUES (?, 'PUBLISHED', ?, ?, ?, ?, ?, ?,
            EXISTS(
              SELECT 1 FROM orders o
@@ -60,7 +62,7 @@ export async function createReviewAction(formData: FormData): Promise<CreateRevi
                AND o.status NOT IN ('CANCELLED', 'REFUNDED')
                AND o.payment_status IN ('PAID', 'PARTIALLY_REFUNDED')
              LIMIT 1
-           ), ?, ?, ?, ?)`,
+           ), ?, ?, ?, ?, 'ADMIN_ENTRY')`,
         [review.productId, review.rating, review.name, review.email ?? null, review.title ?? null, review.body,
          review.recommendsProduct, review.email ?? null, review.productId, metadata.ipAddress,
          metadata.userAgent, reviewDate, reviewDate],
@@ -119,4 +121,18 @@ export async function updateReviewStatusAction(formData: FormData): Promise<void
   revalidatePath("/admin/reviews");
   revalidatePath("/products", "layout");
   revalidatePath("/bundles", "layout");
+}
+
+export async function confirmGoogleReviewOriginAction(_previous: ReviewOriginFormState, form: FormData): Promise<ReviewOriginFormState> {
+  const administrator = await requireAdministrator(["OWNER", "MANAGER"]);
+  const revision = formString(form, "revision");
+  const parsed = confirmReviewOriginSchema.safeParse({ reviewId: formString(form, "reviewId"), revision,
+    confirmed: form.get("confirmed") === "on", evidence: formString(form, "evidence"), incentive: formString(form, "incentive") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the review source.", revision };
+  try {
+    const result = await confirmCustomerReviewOrigin(parsed.data, administrator.id);
+    revalidatePath("/admin/reviews");
+    revalidatePath("/admin/google");
+    return result;
+  } catch { return { error: "The customer source could not be saved. Please try again.", revision }; }
 }

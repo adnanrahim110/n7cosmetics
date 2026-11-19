@@ -10,6 +10,7 @@ import { requireAdministrator } from "@/lib/auth/session";
 import GoogleReviewsSettingsForm from "@/components/admin/google/GoogleReviewsSettingsForm";
 import { getGoogleReviewsSettings } from "@/lib/google-reviews/settings";
 import { saveGoogleReviewsAction } from "./actions";
+import ProductReviewFeedSection from "@/components/admin/google/ProductReviewFeedSection";
 
 export default async function GoogleMerchantPage({ searchParams }: { searchParams: Promise<MerchantSearchParams> }) {
   await requireAdministrator(["OWNER", "MANAGER"]);
@@ -20,6 +21,7 @@ export default async function GoogleMerchantPage({ searchParams }: { searchParam
   return <div>
     <PageHeader eyebrow="Marketing" title="Google Merchant catalogue" description="Current product data, feed readiness and the details Google needs." actions={<Link className="inline-flex min-h-12 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700" href="/admin/google">Refresh catalogue</Link>} />
     {reviews ? <GoogleReviewsSettingsForm settings={reviews.settings} revision={reviews.revision} action={saveGoogleReviewsAction} /> : <div className="mt-6"><Notice>Review settings are unavailable. Check the database connection and refresh this page.</Notice></div>}
+    <ProductReviewFeedSection />
     {snapshot ? <>
       <MerchantSetupSection error={snapshot.configurationError} origin={snapshot.origin} />
       <MerchantSummarySection configurationError={snapshot.configurationError} entries={snapshot.entries} />
